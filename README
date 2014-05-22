@@ -1,0 +1,2 @@
+To run trials:
+mono tradesim/bin/Debug/tradesim.exe --scenario bah3

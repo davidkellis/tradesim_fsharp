@@ -1,2 +1,12 @@
+Install:
+./nuget install NodaTime -Version 1.2.0
+./nuget install CommandLineParser
+
+Build:
+
+
 To run trials:
 mono tradesim/bin/Debug/tradesim.exe --scenario bah3
+
+To build trial samples:
+mono tradesim/bin/Debug/tradesim.exe --build-trial-samples

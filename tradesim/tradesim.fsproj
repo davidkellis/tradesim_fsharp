@@ -45,6 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="seq.fs" />
     <Compile Include="typeclass.fs" />
     <Compile Include="time.fs" />
     <Compile Include="runner.fs" />

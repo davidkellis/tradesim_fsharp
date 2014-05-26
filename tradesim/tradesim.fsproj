@@ -48,6 +48,7 @@
     <Compile Include="seq.fs" />
     <Compile Include="typeclass.fs" />
     <Compile Include="time.fs" />
+    <Compile Include="specialDates.fs" />
     <Compile Include="runner.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />

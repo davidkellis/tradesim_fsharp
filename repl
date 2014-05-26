@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+fsharpi -I tradesim/bin/Debug/ -r tradesim.exe

@@ -192,8 +192,8 @@ let nthWeekday (n: int) (desiredWeekday: DayOfWeek) (month: Month) (year: int): 
  * formula:
  *   daysInMonth - (DayOfWeek(daysInMonth,month,year) - desiredWeekday + 7)%7
  * Example:
- *   lastWeekday(1, 2, 2012)     ; last monday in february 2012
- *   > #<DateTime 2012-02-27>
+ *   lastWeekday DayOfWeek.Monday Month.February 2012;;
+ *   val it : NodaTime.LocalDate = Monday, February 27, 2012 {...}
  *)
 let lastWeekday (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDate = 
   let month' = int month

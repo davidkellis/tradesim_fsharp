@@ -1,9 +1,17 @@
 Install:
 ./nuget install NodaTime -Version 1.2.0
 ./nuget install CommandLineParser
+./nuget install Npgsql
+./nuget install Npgsql.EntityFramework
+./nuget install FSharp.Data.TypeProviders
 
 Build:
+??
 
+Run REPL:
+./repl
+open dke.tradesim.SpecialDates;;
+easter 2014;;
 
 To run trials:
 mono tradesim/bin/Debug/tradesim.exe --scenario bah3

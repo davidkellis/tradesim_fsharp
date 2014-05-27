@@ -147,5 +147,13 @@ Global
 		$24.NamingStyle = PascalCase
 		$24.IncludeInstanceMembers = True
 		$24.IncludeStaticEntities = True
+		$0.VersionControlPolicy = $26
+		$26.inheritsSet = Mono
+		$0.ChangeLogPolicy = $27
+		$27.UpdateMode = None
+		$27.MessageStyle = $28
+		$28.LineAlign = 0
+		$27.inheritsSet = Mono
+		version = 1.0
 	EndGlobalSection
 EndGlobal

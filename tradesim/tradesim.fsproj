@@ -33,7 +33,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
@@ -44,23 +43,19 @@
       <HintPath>..\NodaTime.1.2.0\lib\portable-win+net40+sl4+wp7\NodaTime.dll</HintPath>
     </Reference>
     <Reference Include="System.Xml" />
-    <Reference Include="EntityFramework">
-      <HintPath>..\EntityFramework.6.0.0\lib\net45\EntityFramework.dll</HintPath>
-    </Reference>
     <Reference Include="Npgsql">
       <HintPath>..\Npgsql.2.1.3\lib\net45\Npgsql.dll</HintPath>
     </Reference>
     <Reference Include="System.Data.Linq" />
-    <Reference Include="FSharp.Core">
-      <HintPath>..\FSharp.Core.3.0.0.2\lib\net40\FSharp.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="FSharp.Data.TypeProviders">
-      <HintPath>..\FSharp.Data.TypeProviders.0.0.1\lib\net40\FSharp.Data.TypeProviders.dll</HintPath>
-    </Reference>
     <Reference Include="Mono.Security">
       <HintPath>..\Npgsql.2.1.3\lib\net45\Mono.Security.dll</HintPath>
     </Reference>
     <Reference Include="System.Data" />
+    <Reference Include="FSharp.Core" />
+    <Reference Include="Dapper">
+      <HintPath>..\Dapper.1.25\lib\net45\Dapper.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Transactions" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />

@@ -52,13 +52,11 @@
     </Reference>
     <Reference Include="System.Data" />
     <Reference Include="FSharp.Core" />
-    <Reference Include="Dapper">
-      <HintPath>..\Dapper.1.25\lib\net45\Dapper.dll</HintPath>
-    </Reference>
     <Reference Include="System.Transactions" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="stdlib.fs" />
     <Compile Include="seq.fs" />
     <Compile Include="core.fs" />
     <Compile Include="typeclass.fs" />

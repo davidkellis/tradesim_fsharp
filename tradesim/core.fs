@@ -4,6 +4,12 @@ open NodaTime
 
 type SecurityId = int
 
+type Exchange = {
+  id: Option<int>
+  label: string
+  name: Option<string>
+}
+
 type Bar = {
   securityId: SecurityId
   startTime: ZonedDateTime

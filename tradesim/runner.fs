@@ -3,6 +3,7 @@
 open CommandLine
 open CommandLine.Text
 open System
+open Database
 
 // command line parser example found at
 // http://social.msdn.microsoft.com/Forums/en-US/9e858a99-19f4-437e-b157-57ec548f2e7b/using-commandline-library-from-f?forum=fsharpgeneral
@@ -54,6 +55,7 @@ let main argv =
       printfn "build trial samples"
     elif options.Scenario <> null then
       printfn "run scenario %A" options.Scenario
+      Seq.iter (fun e -> printfn "exchange: %A" e) allExchanges
     ) |> ignore
 
   0

@@ -38,13 +38,15 @@ let query connection toType (sql: string) (parameterPairs: list<string * obj>) =
       yield reader |> toType
   }
 
+let dbOpt<'t> (reader: NpgsqlDataReader) fieldName: Option<'t> = 
+  if reader.IsDBNull(reader.GetOrdinal(fieldName)) then None else Some (unbox reader.[fieldName])
 
-let toExchange (reader: NpgsqlDataReader) =
+let toExchange (reader: NpgsqlDataReader): Exchange =
   { 
-    id = None
-    label = unbox<string> reader.["label"]
-    name = option (unbox<string> reader.["name"])
-  }   
+    id = dbOpt reader "id"
+    label = unbox reader.["label"]
+    name = dbOpt reader "name"
+  }
 
 let allExchanges: seq<Exchange> = 
   let conn = connect "localhost" 5432 "david" "" "tradesim"

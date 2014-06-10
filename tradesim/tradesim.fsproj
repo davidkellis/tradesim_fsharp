@@ -53,15 +53,19 @@
     <Reference Include="System.Data" />
     <Reference Include="FSharp.Core" />
     <Reference Include="System.Transactions" />
+    <Reference Include="C5">
+      <HintPath>..\C5.2.2.5073.27396\lib\portable-net40+sl50+wp80+win\C5.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="stdlib.fs" />
     <Compile Include="seq.fs" />
-    <Compile Include="core.fs" />
+    <Compile Include="logging.fs" />
     <Compile Include="typeclass.fs" />
     <Compile Include="time.fs" />
     <Compile Include="specialDates.fs" />
+    <Compile Include="core.fs" />
     <Compile Include="db.fs" />
     <Compile Include="runner.fs" />
   </ItemGroup>

@@ -5,6 +5,8 @@ open CommandLine.Text
 open System
 open Database
 
+open Logging
+
 // command line parser example found at
 // http://social.msdn.microsoft.com/Forums/en-US/9e858a99-19f4-437e-b157-57ec548f2e7b/using-commandline-library-from-f?forum=fsharpgeneral
 type Opt = CommandLine.OptionAttribute
@@ -50,23 +52,31 @@ let parseCommandLineArgs args =
 [<EntryPoint>]
 let main argv = 
   let parsedOptions = parseCommandLineArgs argv
-  parsedOptions |> Option.map (fun options ->
+
+  setLogLevel Verbose
+
+  parsedOptions
+  |> Option.map (fun options ->
     if options.BuildTrialSamples then
-      printfn "build trial samples"
+      info "build trial samples"
     elif options.Scenario <> null then
-      printfn "run scenario %A" options.Scenario
-      Seq.iter (fun e -> printfn "exchange: %A" e) allExchanges
-    ) |> ignore
+      info <| sprintf "run scenario %A" options.Scenario
+      let connection = connect "localhost" 5432 "david" "" "tradesim"
+
+      connection 
+      |> allExchanges 
+      |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
+
+      info "********************************************************************"
+      connection 
+      |> findExchanges ["UQ"; "UA"]
+      |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
+
+      info "********************************************************************"
+      connection 
+      |> (findSecurities <| allExchanges connection <| ["AAPL"; "MSFT"])
+      |> Seq.iter (fun e -> info <| sprintf "security: %A" e) 
+    )
+  |> ignore
 
   0
-
-
-
-
-
-
-
-
-
-
-

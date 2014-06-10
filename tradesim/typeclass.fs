@@ -1,12 +1,6 @@
 ﻿module dke.tradesim.Typeclass
 
 open NodaTime
-open Core
-
-type DatabaseAdapter = {
-  queryEodBar: ZonedDateTime -> SecurityId -> Bar option
-}
-
 /////////////////////////////////// TESTING ////////////////////////////////////////
 
 // typeclass

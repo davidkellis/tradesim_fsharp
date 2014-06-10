@@ -4,6 +4,7 @@ Install:
 ./nuget install Npgsql
 ./nuget install Npgsql.EntityFramework
 ./nuget install FSharp.Data.TypeProviders
+./nuget install C5
 
 Build:
 ??

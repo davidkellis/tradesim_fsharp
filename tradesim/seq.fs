@@ -17,3 +17,5 @@ let flatMap (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> =
     []
     ts
   |> List.toSeq
+
+let firstOption (xs: seq<'t>): Option<'t> = Seq.tryPick Some xs

@@ -2,6 +2,7 @@
 
 open System
 open NodaTime
+open NodaTime.Text
 
 type timestamp = int64
 type datestamp = int
@@ -62,8 +63,10 @@ let datestampToDatetime (datestamp: datestamp): ZonedDateTime =
   let day = System.Convert.ToInt32(ds.Substring(6, 8))
   datetime year month day 0 0 0
 
+let timestampPattern = ZonedDateTimePattern.CreateWithInvariantCulture("yyyyMMddHHmmss", DateTimeZoneProviders.Tzdb)
+let dateTimeToTimestamp (time: ZonedDateTime): timestamp = Int64.Parse(timestampPattern.Format(time))
+
 let date (year: int) (month: int) (day: int) = new LocalDate(year, month, day)
-//let date (time: LocalDateTime): LocalDate = time.Date
 
 let timestampToDate (timestamp: timestamp): LocalDate = (timestamp |> timestampToDatetime).Date
 

@@ -64,3 +64,32 @@ type CashDividend = {
 type CorporateAction =
   SplitCA of Split
   | CashDividendCA of CashDividend
+
+
+// quarterly and annual report types
+
+type StatementAttributeValue =
+  HeaderAttribute of string
+  | StringAttribute of string
+  | NumericAttribute of decimal
+type Statement = Map<string, StatementAttributeValue>
+
+type QuarterlyReport = {
+  securityId: SecurityId
+  startTime: ZonedDateTime
+  endTime: ZonedDateTime
+  publicationTime: ZonedDateTime
+  incomeStatement: Statement
+  balanceSheet: Statement
+  cashFlowStatement: Statement
+}
+
+type AnnualReport = {
+  securityId: SecurityId
+  startTime: ZonedDateTime
+  endTime: ZonedDateTime
+  publicationTime: ZonedDateTime
+  incomeStatement: Statement
+  balanceSheet: Statement
+  cashFlowStatement: Statement
+}

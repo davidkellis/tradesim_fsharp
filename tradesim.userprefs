@@ -1,14 +1,14 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/db.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/core.fs">
     <Files>
       <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
       <File FileName="tradesim/seq.fs" Line="1" Column="1" />
-      <File FileName="tradesim/typeclass.fs" Line="1" Column="1" />
-      <File FileName="tradesim/time.fs" Line="73" Column="5" />
+      <File FileName="tradesim/typeclass.fs" Line="3" Column="1" />
+      <File FileName="tradesim/time.fs" Line="1" Column="1" />
       <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
-      <File FileName="tradesim/core.fs" Line="86" Column="3" />
-      <File FileName="tradesim/db.fs" Line="275" Column="22" />
+      <File FileName="tradesim/core.fs" Line="153" Column="23" />
+      <File FileName="tradesim/db.fs" Line="376" Column="25" />
       <File FileName="tradesim/runner.fs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>

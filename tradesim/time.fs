@@ -63,6 +63,9 @@ let datestampToDatetime (datestamp: datestamp): ZonedDateTime =
   let day = System.Convert.ToInt32(ds.Substring(6, 8))
   datetime year month day 0 0 0
 
+let localDateToDateTime (date: LocalDate) (hour: int) (minute: int) (second: int): ZonedDateTime =
+  datetime date.Year date.Month date.Day hour minute second
+
 let timestampPattern = ZonedDateTimePattern.CreateWithInvariantCulture("yyyyMMddHHmmss", DateTimeZoneProviders.Tzdb)
 let dateTimeToTimestamp (time: ZonedDateTime): timestamp = Int64.Parse(timestampPattern.Format(time))
 

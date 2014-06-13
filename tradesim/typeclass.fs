@@ -1,8 +1,5 @@
 ﻿module dke.tradesim.Typeclass
 
-open NodaTime
-/////////////////////////////////// TESTING ////////////////////////////////////////
-
 // typeclass
 type AddSubtract<'t> = {
   add: 't -> 't -> 't

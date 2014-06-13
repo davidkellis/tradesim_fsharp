@@ -24,6 +24,7 @@ type SqlValue =
   | SqlLong of int64
   | SqlFloat of double
   | SqlString of string
+  | SqlDecimal of decimal
 
 type SqlParam =
   SqlPrimitive of string * SqlValue
@@ -36,22 +37,44 @@ let sqlValueToSQL = function
   | SqlLong l -> sprintf "%i" l
   | SqlFloat f -> sprintf "%f" f
   | SqlString s -> sprintf "'%s'" (escapeString s)
+  | SqlDecimal d -> sprintf "%M" d
 
 let intParam name i = SqlPrimitive (name, SqlInt i)
 let longParam name i = SqlPrimitive (name, SqlLong i)
 let floatParam name f = SqlPrimitive (name, SqlFloat f)
 let stringParam name s = SqlPrimitive (name, SqlString s)
+let decimalParam name d = SqlPrimitive (name, SqlDecimal d)
 
 let intListParam name values = SqlList (name, Seq.map SqlInt values)
 let longListParam name values = SqlList (name, Seq.map SqlLong values)
 let floatListParam name values = SqlList (name, Seq.map SqlFloat values)
 let stringListParam name values = SqlList (name, Seq.map SqlString values)
+let decimalListParam name values = SqlList (name, Seq.map SqlDecimal values)
 
 
 // resultset helper functions
  
-let dbOpt<'t> (reader: NpgsqlDataReader) fieldName: Option<'t> = 
-  if reader.IsDBNull(reader.GetOrdinal(fieldName)) then None else Some (unbox reader.[fieldName])
+let dbGet<'t> (reader: NpgsqlDataReader) (fieldName: string): 't = unbox<'t> reader.[fieldName]
+let dbGetInt = dbGet<int>
+let dbGetLong = dbGet<int64>
+let dbGetDecimal = dbGet<decimal>
+let dbGetStr = dbGet<string>
+let dbGetBool = dbGet<bool>
+let dbGetBytes (reader: NpgsqlDataReader) (fieldName: string): byte array = 
+  let column = reader.GetOrdinal(fieldName)
+  let len = reader.GetBytes(column, int64 0, null, 0, 0)      // get length of field
+  let buffer: byte array = Array.zeroCreate (int32 len)       // create a buffer to hold the bytes, and then read the bytes from the DataTableReader
+  reader.GetBytes(column, int64 0, buffer, 0, int32 len) |> ignore
+  buffer
+
+let dbOpt<'t> (getterFn: NpgsqlDataReader -> string -> 't) (reader: NpgsqlDataReader) (fieldName: string): Option<'t> = 
+  if reader.IsDBNull(reader.GetOrdinal(fieldName)) then None else Some (getterFn reader fieldName)
+let dbOptInt = dbOpt dbGetInt
+let dbOptLong: NpgsqlDataReader -> string -> Option<int64> = dbOpt dbGetLong
+let dbOptDecimal: NpgsqlDataReader -> string -> Option<decimal> = dbOpt dbGetDecimal
+let dbOptStr = dbOpt dbGetStr
+let dbOptBool = dbOpt dbGetBool
+let dbOptBytes: NpgsqlDataReader -> string -> Option<byte array> = dbOpt dbGetBytes
 
 
 // connection manipulation functions
@@ -106,9 +129,9 @@ let query (sql: string) (parameters: list<SqlParam>) (toType: NpgsqlDataReader -
 
 let toExchange (reader: NpgsqlDataReader): Exchange =
   { 
-    id = dbOpt reader "id"
-    label = unbox reader.["label"]
-    name = dbOpt reader "name"
+    id = dbOptInt reader "id"
+    label = dbGetStr reader "label"
+    name = dbOptStr reader "name"
   }
 
 let allExchanges = 
@@ -124,20 +147,20 @@ let findExchanges (labels: seq<string>) =
 
 let toSecurity (reader: NpgsqlDataReader): Security =
   { 
-    id = dbOpt reader "id"
-    bbGid = unbox reader.["bb_gid"]
-    bbGcid = unbox reader.["bb_gcid"]
-    kind = unbox reader.["type"]
-    symbol = unbox reader.["symbol"]
-    name = unbox reader.["name"]
-    startDate = dbOpt reader "start_date"
-    endDate = dbOpt reader "end_date"
-    cik = dbOpt reader "cik"
-    active = dbOpt reader "active"
-    fiscalYearEndDate = dbOpt reader "fiscal_year_end_date"
-    exchangeId = dbOpt reader "exchange_id"
-    industryId = dbOpt reader "industry_id"
-    sectorId = dbOpt reader "sector_id"
+    id = dbOptInt reader "id"
+    bbGid = dbGetStr reader "bb_gid"
+    bbGcid = dbGetStr reader "bb_gcid"
+    kind = dbGetStr reader "type"
+    symbol = dbGetStr reader "symbol"
+    name = dbGetStr reader "name"
+    startDate = dbOptInt reader "start_date" |> Option.map datestampToDate
+    endDate = dbOptInt reader "end_date" |> Option.map datestampToDate
+    cik = dbOptInt reader "cik"
+    active = dbOptBool reader "active"
+    fiscalYearEndDate = dbOptInt reader "fiscal_year_end_date"
+    exchangeId = dbOptInt reader "exchange_id"
+    industryId = dbOptInt reader "industry_id"
+    sectorId = dbOptInt reader "sector_id"
   }
 
 let findSecurities (exchanges: seq<Exchange>) (symbols: seq<String>) = 
@@ -159,15 +182,15 @@ let findSecurities (exchanges: seq<Exchange>) (symbols: seq<String>) =
 
 let toBar (reader: NpgsqlDataReader): Bar =
   {
-    id = dbOpt reader "id"
-    securityId = unbox reader.["security_id"]
-    startTime = timestampToDatetime <| unbox reader.["start_time"]
-    endTime = timestampToDatetime <| unbox reader.["end_time"]
-    o = unbox reader.["open"]
-    h = unbox reader.["high"]
-    l = unbox reader.["low"]
-    c = unbox reader.["close"]
-    volume = unbox reader.["volume"]
+    id = dbOptInt reader "id"
+    securityId = dbGetInt reader "security_id"
+    startTime = dbGetLong reader "start_time" |> timestampToDatetime
+    endTime = dbGetLong reader "end_time" |> timestampToDatetime
+    o = dbGetDecimal reader "open"
+    h = dbGetDecimal reader "high"
+    l = dbGetDecimal reader "low"
+    c = dbGetDecimal reader "close"
+    volume = dbGetLong reader "volume"
   }
 
 // returns the most recent fully-or-partially-observed EOD bar for the given security as of the given time
@@ -225,22 +248,22 @@ let findMostRecentEodBar (securityId: SecurityId) =
 // corporate action (split/dividend) queries
 
 let toCorporateAction (reader: NpgsqlDataReader): CorporateAction =
-  let kind = unbox reader.["type"]
+  let kind = dbGetStr reader "type"
   match kind with
   | "Split" ->
     SplitCA {
-      securityId = unbox reader.["security_id"]
-      exDate = datestampToDate <| unbox reader.["ex_date"]
-      ratio = unbox reader.["number"]
+      securityId = dbGetInt reader "security_id"
+      exDate = dbGetInt reader "ex_date" |> datestampToDate
+      ratio = dbGetDecimal reader "number"
     }
   | "CashDividend" ->
     CashDividendCA {
-      securityId = unbox reader.["security_id"]
-      declarationDate = Option.map datestampToDate <| dbOpt reader "declaration_date"  // date at which the announcement to shareholders/market that company will pay a dividend is made
-      exDate = datestampToDate <| unbox reader.["ex_date"]                          // on or after this date, the security trades without the dividend
-      recordDate = Option.map datestampToDate <| dbOpt reader "record_date"            // date at which shareholders of record are identified as recipients of the dividend
-      payableDate = Option.map datestampToDate <| dbOpt reader "payable_date"          // date at which company issues payment of dividend
-      amount = unbox reader.["number"]
+      securityId = dbGetInt reader "security_id"
+      declarationDate = dbOptInt reader "declaration_date" |> Option.map datestampToDate  // date at which the announcement to shareholders/market that company will pay a dividend is made
+      exDate = dbGetInt reader "ex_date" |> datestampToDate                               // on or after this date, the security trades without the dividend
+      recordDate = dbOptInt reader "record_date" |> Option.map datestampToDate            // date at which shareholders of record are identified as recipients of the dividend
+      payableDate = dbOptInt reader "payable_date" |> Option.map datestampToDate          // date at which company issues payment of dividend
+      amount = dbGetDecimal reader "number"
     }
   | _ -> raise (new ArgumentException(sprintf "Unknown corporate action type: %s" kind))
 
@@ -272,22 +295,197 @@ let queryCorporateActionsBetween (securityIds: seq<SecurityId>) (startTime: Zone
 
 // quarterly report queries
 
-let toQuarterlyReport (reader: NpgsqlDataReader): CorporateAction =
-  let kind = unbox reader.["type"]
-  match kind with
-  | "Split" ->
-    SplitCA {
-      securityId = unbox reader.["security_id"]
-      exDate = datestampToDate <| unbox reader.["ex_date"]
-      ratio = unbox reader.["number"]
-    }
-  | "CashDividend" ->
-    CashDividendCA {
-      securityId = unbox reader.["security_id"]
-      declarationDate = Option.map datestampToDate <| dbOpt reader "declaration_date"  // date at which the announcement to shareholders/market that company will pay a dividend is made
-      exDate = datestampToDate <| unbox reader.["ex_date"]                          // on or after this date, the security trades without the dividend
-      recordDate = Option.map datestampToDate <| dbOpt reader "record_date"            // date at which shareholders of record are identified as recipients of the dividend
-      payableDate = Option.map datestampToDate <| dbOpt reader "payable_date"          // date at which company issues payment of dividend
-      amount = unbox reader.["number"]
-    }
-  | _ -> raise (new ArgumentException(sprintf "Unknown corporate action type: %s" kind))
+let toStatement (binaryEncodedProtobufFinancialStatement: byte array): Statement = Map.empty      // todo, implement this
+
+let toQuarterlyReport (reader: NpgsqlDataReader): QuarterlyReport =
+  {
+    securityId = dbGetInt reader "security_id"
+    startTime = dbGetLong reader "start_time" |> timestampToDatetime
+    endTime = dbGetLong reader "end_time" |> timestampToDatetime
+    publicationTime = dbGetLong reader "publication_time" |> timestampToDatetime
+    incomeStatement = dbGetBytes reader "income_statement" |> toStatement
+    balanceSheet = dbGetBytes reader "balance_sheet" |> toStatement
+    cashFlowStatement = dbGetBytes reader "cash_flow_statement" |> toStatement
+  }
+
+let queryQuarterlyReport (time: ZonedDateTime) (securityId: SecurityId) = 
+  let sql = """
+    select * from quarterly_reports
+    where security_id = @securityId
+      and start_time <= @startTime
+    order by start_time desc
+    limit 1
+  """
+  query
+    sql
+    [
+      intParam "securityId" securityId;
+      longParam "startTime" <| dateTimeToTimestamp time
+    ]
+    toQuarterlyReport
+  >> Seq.firstOption
+
+let queryQuarterlyReportPriorTo (time: ZonedDateTime) (securityId: SecurityId) = 
+  let sql = """
+    select * from quarterly_reports
+    where security_id = @securityId
+      and end_time < @endTime
+    order by end_time desc
+    limit 1
+  """
+  query
+    sql
+    [
+      intParam "securityId" securityId;
+      longParam "endTime" <| dateTimeToTimestamp time
+    ]
+    toQuarterlyReport
+  >> Seq.firstOption
+
+let queryQuarterlyReports (securityId: SecurityId) = 
+  let sql = "select * from quarterly_reports where security_id = @securityId order by start_time"
+  query sql [intParam "securityId" securityId] toQuarterlyReport
+
+let queryQuarterlyReportsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) = 
+  let sql = """
+    select * from quarterly_reports 
+    where security_id = @securityId 
+      and start_time >= @earliestTime
+      and end_time <= @latestTime
+    order by start_time
+  """
+  query
+    sql
+    [
+      intParam "securityId" securityId;
+      longParam "earliestTime" <| dateTimeToTimestamp earliestTime;
+      longParam "latestTime" <| dateTimeToTimestamp latestTime
+    ]
+    toQuarterlyReport
+
+
+// annual report queries
+
+let toAnnualReport (reader: NpgsqlDataReader): AnnualReport =
+  {
+    securityId = dbGetInt reader "security_id"
+    startTime = dbGetLong reader "start_time" |> timestampToDatetime
+    endTime = dbGetLong reader "end_time" |> timestampToDatetime
+    publicationTime = dbGetLong reader "publication_time" |> timestampToDatetime
+    incomeStatement = dbGetBytes reader "income_statement" |> toStatement
+    balanceSheet = dbGetBytes reader "balance_sheet" |> toStatement
+    cashFlowStatement = dbGetBytes reader "cash_flow_statement" |> toStatement
+  }
+
+let queryAnnualReport (time: ZonedDateTime) (securityId: SecurityId) = 
+  let sql = """
+    select * from annual_reports
+    where security_id = @securityId
+      and start_time <= @startTime
+    order by start_time desc
+    limit 1
+  """
+  query
+    sql
+    [
+      intParam "securityId" securityId;
+      longParam "startTime" <| dateTimeToTimestamp time
+    ]
+    toAnnualReport
+  >> Seq.firstOption
+
+let queryAnnualReportPriorTo (time: ZonedDateTime) (securityId: SecurityId) = 
+  let sql = """
+    select * from annual_reports
+    where security_id = @securityId
+      and end_time < @endTime
+    order by end_time desc
+    limit 1
+  """
+  query
+    sql
+    [
+      intParam "securityId" securityId;
+      longParam "endTime" <| dateTimeToTimestamp time
+    ]
+    toAnnualReport
+  >> Seq.firstOption
+
+let queryAnnualReports (securityId: SecurityId) = 
+  let sql = "select * from annual_reports where security_id = @securityId order by start_time"
+  query sql [intParam "securityId" securityId] toAnnualReport
+
+let queryAnnualReportsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) = 
+  let sql = """
+    select * from annual_reports 
+    where security_id = @securityId 
+      and start_time >= @earliestTime
+      and end_time <= @latestTime
+    order by start_time
+  """
+  query
+    sql
+    [
+      intParam "securityId" securityId;
+      longParam "earliestTime" <| dateTimeToTimestamp earliestTime;
+      longParam "latestTime" <| dateTimeToTimestamp latestTime
+    ]
+    toAnnualReport
+
+
+// trial queries
+
+//let toTrial (reader: NpgsqlDataReader): Trial =
+//  {
+//    securityIds = [dbGetInt reader "security_id"]
+//    principal = dbGetDecimal reader "principal"
+//    commissionPerTrade = dbGetDecimal reader "commission_per_trade"
+//    commissionPerShare = dbGetDecimal reader "commission_per_share"
+//    startTime = dbGetLong reader "start_time" |> timestampToDatetime
+//    endTime = dbGetLong reader "end_time" |> timestampToDatetime
+//    duration = dbGetString reader "duration" |> ???
+//    incrementTime: ZonedDateTime -> ZonedDateTime
+//    purchaseFillPrice: PriceQuoteFn
+//    saleFillPrice: PriceQuoteFn
+//  }
+//
+//let queryForTrial
+//    (strategyName: String)
+//    (securityId: SecurityId)
+//    (trialDuration: Period)
+//    (startDate: LocalDate)
+//    (principal: decimal)
+//    (commissionPerTrade: decimal)
+//    (commissionPerShare: decimal) =
+//  let sql = """
+//    select s.id, trials.*
+//    from strategies strategy
+//    inner join trial_sets ts on ts.strategy_id = strategy.id
+//    inner join trials t on t.trial_set_id = ts.id
+//    inner join securities_trial_sets sts = sts on sts.trial_set_id = ts.id
+//    inner join securities s on s.id = sts.security_id
+//    where strategy.name = @strategyName
+//      and s.id = @securityId
+//      and ts.principal = @principal
+//      and ts.duration = @trialDuration
+//      and ts.commission_per_trade = @commissionPerTrade
+//      and ts.commission_per_share = @commissionPerShare
+//      and t.start_time >= @smallestStartTime
+//      and t.start_time <= @largestStartTime
+//    limit 1
+//  """
+//  query
+//    sql
+//    [
+//      stringParam "strategyName" strategyName;
+//      intParam "securityId" securityId;
+//      decimalParam "principal" principal;
+//      decimalParam "commissionPerTrade" commissionPerTrade;
+//      decimalParam "commissionPerShare" commissionPerShare;
+//      longParam "smallestStartTime" <| (localDateToDateTime startDate 0 0 0 |> dateTimeToTimestamp);
+//      longParam "largestStartTime" <| (localDateToDateTime startDate 23 59 59 |> dateTimeToTimestamp)
+//    ]
+//    toTrial
+//  >> Seq.firstOption
+
+// todo, implement trial select and insert queries

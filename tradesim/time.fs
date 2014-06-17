@@ -39,6 +39,9 @@ let EasternTimeZone = findTimeZone "America/New_York"
 let toZonedTime (timeZone: DateTimeZone) (time: LocalDateTime) = timeZone.AtLeniently(time)
 let toEasternTime = toZonedTime EasternTimeZone
 
+let instantToZonedTime (timeZone: DateTimeZone) (instant: Instant) = instant.InZone(timeZone)
+let instantToEasternTime = instantToZonedTime EasternTimeZone
+
 let currentTime (timeZone: DateTimeZone option): ZonedDateTime = 
   let tz = defaultArg timeZone EasternTimeZone
   new ZonedDateTime(SystemClock.Instance.Now, tz)
@@ -67,7 +70,8 @@ let localDateToDateTime (date: LocalDate) (hour: int) (minute: int) (second: int
   datetime date.Year date.Month date.Day hour minute second
 
 let timestampPattern = ZonedDateTimePattern.CreateWithInvariantCulture("yyyyMMddHHmmss", DateTimeZoneProviders.Tzdb)
-let dateTimeToTimestamp (time: ZonedDateTime): timestamp = Int64.Parse(timestampPattern.Format(time))
+let dateTimeToTimestampStr (time: ZonedDateTime): string = timestampPattern.Format(time)
+let dateTimeToTimestamp (time: ZonedDateTime): timestamp = Int64.Parse(dateTimeToTimestampStr time)
 
 let date (year: int) (month: int) (day: int) = new LocalDate(year, month, day)
 
@@ -85,11 +89,15 @@ let days n: Period = Period.FromDays(n)
 let hours n: Period = Period.FromHours(n)
 let seconds n: Period = Period.FromSeconds(n)
 
-let periodBetween (t1: LocalDateTime) (t2: LocalDateTime): Period = Period.Between(t1, t2)
+let compareDateTimes (t1: ZonedDateTime) (t2: ZonedDateTime): int = t1.CompareTo(t2)
+
+let periodBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Period = Period.Between(t1.LocalDateTime, t2.LocalDateTime)
 
 let durationBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Duration = t1.ToInstant() - t2.ToInstant()
 
 let intervalBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Interval = new Interval(t1.ToInstant(), t2.ToInstant())
+
+let intervalsOverlap (i1: Interval) (i2: Interval): bool = i1.Contains(i2.Start) || i1.Contains(i2.End) || (i2.Start < i1.Start && i1.End <= i2.End)
 
 let prettyFormatPeriod (period: Period): string = period.ToString()
 

@@ -61,20 +61,20 @@ let main argv =
       info "build trial samples"
     elif options.Scenario <> null then
       info <| sprintf "run scenario %A" options.Scenario
-      let connection = connect "localhost" 5432 "david" "" "tradesim"
+      let connection = Postgres.connect "localhost" 5432 "david" "" "tradesim"
 
       connection 
-      |> allExchanges 
+      |> Postgres.allExchanges 
       |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
 
       info "********************************************************************"
       connection 
-      |> findExchanges ["UQ"; "UA"]
+      |> Postgres.findExchanges ["UQ"; "UA"]
       |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
 
       info "********************************************************************"
       connection 
-      |> (findSecurities <| allExchanges connection <| ["AAPL"; "MSFT"])
+      |> (Postgres.findSecurities <| Postgres.allExchanges connection <| ["AAPL"; "MSFT"])
       |> Seq.iter (fun e -> info <| sprintf "security: %A" e) 
     )
   |> ignore

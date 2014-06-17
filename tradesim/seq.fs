@@ -1,5 +1,7 @@
 ﻿module dke.tradesim.Seq
 
+open C5
+
 // Returns a lazy sequence of x, (f x), (f (f x)) etc.
 // f must be free of side-effects
 let iterate f x =
@@ -19,3 +21,9 @@ let flatMap (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> =
   |> List.toSeq
 
 let firstOption (xs: seq<'t>): Option<'t> = Seq.tryPick Some xs
+
+let treeMap<'k, 'v when 'k : comparison> (entities: seq<'v>) (keyExtractorFn: 'v -> 'k): TreeDictionary<'k, 'v> =
+  let tree = new TreeDictionary<'k, 'v>()
+  Seq.iter (fun value -> tree.Add(keyExtractorFn value, value)) entities
+  tree
+

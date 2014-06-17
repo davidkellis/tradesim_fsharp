@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{4925A630-B079-445d-BCD4-3A9C94FE9307}") = "tradesim", "tradesim\tradesim.fsproj", "{B9B5BFC0-0608-4485-895E-19189522C4FB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "lrucache", "lrucache\lrucache.csproj", "{DA4DF338-1A97-4307-8A7F-6C1EA960E523}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x86 = Debug|x86
@@ -13,6 +15,10 @@ Global
 		{B9B5BFC0-0608-4485-895E-19189522C4FB}.Debug|x86.Build.0 = Debug|x86
 		{B9B5BFC0-0608-4485-895E-19189522C4FB}.Release|x86.ActiveCfg = Release|x86
 		{B9B5BFC0-0608-4485-895E-19189522C4FB}.Release|x86.Build.0 = Release|x86
+		{DA4DF338-1A97-4307-8A7F-6C1EA960E523}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DA4DF338-1A97-4307-8A7F-6C1EA960E523}.Debug|x86.Build.0 = Debug|Any CPU
+		{DA4DF338-1A97-4307-8A7F-6C1EA960E523}.Release|x86.ActiveCfg = Release|Any CPU
+		{DA4DF338-1A97-4307-8A7F-6C1EA960E523}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		StartupItem = tradesim\tradesim.fsproj

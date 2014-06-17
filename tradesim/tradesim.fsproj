@@ -56,18 +56,43 @@
     <Reference Include="NodaTime">
       <HintPath>..\NodaTime.1.2.0\lib\portable-win+net40+sl4+wp7\NodaTime.dll</HintPath>
     </Reference>
+    <Reference Include="CSharpTest.Net.Library">
+      <HintPath>..\CSharpTest.Net.Library.2.14.126.467\lib\net45\CSharpTest.Net.Library.dll</HintPath>
+    </Reference>
+    <Reference Include="Google.ProtocolBuffers.Serialization">
+      <HintPath>..\Google.ProtocolBuffers.2.4.1.521\lib\net40\Google.ProtocolBuffers.Serialization.dll</HintPath>
+    </Reference>
+    <Reference Include="Google.ProtocolBuffers">
+      <HintPath>..\Google.ProtocolBuffers.2.4.1.521\lib\net40\Google.ProtocolBuffers.dll</HintPath>
+    </Reference>
+    <Reference Include="nunit.framework">
+      <HintPath>..\NUnit.2.6.2\lib\nunit.framework.dll</HintPath>
+    </Reference>
+    <Reference Include="FsUnit.NUnit">
+      <HintPath>..\FsUnit.1.2.1.0\Lib\Net40\FsUnit.NUnit.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="stdlib.fs" />
+    <Compile Include="cache.fs" />
     <Compile Include="seq.fs" />
     <Compile Include="logging.fs" />
     <Compile Include="typeclass.fs" />
     <Compile Include="time.fs" />
+    <Compile Include="minterval.fs" />
     <Compile Include="specialDates.fs" />
     <Compile Include="core.fs" />
     <Compile Include="db.fs" />
+    <Compile Include="quotes.fs" />
+    <Compile Include="minterval_tests.fs" />
     <Compile Include="runner.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\lrucache\lrucache.csproj">
+      <Project>{DA4DF338-1A97-4307-8A7F-6C1EA960E523}</Project>
+      <Name>lrucache</Name>
+    </ProjectReference>
+  </ItemGroup>
 </Project>

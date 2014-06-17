@@ -5,6 +5,11 @@ Install:
 ./nuget install Npgsql.EntityFramework
 ./nuget install FSharp.Data.TypeProviders
 ./nuget install C5
+./nuget install CSharpTest.Net.Library
+./nuget install Google.ProtocolBuffers
+./nuget install Microsoft.Bcl.Immutable -Pre
+
+./nuget install FsUnit
 
 Build:
 ??

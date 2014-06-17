@@ -98,6 +98,7 @@ type Bar = {
 
 type PriceBarFn = ZonedDateTime -> SecurityId -> Option<Bar>
 
+
 // corporate actions
 
 type Split = {
@@ -194,7 +195,7 @@ type StrategyState<'t> = {
   // (time: ZonedDateTime) -> (principal: decimal) -> 't
   initialize: ZonedDateTime -> decimal -> 't
 
-  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: Array<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 't
+  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: array<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 't
   copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> array<Order> -> TransactionLog -> seq<PortfolioValue> -> 't
 }
 

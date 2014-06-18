@@ -9,6 +9,8 @@ let composelr5 f g a1 a2 a3 a4 a5 = g (f a1 a2 a3 a4 a5)
 
 let opt (item: 't): Option<'t> = if item = null then None else Some item
 
+let outParamToOpt (outParamGiven: bool, outParam: 'v): Option<'v> = if outParamGiven then Some outParam else None
+
 let unboxedOpt<'t> (item: obj): Option<'t> = if item = null then None else Some (unbox item)
 
 let replaceStr (searchString: String) (replacementStr: string) (origString: string): string = origString.Replace(searchString, replacementStr)

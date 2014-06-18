@@ -7,7 +7,8 @@ Install:
 ./nuget install C5
 ./nuget install CSharpTest.Net.Library
 ./nuget install Google.ProtocolBuffers
-./nuget install Microsoft.Bcl.Immutable -Pre
+#./nuget install Microsoft.Bcl.Immutable -Pre
+./nuget install FSharpx.Core
 
 ./nuget install FsUnit
 

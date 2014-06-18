@@ -71,12 +71,16 @@
     <Reference Include="FsUnit.NUnit">
       <HintPath>..\FsUnit.1.2.1.0\Lib\Net40\FsUnit.NUnit.dll</HintPath>
     </Reference>
+    <Reference Include="FSharpx.Core">
+      <HintPath>..\FSharpx.Core.1.8.41\lib\40\FSharpx.Core.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="stdlib.fs" />
-    <Compile Include="cache.fs" />
     <Compile Include="seq.fs" />
+    <Compile Include="option.fs" />
+    <Compile Include="cache.fs" />
     <Compile Include="logging.fs" />
     <Compile Include="typeclass.fs" />
     <Compile Include="time.fs" />

@@ -2,8 +2,10 @@
 
 open C5
 open NodaTime
+open FSharpx
 
 open Stdlib
+open Option
 open Cache
 open Core
 open Time
@@ -83,30 +85,18 @@ let loadPriceHistoryFromBars (bars: seq<Bar>): PriceHistory =
   Seq.iter (fun (bar: Bar) -> priceHistory.Add(dateTimeToTimestamp bar.startTime, bar)) bars
   priceHistory
 
-let loadPriceHistory (securityId: SecurityId) (adapter: DatabaseAdapter<'connectionT>) = 
+// note: compare this definition to the definition of loadPriceHistoryBetween. Which is preferable?
+let loadPriceHistory<'connectionT> : SecurityId -> DatabaseAdapter<'connectionT> -> 'connectionT -> PriceHistory = 
   composelr3 queryEodBars loadPriceHistoryFromBars
 
-let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) (adapter: DatabaseAdapter<'connectionT>) = 
-  composelr5 queryEodBarsBetween loadPriceHistoryFromBars
+// note: compare this definition to the definition of loadPriceHistory. Which is preferable?
+let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) dbAdapter connection = 
+  queryEodBarsBetween securityId earliestTime latestTime dbAdapter connection |> loadPriceHistoryFromBars
 
-// todo, resume work here
 
-//let mostRecentBar(priceHistory: PriceHistory, timestamp: Long): Option<Bar> = {
-//  let mapEntry = priceHistory.floorEntry(timestamp)
-//  Option(mapEntry).map(_.getValue)
-//}
-//
-//let mostRecentBarFromYear(time: DateTime, securityId: SecurityId, year: Int): Option<Bar> = {
-//  let priceHistory = findPriceHistory(year, securityId)
-//  mostRecentBar(priceHistory, timestamp(time))
-//}
-//
-//let findEodBar(time: DateTime, securityId: SecurityId): Option<Bar> = {
-//  let year = time.getYear
-//  let bar: Option<Bar> = mostRecentBarFromYear(time, securityId, year).orElse(mostRecentBarFromYear(time, securityId, year - 1))
-//  bar.orElse(queryEodBar(time, securityId))
-//}
-//
+let mostRecentBar (priceHistory: PriceHistory) (timestamp: int64): Option<Bar> =
+  priceHistory.TryWeakPredecessor(timestamp) |> outParamToOpt |> Option.map (fun kvPair -> kvPair.Value)
+
 //let findEodBarPriorTo(time: DateTime, securityId: SecurityId): Option<Bar> = {
 //  let eodBar = findEodBar(time, securityId)
 //  eodBar.flatMap { bar =>
@@ -127,21 +117,30 @@ let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTim
 //}
 //
 //
-//let priceHistoryCache = cache.buildLruCache(32, "priceHistoryCache")
-//
-//// loads up 5 years of price history
-//let findPriceHistory(year: Int, securityId: SecurityId): PriceHistory = {
-//  let startYear = year - year % 5
-//  let priceHistoryId = securityId.toString ++ ":" ++ startYear.toString
-//  let cachedPriceHistory = Option(priceHistoryCache.get(priceHistoryId))
-//  cachedPriceHistory match {
-//    case Some(priceHistoryElement) => priceHistoryElement.getObjectValue.asInstanceOf<PriceHistory>
-//    case None =>
-//      let endYear = startYear + 4
-//      let newPriceHistory = loadPriceHistory(securityId,
-//                                             datetime(startYear, 1, 1),
-//                                             datetime(endYear, 12, 31, 23, 59, 59))    // load 5 calendar years of price history into a NavigableMap
-//      priceHistoryCache.put(new Element(priceHistoryId, newPriceHistory))
-//      newPriceHistory
-//  }
-//}
+let priceHistoryCache = buildLruCache<string, PriceHistory> 32
+let getPriceHistory = get priceHistoryCache
+let putPriceHistory = put priceHistoryCache
+
+// loads up 5 years of price history
+let findPriceHistory (year: int) (securityId: SecurityId) dbAdapter connection: PriceHistory =
+  let startYear = year - year % 5
+  let priceHistoryId = sprintf "%i:%i" securityId startYear
+  let cachedPriceHistory = getPriceHistory priceHistoryId
+  match cachedPriceHistory with
+  | Some priceHistory -> priceHistory
+  | None ->
+    let endYear = startYear + 4
+    // load 5 calendar years of price history into a TreeDictionary
+    let newPriceHistory = loadPriceHistoryBetween securityId <| datetime startYear 1 1 0 0 0 <| datetime endYear 12 31 23 59 59 <| dbAdapter <| connection
+    putPriceHistory priceHistoryId newPriceHistory
+    newPriceHistory
+
+let mostRecentBarFromYear (time: ZonedDateTime) (securityId: SecurityId) (year: int) dbAdapter connection =
+  let priceHistory = findPriceHistory year securityId dbAdapter connection
+  mostRecentBar priceHistory <| dateTimeToTimestamp time
+
+let findEodBar (time: ZonedDateTime) (securityId: SecurityId) dbAdapter connection: Option<Bar> =
+  let year = time.Year
+  mostRecentBarFromYear time securityId year dbAdapter connection 
+  |> Option.orElseLazy (lazy (mostRecentBarFromYear time securityId (year - 1) dbAdapter connection))
+  |> Option.orElseLazy (lazy (queryEodBar time securityId dbAdapter connection))

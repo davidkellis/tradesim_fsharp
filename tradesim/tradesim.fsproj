@@ -74,10 +74,14 @@
     <Reference Include="FSharpx.Core">
       <HintPath>..\FSharpx.Core.1.8.41\lib\40\FSharpx.Core.dll</HintPath>
     </Reference>
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>..\Microsoft.Bcl.Immutable.1.1.22-beta\lib\portable-net45+win8+wpa81\System.Collections.Immutable.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="stdlib.fs" />
+    <Compile Include="math.fs" />
     <Compile Include="seq.fs" />
     <Compile Include="option.fs" />
     <Compile Include="cache.fs" />
@@ -87,6 +91,7 @@
     <Compile Include="minterval.fs" />
     <Compile Include="specialDates.fs" />
     <Compile Include="core.fs" />
+    <Compile Include="ordering.fs" />
     <Compile Include="db.fs" />
     <Compile Include="quotes.fs" />
     <Compile Include="minterval_tests.fs" />

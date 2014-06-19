@@ -1,5 +1,6 @@
 ﻿module dke.tradesim.Core
 
+open System.Collections.Immutable
 open NodaTime
 
 open Time
@@ -18,8 +19,8 @@ type LimitOrderDetails = {
   time: ZonedDateTime
   securityId: SecurityId
   qty: int64
+  limitPrice: decimal
   fillPrice: Option<decimal>
-  limitPrice: Option<decimal>
 }
 
 type Order =
@@ -28,7 +29,14 @@ type Order =
   | LimitBuy of LimitOrderDetails
   | LimitSell of LimitOrderDetails
 
-type StockHoldings = Map<SecurityId, int64>
+let limitToMarketOrderDetails (limitDetails: LimitOrderDetails): MarketOrderDetails = {
+  time = limitDetails.time
+  securityId = limitDetails.securityId
+  qty = limitDetails.qty
+  fillPrice = limitDetails.fillPrice
+}
+
+type StockHoldings = ImmutableDictionary<SecurityId, int64>
 type Portfolio = {
   cash: decimal
   stocks: StockHoldings

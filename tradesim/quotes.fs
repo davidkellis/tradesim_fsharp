@@ -7,6 +7,7 @@ open FSharpx
 open Stdlib
 open Option
 open Cache
+open Logging
 open Core
 open Time
 open Database
@@ -77,6 +78,14 @@ let queryEodBarsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (
   Logging.verbose <| sprintf "Time: %s" (prettyFormatPeriod <| periodBetween t1 t2)
   result
 
+let findOldestEodBar (securityId: SecurityId) dbAdapter connection: Option<Bar> =
+  info <| sprintf "findOldestEodBar(%i)" securityId
+  dbAdapter.findOldestEodBar securityId connection
+
+let findMostRecentEodBar (securityId: SecurityId) dbAdapter connection: Option<Bar> =
+  info <| sprintf "findMostRecentEodBar(%i)" securityId
+  dbAdapter.findMostRecentEodBar securityId connection
+
 
 type PriceHistory = TreeDictionary<int64, Bar>   // a price history is a collection of (timestamp -> Bar) pairs
 
@@ -97,17 +106,7 @@ let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTim
 let mostRecentBar (priceHistory: PriceHistory) (timestamp: int64): Option<Bar> =
   priceHistory.TryWeakPredecessor(timestamp) |> outParamToOpt |> Option.map (fun kvPair -> kvPair.Value)
 
-//let findOldestEodBar(securityId: SecurityId)(implicit adapter: Adapter): Option<Bar> = {
-//  info(s"findOldestEodBar($securityId)")
-//  adapter.findOldestEodBar(securityId)
-//}
-//
-//let findMostRecentEodBar(securityId: SecurityId)(implicit adapter: Adapter): Option<Bar> = {
-//  info(s"findMostRecentEodBar($securityId)")
-//  adapter.findMostRecentEodBar(securityId)
-//}
-//
-//
+
 let priceHistoryCache = buildLruCache<string, PriceHistory> 32
 let getPriceHistory = get priceHistoryCache
 let putPriceHistory = put priceHistoryCache

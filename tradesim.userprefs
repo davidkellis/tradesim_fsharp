@@ -1,17 +1,18 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/quotes.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/ordering.fs">
     <Files>
-      <File FileName="tradesim/stdlib.fs" Line="16" Column="10" />
+      <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
       <File FileName="tradesim/cache.fs" Line="1" Column="1" />
-      <File FileName="tradesim/seq.fs" Line="5" Column="18" />
+      <File FileName="tradesim/seq.fs" Line="1" Column="1" />
       <File FileName="tradesim/typeclass.fs" Line="1" Column="1" />
-      <File FileName="tradesim/time.fs" Line="74" Column="5" />
+      <File FileName="tradesim/time.fs" Line="1" Column="1" />
       <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
-      <File FileName="tradesim/core.fs" Line="1" Column="1" />
+      <File FileName="tradesim/core.fs" Line="32" Column="30" />
+      <File FileName="tradesim/ordering.fs" Line="121" Column="3" />
       <File FileName="tradesim/db.fs" Line="199" Column="22" />
-      <File FileName="tradesim/option.fs" Line="6" Column="33" />
-      <File FileName="tradesim/quotes.fs" Line="147" Column="1" />
+      <File FileName="tradesim/quotes.fs" Line="81" Column="1" />
+      <File FileName="tradesim/math.fs" Line="9" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

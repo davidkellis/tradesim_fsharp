@@ -97,15 +97,6 @@ let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTim
 let mostRecentBar (priceHistory: PriceHistory) (timestamp: int64): Option<Bar> =
   priceHistory.TryWeakPredecessor(timestamp) |> outParamToOpt |> Option.map (fun kvPair -> kvPair.Value)
 
-//let findEodBarPriorTo(time: DateTime, securityId: SecurityId): Option<Bar> = {
-//  let eodBar = findEodBar(time, securityId)
-//  eodBar.flatMap { bar =>
-//    if (isInstantBetweenInclusive(time, bar.startTime, bar.endTime))
-//      findEodBar(bar.startTime.minus(millis(1)), securityId)
-//    else Option(bar)
-//  }
-//}
-//
 //let findOldestEodBar(securityId: SecurityId)(implicit adapter: Adapter): Option<Bar> = {
 //  info(s"findOldestEodBar($securityId)")
 //  adapter.findOldestEodBar(securityId)
@@ -144,3 +135,14 @@ let findEodBar (time: ZonedDateTime) (securityId: SecurityId) dbAdapter connecti
   mostRecentBarFromYear time securityId year dbAdapter connection 
   |> Option.orElseLazy (lazy (mostRecentBarFromYear time securityId (year - 1) dbAdapter connection))
   |> Option.orElseLazy (lazy (queryEodBar time securityId dbAdapter connection))
+
+let findEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) dbAdapter connection: Option<Bar> =
+  findEodBar time securityId dbAdapter connection
+  |> Option.flatMap 
+    (fun bar ->
+      if isInstantBetween time bar.startTime bar.endTime then
+        let minimallyEarlierTime = bar.startTime - Duration.FromMilliseconds(1L)
+        findEodBar minimallyEarlierTime securityId dbAdapter connection
+      else
+        Some bar
+    )

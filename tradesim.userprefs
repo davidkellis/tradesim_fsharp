@@ -8,11 +8,11 @@
       <File FileName="tradesim/typeclass.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
       <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
-      <File FileName="tradesim/core.fs" Line="32" Column="30" />
-      <File FileName="tradesim/ordering.fs" Line="121" Column="3" />
+      <File FileName="tradesim/core.fs" Line="199" Column="16" />
+      <File FileName="tradesim/ordering.fs" Line="134" Column="3" />
       <File FileName="tradesim/db.fs" Line="199" Column="22" />
       <File FileName="tradesim/quotes.fs" Line="81" Column="1" />
-      <File FileName="tradesim/math.fs" Line="9" Column="1" />
+      <File FileName="tradesim/math.fs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

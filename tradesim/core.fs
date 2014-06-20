@@ -192,19 +192,29 @@ type TransactionLog = seq<Transaction>
 // trading strategy and state typeclasses
  
 // StrategyState typeclass
-type StrategyState<'t> = {
-  previousTime: 't -> ZonedDateTime
-  time: 't -> ZonedDateTime
-  portfolio: 't -> Portfolio
-  orders: 't -> array<Order>
-  transactions: 't -> TransactionLog
-  portfolioValueHistory: 't -> seq<PortfolioValue>
+type BaseStrategyState = {
+  previousTime: ZonedDateTime
+  time: ZonedDateTime
+  portfolio: Portfolio
+  orders: array<Order>
+  transactions: TransactionLog
+  portfolioValueHistory: seq<PortfolioValue>
+}
 
-  // (time: ZonedDateTime) -> (principal: decimal) -> 't
-  initialize: ZonedDateTime -> decimal -> 't
+type StrategyState<'stateT> = {
+  previousTime: 'stateT -> ZonedDateTime
+  time: 'stateT -> ZonedDateTime
+  portfolio: 'stateT -> Portfolio
+  orders: 'stateT -> array<Order>
+  transactions: 'stateT -> TransactionLog
+  portfolioValueHistory: 'stateT -> seq<PortfolioValue>
 
-  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: array<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 't
-  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> array<Order> -> TransactionLog -> seq<PortfolioValue> -> 't
+  // (time: ZonedDateTime) -> (principal: decimal) -> 'stateT
+  initialize: ZonedDateTime -> decimal -> 'stateT
+
+  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: array<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 'stateT
+  withOrders: array<Order> -> 'stateT
+//  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> array<Order> -> TransactionLog -> seq<PortfolioValue> -> 'stateT
 }
 
 // TradingStrategy typeclass

@@ -2,6 +2,7 @@
 
 open NodaTime
 open FSharpx
+open System.Collections.Immutable
 
 open Math
 open Core
@@ -124,57 +125,66 @@ let computeOrderFillPrice (order: Order) (time: ZonedDateTime) (purchaseFillPric
   | MarketBuy {securityId = sId} | LimitBuy {securityId = sId} -> purchaseFillPriceFn time sId
   | MarketSell {securityId = sId} | LimitSell {securityId = sId} -> saleFillPriceFn time sId
 
-let cancelAllPendingOrders (currentState: 'stateT) (stateInterface: StrategyState<'stateT>): 'stateT = stateInterface.withOrders [| |]
+let cancelAllPendingOrders (currentState: 'stateT) (stateInterface: StrategyState<'stateT>): 'stateT = 
+  currentState |> stateInterface.withOrders (ImmutableArray.Create())
 
 
-// todo, resume work here. need an immutable array/vector that supports O(log n) insert/append
 let buy (currentState: 'stateT) (time: ZonedDateTime) (securityId: SecurityId) (qty: int64) (stateInterface: StrategyState<'stateT>): 'stateT =
-  let newOrders = (stateInterface.orders currentState). + MarketBuy {time = time; securityId = securityId; qty = qty; fillPrice = None}
-  currentState.copy(orders = newOrders)
+  let newOrders = (stateInterface.orders currentState).Add(MarketBuy {time = time; securityId = securityId; qty = qty; fillPrice = None})
+  currentState |> stateInterface.withOrders newOrders
 
-let buyImmediately<StateT <: State<StateT>>(currentState: StateT, securityId: SecurityId, qty: int64): StateT = buy(currentState, currentState.time, securityId, qty)
+let buyImmediately (currentState: 'stateT) (securityId: SecurityId) (qty: int64) (stateInterface: StrategyState<'stateT>): 'stateT =
+  let time = stateInterface.time currentState
+  buy currentState time securityId qty stateInterface
 
-let buyEqually<StateT <: State<StateT>>(trial: Trial, currentState: StateT, securityIds: IndexedSeq<SecurityId>, bestOfferPriceFn: PriceQuoteFn): StateT = {
-  let count = securityIds.length
-  let cash = cashOnHand(currentState)
-  let principalPerSecurity = cash / count
-  securityIds.foldLeft(currentState) { (state, securityId) =>
-    let qty = maxSharesPurchasable(trial, principalPerSecurity, currentState.time, securityId, bestOfferPriceFn)
-    qty.map(qty => buyImmediately(state, securityId, floor(qty).toint64)).getOrElse(state)
-  }
-}
-
-let limitBuy<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64, limitPrice: decimal): StateT = {
-  let newOrders = currentState.orders :+ LimitBuy(time, securityId, qty, limitPrice, None)
-  currentState.copy(orders = newOrders)
-}
-
-// this should be merged with sellImmediately
-let sell<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64): StateT = {
-  let newOrders = currentState.orders :+ MarketSell(time, securityId, qty, None)
-  currentState.copy(orders = newOrders)
-}
-
-let sellImmediately<StateT <: State<StateT>>(currentState: StateT, securityId: SecurityId, qty: int64): StateT = sell(currentState, currentState.time, securityId, qty)
-
-let limitSell<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64, limitPrice: decimal): StateT = {
-  let newOrders = currentState.orders :+ LimitSell(time, securityId, qty, limitPrice, None)
-  currentState.copy(orders = newOrders)
-}
-
-let closeOpenStockPosition<StateT <: State<StateT>>(currentState: StateT, securityId: SecurityId): StateT = {
-  let qtyOnHand = sharesOnHand(currentState.portfolio, securityId)
-  qtyOnHand match {
-    case qty if qty > 0 => sellImmediately(currentState, securityId, qtyOnHand)    // we own shares, so sell them
-    case qty if qty < 0 => buyImmediately(currentState, securityId, -qtyOnHand)    // we owe a share debt, so buy those shares back (we negate qtyOnHand because it is negative, and we want to buy a positive quantity)
-    case 0 => currentState
-  }
-}
-
-let closeAllOpenStockPositions<StateT <: State<StateT>>(currentState: StateT): StateT = {
-  let stocks = currentState.portfolio.stocks
-  if (!stocks.isEmpty)
-    stocks.keys.foldLeft(currentState)(closeOpenStockPosition)
-  else
+let buyEqually (trial: Trial) 
+               (currentState: 'stateT) 
+               (securityIds: ImmutableArray<SecurityId>) 
+               (bestOfferPriceFn: PriceQuoteFn) 
+               (stateInterface: StrategyState<'stateT>): 'stateT =
+  let count = securityIds.Length
+  let cash = cashOnHand currentState stateInterface
+  let principalPerSecurity = cash / decimal count
+  Seq.fold 
+    (fun state securityId ->
+      let qty = maxSharesPurchasable trial principalPerSecurity (stateInterface.time currentState) securityId bestOfferPriceFn
+      qty |> Option.map (fun qty -> buyImmediately state securityId (Math.floor qty |> int64) stateInterface) |> Option.getOrElse(state)
+    )
     currentState
-}
+    securityIds
+
+//let limitBuy<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64, limitPrice: decimal): StateT = {
+//  let newOrders = currentState.orders :+ LimitBuy(time, securityId, qty, limitPrice, None)
+//  currentState.copy(orders = newOrders)
+//}
+//
+//// this should be merged with sellImmediately
+//let sell<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64): StateT = {
+//  let newOrders = currentState.orders :+ MarketSell(time, securityId, qty, None)
+//  currentState.copy(orders = newOrders)
+//}
+//
+//let sellImmediately<StateT <: State<StateT>>(currentState: StateT, securityId: SecurityId, qty: int64): StateT = sell(currentState, currentState.time, securityId, qty)
+//
+//let limitSell<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64, limitPrice: decimal): StateT = {
+//  let newOrders = currentState.orders :+ LimitSell(time, securityId, qty, limitPrice, None)
+//  currentState.copy(orders = newOrders)
+//}
+//
+//let closeOpenStockPosition<StateT <: State<StateT>>(currentState: StateT, securityId: SecurityId): StateT = {
+//  let qtyOnHand = sharesOnHand(currentState.portfolio, securityId)
+//  qtyOnHand match {
+//    case qty if qty > 0 => sellImmediately(currentState, securityId, qtyOnHand)    // we own shares, so sell them
+//    case qty if qty < 0 => buyImmediately(currentState, securityId, -qtyOnHand)    // we owe a share debt, so buy those shares back (we negate qtyOnHand because it is negative, and we want to buy a positive quantity)
+//    case 0 => currentState
+//  }
+//}
+//
+//let closeAllOpenStockPositions<StateT <: State<StateT>>(currentState: StateT): StateT = {
+//  let stocks = currentState.portfolio.stocks
+//  if (!stocks.isEmpty)
+//    stocks.keys.foldLeft(currentState)(closeOpenStockPosition)
+//  else
+//    currentState
+//}
+//

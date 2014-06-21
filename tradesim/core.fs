@@ -196,7 +196,7 @@ type BaseStrategyState = {
   previousTime: ZonedDateTime
   time: ZonedDateTime
   portfolio: Portfolio
-  orders: array<Order>
+  orders: ImmutableArray<Order>
   transactions: TransactionLog
   portfolioValueHistory: seq<PortfolioValue>
 }
@@ -205,16 +205,16 @@ type StrategyState<'stateT> = {
   previousTime: 'stateT -> ZonedDateTime
   time: 'stateT -> ZonedDateTime
   portfolio: 'stateT -> Portfolio
-  orders: 'stateT -> array<Order>
+  orders: 'stateT -> ImmutableArray<Order>
   transactions: 'stateT -> TransactionLog
   portfolioValueHistory: 'stateT -> seq<PortfolioValue>
 
   // (time: ZonedDateTime) -> (principal: decimal) -> 'stateT
   initialize: ZonedDateTime -> decimal -> 'stateT
 
-  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: array<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 'stateT
-  withOrders: array<Order> -> 'stateT
-//  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> array<Order> -> TransactionLog -> seq<PortfolioValue> -> 'stateT
+  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: ImmutableArray<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 'stateT
+//  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> ImmutableArray<Order> -> TransactionLog -> seq<PortfolioValue> -> 'stateT
+  withOrders: ImmutableArray<Order> -> 'stateT -> 'stateT
 }
 
 // TradingStrategy typeclass

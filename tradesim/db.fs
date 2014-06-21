@@ -14,62 +14,135 @@ open Logging
 
 type DatabaseAdapter<'dbConnection> = {
   // (exchangeLabels: seq<string>): seq<Exchange>
-  findExchanges: seq<string> -> 'dbConnection -> seq<Exchange>
+  findExchanges: 'dbConnection -> seq<string> -> seq<Exchange>
 
   // (exchanges: seq<Exchange>, symbols: seq<string>): seq<Security>
-  findSecurities: seq<Exchange> -> seq<string> -> 'dbConnection -> seq<Security>
+  findSecurities: 'dbConnection -> seq<Exchange> -> seq<string> -> seq<Security>
 
 
   // (time: DateTime, securityId: SecurityId): Option<Bar>
-  queryEodBar: ZonedDateTime -> SecurityId -> 'dbConnection -> Option<Bar>
+  queryEodBar: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<Bar>
 
   // (time: DateTime, securityId: SecurityId): Option<Bar>
-  queryEodBarPriorTo: ZonedDateTime -> SecurityId -> 'dbConnection -> Option<Bar>
+  queryEodBarPriorTo: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<Bar>
 
   // (securityId: SecurityId): seq<Bar>
-  queryEodBars: SecurityId -> 'dbConnection -> seq<Bar>
+  queryEodBars: 'dbConnection -> SecurityId -> seq<Bar>
 
   // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<Bar>
-  queryEodBarsBetween: SecurityId -> ZonedDateTime -> ZonedDateTime -> 'dbConnection -> seq<Bar>
+  queryEodBarsBetween: 'dbConnection -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<Bar>
 
   // (securityId: SecurityId): Option<Bar>
-  findOldestEodBar: SecurityId -> 'dbConnection -> Option<Bar>
+  findOldestEodBar: 'dbConnection -> SecurityId -> Option<Bar>
 
   // (securityId: SecurityId): Option<Bar>
-  findMostRecentEodBar: SecurityId -> 'dbConnection -> Option<Bar>
+  findMostRecentEodBar: 'dbConnection -> SecurityId -> Option<Bar>
 
 
   // (securityIds: IndexedSeq<int>): IndexedSeq<CorporateAction>
-  queryCorporateActions: array<int> -> 'dbConnection -> array<CorporateAction>
+  queryCorporateActions: 'dbConnection -> array<int> -> array<CorporateAction>
 
   // (securityIds: IndexedSeq<int>, startTime: DateTime, endTime: DateTime): IndexedSeq<CorporateAction>
-  queryCorporateActionsBetween: array<int> -> ZonedDateTime -> ZonedDateTime -> 'dbConnection -> array<CorporateAction>
+  queryCorporateActionsBetween: 'dbConnection -> array<int> -> ZonedDateTime -> ZonedDateTime -> array<CorporateAction>
 
 
   // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
-  queryQuarterlyReport: ZonedDateTime -> SecurityId -> 'dbConnection -> Option<QuarterlyReport>
+  queryQuarterlyReport: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
 
   // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
-  queryQuarterlyReportPriorTo: ZonedDateTime -> SecurityId -> 'dbConnection -> Option<QuarterlyReport>
+  queryQuarterlyReportPriorTo: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
 
   // (securityId: SecurityId): seq<QuarterlyReport>
-  queryQuarterlyReports: SecurityId -> 'dbConnection -> seq<QuarterlyReport>
+  queryQuarterlyReports: 'dbConnection -> SecurityId -> seq<QuarterlyReport>
 
   // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<QuarterlyReport>
-  queryQuarterlyReportsBetween: SecurityId -> ZonedDateTime -> ZonedDateTime -> 'dbConnection -> seq<QuarterlyReport>
+  queryQuarterlyReportsBetween: 'dbConnection -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<QuarterlyReport>
 
 
   // (time: DateTime, securityId: SecurityId): Option<AnnualReport>
-  queryAnnualReport: ZonedDateTime -> SecurityId -> 'dbConnection -> Option<AnnualReport>
+  queryAnnualReport: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<AnnualReport>
 
   // (time: DateTime, securityId: SecurityId): Option<AnnualReport>
-  queryAnnualReportPriorTo: ZonedDateTime -> SecurityId -> 'dbConnection -> Option<AnnualReport>
+  queryAnnualReportPriorTo: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<AnnualReport>
 
   // (securityId: SecurityId): seq<AnnualReport>
-  queryAnnualReports: SecurityId -> 'dbConnection -> seq<AnnualReport>
+  queryAnnualReports: 'dbConnection -> SecurityId -> seq<AnnualReport>
 
   // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<AnnualReport>
-  queryAnnualReportsBetween: SecurityId -> ZonedDateTime -> ZonedDateTime -> 'dbConnection -> seq<AnnualReport>
+  queryAnnualReportsBetween: 'dbConnection -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<AnnualReport>
+
+
+  //(strategy: Strategy<StateT>, trialStatePairs: seq<(Trial, StateT)>): Unit
+//  insertTrials: TradingStrategy<'strategyT,'stateT> -> seq<Trial * 'stateT> -> unit
+
+//  queryForTrial: (strategyName: string,
+//                      securityId: SecurityId,
+//                      trialDuration: Period,
+//                      startDate: LocalDate,
+//                      principal: BigDecimal,
+//                      commissionPerTrade: BigDecimal,
+//                      commissionPerShare: BigDecimal): Option<TrialsRow>
+
+}
+
+type Dao<'dbConnection> = {
+  // (exchangeLabels: seq<string>): seq<Exchange>
+  findExchanges: seq<string> -> seq<Exchange>
+
+  // (exchanges: seq<Exchange>, symbols: seq<string>): seq<Security>
+  findSecurities: seq<Exchange> -> seq<string> -> seq<Security>
+
+
+  // (time: DateTime, securityId: SecurityId): Option<Bar>
+  queryEodBar: ZonedDateTime -> SecurityId -> Option<Bar>
+
+  // (time: DateTime, securityId: SecurityId): Option<Bar>
+  queryEodBarPriorTo: ZonedDateTime -> SecurityId -> Option<Bar>
+
+  // (securityId: SecurityId): seq<Bar>
+  queryEodBars: SecurityId -> seq<Bar>
+
+  // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<Bar>
+  queryEodBarsBetween: SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<Bar>
+
+  // (securityId: SecurityId): Option<Bar>
+  findOldestEodBar: SecurityId -> Option<Bar>
+
+  // (securityId: SecurityId): Option<Bar>
+  findMostRecentEodBar: SecurityId -> Option<Bar>
+
+
+  // (securityIds: IndexedSeq<int>): IndexedSeq<CorporateAction>
+  queryCorporateActions: array<int> -> array<CorporateAction>
+
+  // (securityIds: IndexedSeq<int>, startTime: DateTime, endTime: DateTime): IndexedSeq<CorporateAction>
+  queryCorporateActionsBetween: array<int> -> ZonedDateTime -> ZonedDateTime -> array<CorporateAction>
+
+
+  // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
+  queryQuarterlyReport: ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
+
+  // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
+  queryQuarterlyReportPriorTo: ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
+
+  // (securityId: SecurityId): seq<QuarterlyReport>
+  queryQuarterlyReports: SecurityId -> seq<QuarterlyReport>
+
+  // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<QuarterlyReport>
+  queryQuarterlyReportsBetween: SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<QuarterlyReport>
+
+
+  // (time: DateTime, securityId: SecurityId): Option<AnnualReport>
+  queryAnnualReport: ZonedDateTime -> SecurityId -> Option<AnnualReport>
+
+  // (time: DateTime, securityId: SecurityId): Option<AnnualReport>
+  queryAnnualReportPriorTo: ZonedDateTime -> SecurityId -> Option<AnnualReport>
+
+  // (securityId: SecurityId): seq<AnnualReport>
+  queryAnnualReports: SecurityId -> seq<AnnualReport>
+
+  // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<AnnualReport>
+  queryAnnualReportsBetween: SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<AnnualReport>
 
 
   //(strategy: Strategy<StateT>, trialStatePairs: seq<(Trial, StateT)>): Unit
@@ -182,7 +255,7 @@ module Postgres =
       sql
       parameters
 
-  let query (sql: string) (parameters: list<SqlParam>) (toType: NpgsqlDataReader -> 't) connection: seq<'t> = 
+  let query connection (sql: string) (parameters: list<SqlParam>) (toType: NpgsqlDataReader -> 't): seq<'t> = 
     seq {
       let deparameterizedSql = deparameterizeSql sql parameters
       let cmd = new NpgsqlCommand(deparameterizedSql, connection)
@@ -205,13 +278,13 @@ module Postgres =
       name = dbOptStr reader "name"
     }
 
-  let allExchanges = 
+  let allExchanges connection: seq<Exchange> = 
     let sql = "select * from exchanges"
-    query sql [] toExchange
+    query connection sql [] toExchange
 
-  let findExchanges (labels: seq<string>) = 
+  let findExchanges connection (labels: seq<string>): seq<Exchange> = 
     let sql = "select * from exchanges where label in (@labels)"
-    query sql [stringListParam "labels" labels] toExchange
+    query connection sql [stringListParam "labels" labels] toExchange
 
 
   // security queries
@@ -234,7 +307,7 @@ module Postgres =
       sectorId = dbOptInt reader "sector_id"
     }
 
-  let findSecurities (exchanges: seq<Exchange>) (symbols: seq<String>) = 
+  let findSecurities connection (exchanges: seq<Exchange>) (symbols: seq<String>): seq<Security> = 
     let sql = """
       select s.id, s.bb_gid, s.bb_gcid, s.type, s.symbol, s.name, s.start_date, s.end_date, s.cik, s.active, s.fiscal_year_end_date, s.exchange_id, s.industry_id, s.sector_id
       from securities s
@@ -243,6 +316,7 @@ module Postgres =
         and e.id in (@exchangeIds)
     """
     query
+      connection
       sql 
       [stringListParam "symbols" symbols; 
        intListParam "exchangeIds" <| Seq.flatMap (fun (e: Exchange) -> e.id) exchanges]
@@ -265,30 +339,30 @@ module Postgres =
     }
 
   // returns the most recent fully-or-partially-observed EOD bar for the given security as of the given time
-  let queryEodBar (time: ZonedDateTime) (securityId: SecurityId) =
+  let queryEodBar connection (time: ZonedDateTime) (securityId: SecurityId): Option<Bar> =
     let sql = """
       select * from eod_bars
       where security_id = @securityId and start_time <= @startTime
       order by start_time desc
       limit 1
     """
-    query sql [intParam "securityId" securityId; longParam "startTime" <| dateTimeToTimestamp time] toBar >> Seq.firstOption
+    query connection sql [intParam "securityId" securityId; longParam "startTime" <| dateTimeToTimestamp time] toBar |> Seq.firstOption
 
   // returns the most recent fully observed EOD bar for the given security as of the given time
-  let queryEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) =
+  let queryEodBarPriorTo connection (time: ZonedDateTime) (securityId: SecurityId): Option<Bar> =
     let sql = """
       select * from eod_bars
       where security_id = @securityId and end_time < @endTime
       order by end_time desc
       limit 1
     """
-    query sql [intParam "securityId" securityId; longParam "endTime" <| dateTimeToTimestamp time] toBar >> Seq.firstOption
+    query connection sql [intParam "securityId" securityId; longParam "endTime" <| dateTimeToTimestamp time] toBar |> Seq.firstOption
 
-  let queryEodBars (securityId: SecurityId) =
+  let queryEodBars connection (securityId: SecurityId): seq<Bar> =
     let sql = "select * from eod_bars where security_id = @securityId order by start_time"
-    query sql [intParam "securityId" securityId] toBar
+    query connection sql [intParam "securityId" securityId] toBar
 
-  let queryEodBarsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) =
+  let queryEodBarsBetween connection (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime): seq<Bar> =
     let sql = """
       select * from eod_bars 
       where security_id = @securityId
@@ -297,6 +371,7 @@ module Postgres =
       order by start_time
     """
     query
+      connection
       sql
       [
         intParam "securityId" securityId;
@@ -306,14 +381,14 @@ module Postgres =
       toBar
 
   // returns the oldest EOD bar on record for the given security
-  let findOldestEodBar (securityId: SecurityId) =
+  let findOldestEodBar connection (securityId: SecurityId): Option<Bar> =
     let sql = "select * from eod_bars where security_id = @securityId order by start_time"
-    query sql [intParam "securityId" securityId] toBar >> Seq.firstOption
+    query connection sql [intParam "securityId" securityId] toBar |> Seq.firstOption
 
   // returns the newest (most recent) EOD bar on record for the given security
-  let findMostRecentEodBar (securityId: SecurityId) =
+  let findMostRecentEodBar connection (securityId: SecurityId): Option<Bar> =
     let sql = "select * from eod_bars where security_id = @securityId order by start_time desc"
-    query sql [intParam "securityId" securityId] toBar >> Seq.firstOption
+    query connection sql [intParam "securityId" securityId] toBar |> Seq.firstOption
 
 
   // corporate action (split/dividend) queries
@@ -338,15 +413,15 @@ module Postgres =
       }
     | _ -> raise (new ArgumentException(sprintf "Unknown corporate action type: %s" kind))
 
-  let queryCorporateActions (securityIds: seq<SecurityId>) =
+  let queryCorporateActions connection (securityIds: seq<SecurityId>): array<CorporateAction> =
     let sql = """
       select id, type, security_id, declaration_date, ex_date, record_date, payable_date, number from corporate_actions
       where security_id in (@securityIds)
       order by ex_date
     """
-    query sql [intListParam "securityIds" securityIds] toCorporateAction >> Seq.toArray
+    query connection sql [intListParam "securityIds" securityIds] toCorporateAction |> Seq.toArray
 
-  let queryCorporateActionsBetween (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) =
+  let queryCorporateActionsBetween connection (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime): array<CorporateAction> =
     let sql = """
       select id, type, security_id, declaration_date, ex_date, record_date, payable_date, number from corporate_actions
       where security_id in (@securityIds)
@@ -355,6 +430,7 @@ module Postgres =
       order by ex_date
     """
     query
+      connection
       sql
       [
         intListParam "securityIds" securityIds;
@@ -362,7 +438,7 @@ module Postgres =
         longParam "endTime" <| dateTimeToTimestamp endTime
       ]
       toCorporateAction
-     >> Seq.toArray
+     |> Seq.toArray
 
 
   // quarterly report queries
@@ -380,7 +456,7 @@ module Postgres =
       cashFlowStatement = dbGetBytes reader "cash_flow_statement" |> toStatement
     }
 
-  let queryQuarterlyReport (time: ZonedDateTime) (securityId: SecurityId) = 
+  let queryQuarterlyReport connection (time: ZonedDateTime) (securityId: SecurityId): Option<QuarterlyReport> = 
     let sql = """
       select * from quarterly_reports
       where security_id = @securityId
@@ -389,15 +465,16 @@ module Postgres =
       limit 1
     """
     query
+      connection
       sql
       [
         intParam "securityId" securityId;
         longParam "startTime" <| dateTimeToTimestamp time
       ]
       toQuarterlyReport
-    >> Seq.firstOption
+    |> Seq.firstOption
 
-  let queryQuarterlyReportPriorTo (time: ZonedDateTime) (securityId: SecurityId) = 
+  let queryQuarterlyReportPriorTo connection (time: ZonedDateTime) (securityId: SecurityId): Option<QuarterlyReport> = 
     let sql = """
       select * from quarterly_reports
       where security_id = @securityId
@@ -406,19 +483,20 @@ module Postgres =
       limit 1
     """
     query
+      connection
       sql
       [
         intParam "securityId" securityId;
         longParam "endTime" <| dateTimeToTimestamp time
       ]
       toQuarterlyReport
-    >> Seq.firstOption
+    |> Seq.firstOption
 
-  let queryQuarterlyReports (securityId: SecurityId) = 
+  let queryQuarterlyReports connection (securityId: SecurityId): seq<QuarterlyReport> = 
     let sql = "select * from quarterly_reports where security_id = @securityId order by start_time"
-    query sql [intParam "securityId" securityId] toQuarterlyReport
+    query connection sql [intParam "securityId" securityId] toQuarterlyReport
 
-  let queryQuarterlyReportsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) = 
+  let queryQuarterlyReportsBetween connection (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime): seq<QuarterlyReport> = 
     let sql = """
       select * from quarterly_reports 
       where security_id = @securityId 
@@ -427,6 +505,7 @@ module Postgres =
       order by start_time
     """
     query
+      connection
       sql
       [
         intParam "securityId" securityId;
@@ -449,7 +528,7 @@ module Postgres =
       cashFlowStatement = dbGetBytes reader "cash_flow_statement" |> toStatement
     }
 
-  let queryAnnualReport (time: ZonedDateTime) (securityId: SecurityId) = 
+  let queryAnnualReport connection (time: ZonedDateTime) (securityId: SecurityId): Option<AnnualReport> = 
     let sql = """
       select * from annual_reports
       where security_id = @securityId
@@ -458,15 +537,16 @@ module Postgres =
       limit 1
     """
     query
+      connection
       sql
       [
         intParam "securityId" securityId;
         longParam "startTime" <| dateTimeToTimestamp time
       ]
       toAnnualReport
-    >> Seq.firstOption
+    |> Seq.firstOption
 
-  let queryAnnualReportPriorTo (time: ZonedDateTime) (securityId: SecurityId) = 
+  let queryAnnualReportPriorTo connection (time: ZonedDateTime) (securityId: SecurityId): Option<AnnualReport> = 
     let sql = """
       select * from annual_reports
       where security_id = @securityId
@@ -475,19 +555,20 @@ module Postgres =
       limit 1
     """
     query
+      connection
       sql
       [
         intParam "securityId" securityId;
         longParam "endTime" <| dateTimeToTimestamp time
       ]
       toAnnualReport
-    >> Seq.firstOption
+    |> Seq.firstOption
 
-  let queryAnnualReports (securityId: SecurityId) = 
+  let queryAnnualReports connection (securityId: SecurityId): seq<AnnualReport> = 
     let sql = "select * from annual_reports where security_id = @securityId order by start_time"
-    query sql [intParam "securityId" securityId] toAnnualReport
+    query connection sql [intParam "securityId" securityId] toAnnualReport
 
-  let queryAnnualReportsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) = 
+  let queryAnnualReportsBetween connection (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime): seq<AnnualReport> = 
     let sql = """
       select * from annual_reports 
       where security_id = @securityId 
@@ -496,6 +577,7 @@ module Postgres =
       order by start_time
     """
     query
+      connection
       sql
       [
         intParam "securityId" securityId;
@@ -562,27 +644,53 @@ module Postgres =
 
   // todo, implement trial select and insert queries
 
-let PostgresAdapater = {
-  findExchanges = Postgres.findExchanges
-  findSecurities = Postgres.findSecurities
 
-  queryEodBar = Postgres.queryEodBar
-  queryEodBarPriorTo = Postgres.queryEodBarPriorTo
-  queryEodBars = Postgres.queryEodBars
-  queryEodBarsBetween = Postgres.queryEodBarsBetween
-  findOldestEodBar = Postgres.findOldestEodBar
-  findMostRecentEodBar = Postgres.findMostRecentEodBar
+  let Adapter: DatabaseAdapter<NpgsqlConnection> = {
+    findExchanges = findExchanges
+    findSecurities = findSecurities
 
-  queryCorporateActions = Postgres.queryCorporateActions
-  queryCorporateActionsBetween = Postgres.queryCorporateActionsBetween
+    queryEodBar = queryEodBar
+    queryEodBarPriorTo = queryEodBarPriorTo
+    queryEodBars = queryEodBars
+    queryEodBarsBetween = queryEodBarsBetween
+    findOldestEodBar = findOldestEodBar
+    findMostRecentEodBar = findMostRecentEodBar
 
-  queryQuarterlyReport = Postgres.queryQuarterlyReport
-  queryQuarterlyReportPriorTo = Postgres.queryQuarterlyReportPriorTo
-  queryQuarterlyReports = Postgres.queryQuarterlyReports
-  queryQuarterlyReportsBetween = Postgres.queryQuarterlyReportsBetween
+    queryCorporateActions = queryCorporateActions
+    queryCorporateActionsBetween = queryCorporateActionsBetween
 
-  queryAnnualReport = Postgres.queryAnnualReport
-  queryAnnualReportPriorTo = Postgres.queryAnnualReportPriorTo
-  queryAnnualReports = Postgres.queryAnnualReports
-  queryAnnualReportsBetween = Postgres.queryAnnualReportsBetween
-}
+    queryQuarterlyReport = queryQuarterlyReport
+    queryQuarterlyReportPriorTo = queryQuarterlyReportPriorTo
+    queryQuarterlyReports = queryQuarterlyReports
+    queryQuarterlyReportsBetween = queryQuarterlyReportsBetween
+
+    queryAnnualReport = queryAnnualReport
+    queryAnnualReportPriorTo = queryAnnualReportPriorTo
+    queryAnnualReports = queryAnnualReports
+    queryAnnualReportsBetween = queryAnnualReportsBetween
+  }
+
+  let createDao connection: Dao<NpgsqlConnection> = {
+    findExchanges = Adapter.findExchanges connection
+    findSecurities = Adapter.findSecurities connection
+
+    queryEodBar = Adapter.queryEodBar connection
+    queryEodBarPriorTo = Adapter.queryEodBarPriorTo connection
+    queryEodBars = Adapter.queryEodBars connection
+    queryEodBarsBetween = Adapter.queryEodBarsBetween connection
+    findOldestEodBar = Adapter.findOldestEodBar connection
+    findMostRecentEodBar = Adapter.findMostRecentEodBar connection
+
+    queryCorporateActions = Adapter.queryCorporateActions connection
+    queryCorporateActionsBetween = Adapter.queryCorporateActionsBetween connection
+
+    queryQuarterlyReport = Adapter.queryQuarterlyReport connection
+    queryQuarterlyReportPriorTo = Adapter.queryQuarterlyReportPriorTo connection
+    queryQuarterlyReports = Adapter.queryQuarterlyReports connection
+    queryQuarterlyReportsBetween = Adapter.queryQuarterlyReportsBetween connection
+
+    queryAnnualReport = Adapter.queryAnnualReport connection
+    queryAnnualReportPriorTo = Adapter.queryAnnualReportPriorTo connection
+    queryAnnualReports = Adapter.queryAnnualReports connection
+    queryAnnualReportsBetween = Adapter.queryAnnualReportsBetween connection
+  }

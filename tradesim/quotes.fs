@@ -43,9 +43,9 @@ let barSimQuote (bar: Bar): decimal =
  *   ],
  *   unique: true)
  *)
-let queryEodBar (time: ZonedDateTime) (securityId: SecurityId) (adapter: DatabaseAdapter<_>) =
+let queryEodBar (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>) =
   Logging.info <| sprintf "queryEodBar %s %i" (time.ToString()) securityId
-  adapter.queryEodBar time securityId
+  dao.queryEodBar time securityId
 
 (*
  * Returns the most recent EOD bar for <symbol> occurring entirely before <date-time>.
@@ -62,29 +62,29 @@ let queryEodBar (time: ZonedDateTime) (securityId: SecurityId) (adapter: Databas
  *   ],
  *   unique: true)
  *)
-let queryEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) (adapter: DatabaseAdapter<'connectionT>) =
+let queryEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>) =
   Logging.info <| sprintf "queryEodBarPriorTo %s %i" (time.ToString()) securityId
-  adapter.queryEodBarPriorTo time securityId
+  dao.queryEodBarPriorTo time securityId
 
-let queryEodBars (securityId: SecurityId) (adapter: DatabaseAdapter<'connectionT>) =
+let queryEodBars (securityId: SecurityId) (dao: Dao<_>) =
   Logging.info <| sprintf "queryEodBars %i" securityId
-  adapter.queryEodBars securityId
+  dao.queryEodBars securityId
 
-let queryEodBarsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) (adapter: DatabaseAdapter<'connectionT>) connection: seq<Bar> =
+let queryEodBarsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) (dao: Dao<_>): seq<Bar> =
   Logging.info <| sprintf "queryEodBarsBetween %i %s %s" securityId (earliestTime.ToString()) (latestTime.ToString())
   let t1 = currentTime None
-  let result = adapter.queryEodBarsBetween securityId earliestTime latestTime connection
+  let result = dao.queryEodBarsBetween securityId earliestTime latestTime
   let t2 = currentTime None
   Logging.verbose <| sprintf "Time: %s" (prettyFormatPeriod <| periodBetween t1 t2)
   result
 
-let findOldestEodBar (securityId: SecurityId) dbAdapter connection: Option<Bar> =
+let findOldestEodBar (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
   info <| sprintf "findOldestEodBar(%i)" securityId
-  dbAdapter.findOldestEodBar securityId connection
+  dao.findOldestEodBar securityId
 
-let findMostRecentEodBar (securityId: SecurityId) dbAdapter connection: Option<Bar> =
+let findMostRecentEodBar (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
   info <| sprintf "findMostRecentEodBar(%i)" securityId
-  dbAdapter.findMostRecentEodBar securityId connection
+  (dao: Dao<_>).findMostRecentEodBar securityId
 
 
 type PriceHistory = TreeDictionary<int64, Bar>   // a price history is a collection of (timestamp -> Bar) pairs
@@ -95,12 +95,11 @@ let loadPriceHistoryFromBars (bars: seq<Bar>): PriceHistory =
   priceHistory
 
 // note: compare this definition to the definition of loadPriceHistoryBetween. Which is preferable?
-let loadPriceHistory<'connectionT> : SecurityId -> DatabaseAdapter<'connectionT> -> 'connectionT -> PriceHistory = 
-  composelr3 queryEodBars loadPriceHistoryFromBars
+let loadPriceHistory (securityId: SecurityId) (dao: Dao<_>): PriceHistory = queryEodBars securityId dao |> loadPriceHistoryFromBars
 
 // note: compare this definition to the definition of loadPriceHistory. Which is preferable?
-let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) dbAdapter connection = 
-  queryEodBarsBetween securityId earliestTime latestTime dbAdapter connection |> loadPriceHistoryFromBars
+let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) (dao: Dao<_>): PriceHistory = 
+  queryEodBarsBetween securityId earliestTime latestTime dao |> loadPriceHistoryFromBars
 
 
 let mostRecentBar (priceHistory: PriceHistory) (timestamp: int64): Option<Bar> =
@@ -112,7 +111,7 @@ let getPriceHistory = get priceHistoryCache
 let putPriceHistory = put priceHistoryCache
 
 // loads up 5 years of price history
-let findPriceHistory (year: int) (securityId: SecurityId) dbAdapter connection: PriceHistory =
+let findPriceHistory (year: int) (securityId: SecurityId) (dao: Dao<_>): PriceHistory =
   let startYear = year - year % 5
   let priceHistoryId = sprintf "%i:%i" securityId startYear
   let cachedPriceHistory = getPriceHistory priceHistoryId
@@ -121,27 +120,27 @@ let findPriceHistory (year: int) (securityId: SecurityId) dbAdapter connection: 
   | None ->
     let endYear = startYear + 4
     // load 5 calendar years of price history into a TreeDictionary
-    let newPriceHistory = loadPriceHistoryBetween securityId <| datetime startYear 1 1 0 0 0 <| datetime endYear 12 31 23 59 59 <| dbAdapter <| connection
+    let newPriceHistory = loadPriceHistoryBetween securityId <| datetime startYear 1 1 0 0 0 <| datetime endYear 12 31 23 59 59 <| dao
     putPriceHistory priceHistoryId newPriceHistory
     newPriceHistory
 
-let mostRecentBarFromYear (time: ZonedDateTime) (securityId: SecurityId) (year: int) dbAdapter connection =
-  let priceHistory = findPriceHistory year securityId dbAdapter connection
+let mostRecentBarFromYear (time: ZonedDateTime) (securityId: SecurityId) (year: int) (dao: Dao<_>) =
+  let priceHistory = findPriceHistory year securityId dao
   mostRecentBar priceHistory <| dateTimeToTimestamp time
 
-let findEodBar (time: ZonedDateTime) (securityId: SecurityId) dbAdapter connection: Option<Bar> =
+let findEodBar (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
   let year = time.Year
-  mostRecentBarFromYear time securityId year dbAdapter connection 
-  |> Option.orElseLazy (lazy (mostRecentBarFromYear time securityId (year - 1) dbAdapter connection))
-  |> Option.orElseLazy (lazy (queryEodBar time securityId dbAdapter connection))
+  mostRecentBarFromYear time securityId year dao
+  |> Option.orElseLazy (lazy (mostRecentBarFromYear time securityId (year - 1) dao))
+  |> Option.orElseLazy (lazy (queryEodBar time securityId dao))
 
-let findEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) dbAdapter connection: Option<Bar> =
-  findEodBar time securityId dbAdapter connection
+let findEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
+  findEodBar time securityId dao
   |> Option.flatMap 
     (fun bar ->
       if isInstantBetween time bar.startTime bar.endTime then
         let minimallyEarlierTime = bar.startTime - Duration.FromMilliseconds(1L)
-        findEodBar minimallyEarlierTime securityId dbAdapter connection
+        findEodBar minimallyEarlierTime securityId dao
       else
         Some bar
     )

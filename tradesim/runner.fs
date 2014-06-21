@@ -62,20 +62,19 @@ let main argv =
     elif options.Scenario <> null then
       info <| sprintf "run scenario %A" options.Scenario
       let connection = Postgres.connect "localhost" 5432 "david" "" "tradesim"
+      let dao = Postgres.createDao connection
 
       connection 
       |> Postgres.allExchanges 
       |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
 
       info "********************************************************************"
-      connection 
-      |> Postgres.findExchanges ["UQ"; "UA"]
+      dao.findExchanges <| Seq.ofList ["UQ"; "UA"]
       |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
 
       info "********************************************************************"
-      connection 
-      |> (Postgres.findSecurities <| Postgres.allExchanges connection <| ["AAPL"; "MSFT"])
-      |> Seq.iter (fun e -> info <| sprintf "security: %A" e) 
+      dao.findSecurities <| Postgres.allExchanges connection <| Seq.ofList ["AAPL"; "MSFT"]
+      |> Seq.iter (fun e -> info <| sprintf "security: %A" e)
     )
   |> ignore
 

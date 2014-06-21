@@ -1,6 +1,7 @@
 ﻿module dke.tradesim.Core
 
 open System.Collections.Immutable
+open FSharpx.Collections
 open NodaTime
 
 open Time
@@ -196,7 +197,7 @@ type BaseStrategyState = {
   previousTime: ZonedDateTime
   time: ZonedDateTime
   portfolio: Portfolio
-  orders: ImmutableArray<Order>
+  orders: Vector<Order>
   transactions: TransactionLog
   portfolioValueHistory: seq<PortfolioValue>
 }
@@ -205,16 +206,16 @@ type StrategyState<'stateT> = {
   previousTime: 'stateT -> ZonedDateTime
   time: 'stateT -> ZonedDateTime
   portfolio: 'stateT -> Portfolio
-  orders: 'stateT -> ImmutableArray<Order>
+  orders: 'stateT -> Vector<Order>
   transactions: 'stateT -> TransactionLog
   portfolioValueHistory: 'stateT -> seq<PortfolioValue>
 
   // (time: ZonedDateTime) -> (principal: decimal) -> 'stateT
   initialize: ZonedDateTime -> decimal -> 'stateT
 
-  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: ImmutableArray<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 'stateT
-//  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> ImmutableArray<Order> -> TransactionLog -> seq<PortfolioValue> -> 'stateT
-  withOrders: ImmutableArray<Order> -> 'stateT -> 'stateT
+  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: Vector<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 'stateT
+//  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> Vector<Order> -> TransactionLog -> seq<PortfolioValue> -> 'stateT
+  withOrders: Vector<Order> -> 'stateT -> 'stateT
 }
 
 // TradingStrategy typeclass

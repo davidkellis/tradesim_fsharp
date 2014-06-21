@@ -2,7 +2,7 @@
 
 open NodaTime
 open FSharpx
-open System.Collections.Immutable
+open FSharpx.Collections
 
 open Math
 open Core
@@ -126,11 +126,13 @@ let computeOrderFillPrice (order: Order) (time: ZonedDateTime) (purchaseFillPric
   | MarketSell {securityId = sId} | LimitSell {securityId = sId} -> saleFillPriceFn time sId
 
 let cancelAllPendingOrders (currentState: 'stateT) (stateInterface: StrategyState<'stateT>): 'stateT = 
-  currentState |> stateInterface.withOrders (ImmutableArray.Create())
+  currentState |> stateInterface.withOrders (Vector.empty)
 
 
 let buy (currentState: 'stateT) (time: ZonedDateTime) (securityId: SecurityId) (qty: int64) (stateInterface: StrategyState<'stateT>): 'stateT =
-  let newOrders = (stateInterface.orders currentState).Add(MarketBuy {time = time; securityId = securityId; qty = qty; fillPrice = None})
+  let newOrder = MarketBuy {time = time; securityId = securityId; qty = qty; fillPrice = None}
+  let currentOrders = stateInterface.orders currentState
+  let newOrders = Vector.conj newOrder currentOrders
   currentState |> stateInterface.withOrders newOrders
 
 let buyImmediately (currentState: 'stateT) (securityId: SecurityId) (qty: int64) (stateInterface: StrategyState<'stateT>): 'stateT =
@@ -139,13 +141,13 @@ let buyImmediately (currentState: 'stateT) (securityId: SecurityId) (qty: int64)
 
 let buyEqually (trial: Trial) 
                (currentState: 'stateT) 
-               (securityIds: ImmutableArray<SecurityId>) 
+               (securityIds: Vector<SecurityId>) 
                (bestOfferPriceFn: PriceQuoteFn) 
                (stateInterface: StrategyState<'stateT>): 'stateT =
   let count = securityIds.Length
   let cash = cashOnHand currentState stateInterface
   let principalPerSecurity = cash / decimal count
-  Seq.fold 
+  Vector.fold 
     (fun state securityId ->
       let qty = maxSharesPurchasable trial principalPerSecurity (stateInterface.time currentState) securityId bestOfferPriceFn
       qty |> Option.map (fun qty -> buyImmediately state securityId (Math.floor qty |> int64) stateInterface) |> Option.getOrElse(state)
@@ -153,38 +155,42 @@ let buyEqually (trial: Trial)
     currentState
     securityIds
 
-//let limitBuy<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64, limitPrice: decimal): StateT = {
-//  let newOrders = currentState.orders :+ LimitBuy(time, securityId, qty, limitPrice, None)
-//  currentState.copy(orders = newOrders)
-//}
-//
-//// this should be merged with sellImmediately
-//let sell<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64): StateT = {
-//  let newOrders = currentState.orders :+ MarketSell(time, securityId, qty, None)
-//  currentState.copy(orders = newOrders)
-//}
-//
-//let sellImmediately<StateT <: State<StateT>>(currentState: StateT, securityId: SecurityId, qty: int64): StateT = sell(currentState, currentState.time, securityId, qty)
-//
-//let limitSell<StateT <: State<StateT>>(currentState: StateT, time: DateTime, securityId: SecurityId, qty: int64, limitPrice: decimal): StateT = {
-//  let newOrders = currentState.orders :+ LimitSell(time, securityId, qty, limitPrice, None)
-//  currentState.copy(orders = newOrders)
-//}
-//
-//let closeOpenStockPosition<StateT <: State<StateT>>(currentState: StateT, securityId: SecurityId): StateT = {
-//  let qtyOnHand = sharesOnHand(currentState.portfolio, securityId)
-//  qtyOnHand match {
-//    case qty if qty > 0 => sellImmediately(currentState, securityId, qtyOnHand)    // we own shares, so sell them
-//    case qty if qty < 0 => buyImmediately(currentState, securityId, -qtyOnHand)    // we owe a share debt, so buy those shares back (we negate qtyOnHand because it is negative, and we want to buy a positive quantity)
-//    case 0 => currentState
-//  }
-//}
-//
-//let closeAllOpenStockPositions<StateT <: State<StateT>>(currentState: StateT): StateT = {
-//  let stocks = currentState.portfolio.stocks
-//  if (!stocks.isEmpty)
-//    stocks.keys.foldLeft(currentState)(closeOpenStockPosition)
-//  else
-//    currentState
-//}
-//
+let limitBuy (currentState: 'stateT) (time: ZonedDateTime) (securityId: SecurityId) (qty: int64) (limitPrice: decimal) (stateInterface: StrategyState<'stateT>): 'stateT =
+  let newOrder = LimitBuy {time = time; securityId = securityId; qty = qty; limitPrice = limitPrice; fillPrice = None}
+  let currentOrders = stateInterface.orders currentState
+  let newOrders = Vector.conj newOrder currentOrders
+  currentState |> stateInterface.withOrders newOrders
+
+// this should be merged with sellImmediately
+let sell (currentState: 'stateT) (time: ZonedDateTime) (securityId: SecurityId) (qty: int64) (stateInterface: StrategyState<'stateT>): 'stateT =
+  let newOrder = MarketSell {time = time; securityId = securityId; qty = qty; fillPrice = None}
+  let currentOrders = stateInterface.orders currentState
+  let newOrders = Vector.conj newOrder currentOrders
+  currentState |> stateInterface.withOrders newOrders
+
+let sellImmediately (currentState: 'stateT) (securityId: SecurityId) (qty: int64) (stateInterface: StrategyState<'stateT>): 'stateT =
+  let time = stateInterface.time currentState
+  sell currentState time securityId qty stateInterface
+
+let limitSell (currentState: 'stateT) (time: ZonedDateTime) (securityId: SecurityId) (qty: int64) (limitPrice: decimal) (stateInterface: StrategyState<'stateT>): 'stateT =
+  let newOrder = LimitSell {time = time; securityId = securityId; qty = qty; limitPrice = limitPrice; fillPrice = None}
+  let currentOrders = stateInterface.orders currentState
+  let newOrders = Vector.conj newOrder currentOrders
+  currentState |> stateInterface.withOrders newOrders
+
+let closeOpenStockPosition (currentState: 'stateT) (securityId: SecurityId) (stateInterface: StrategyState<'stateT>): 'stateT = 
+  let portfolio = stateInterface.portfolio currentState
+  let qtyOnHand = sharesOnHand portfolio securityId
+  if qtyOnHand > 0L then
+    sellImmediately currentState securityId qtyOnHand stateInterface    // we own shares, so sell them
+  elif qtyOnHand < 0L then
+    buyImmediately currentState securityId -qtyOnHand stateInterface    // we owe a share debt, so buy those shares back (we negate qtyOnHand because it is negative, and we want to buy a positive quantity)
+  else
+    currentState
+
+let closeAllOpenStockPositions (currentState: 'stateT) (stateInterface: StrategyState<'stateT>): 'stateT =
+  let stocks = (stateInterface.portfolio currentState).stocks
+  if not stocks.IsEmpty then
+    Seq.fold (fun state securityId -> closeOpenStockPosition state securityId stateInterface) currentState stocks.Keys
+  else
+    currentState

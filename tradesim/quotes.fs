@@ -87,10 +87,10 @@ let findMostRecentEodBar (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
   (dao: Dao<_>).findMostRecentEodBar securityId
 
 
-type PriceHistory = TreeDictionary<int64, Bar>   // a price history is a collection of (timestamp -> Bar) pairs
+type PriceHistory = TreeDictionary<timestamp, Bar>   // a price history is a collection of (timestamp -> Bar) pairs
 
 let loadPriceHistoryFromBars (bars: seq<Bar>): PriceHistory =
-  let priceHistory: PriceHistory = new TreeDictionary<int64, Bar>()
+  let priceHistory: PriceHistory = new PriceHistory()
   Seq.iter (fun (bar: Bar) -> priceHistory.Add(dateTimeToTimestamp bar.startTime, bar)) bars
   priceHistory
 

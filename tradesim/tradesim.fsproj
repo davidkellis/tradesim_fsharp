@@ -82,6 +82,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="stdlib.fs" />
     <Compile Include="math.fs" />
+    <Compile Include="string.fs" />
     <Compile Include="seq.fs" />
     <Compile Include="option.fs" />
     <Compile Include="cache.fs" />
@@ -94,6 +95,7 @@
     <Compile Include="ordering.fs" />
     <Compile Include="db.fs" />
     <Compile Include="quotes.fs" />
+    <Compile Include="corporateActions.fs" />
     <Compile Include="minterval_tests.fs" />
     <Compile Include="runner.fs" />
   </ItemGroup>

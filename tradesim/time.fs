@@ -72,6 +72,9 @@ let localDateToDateTime (date: LocalDate) (hour: int) (minute: int) (second: int
 let timestampPattern = ZonedDateTimePattern.CreateWithInvariantCulture("yyyyMMddHHmmss", DateTimeZoneProviders.Tzdb)
 let dateTimeToTimestampStr (time: ZonedDateTime): string = timestampPattern.Format(time)
 let dateTimeToTimestamp (time: ZonedDateTime): timestamp = Int64.Parse(dateTimeToTimestampStr time)
+let zonedDatestampPattern = ZonedDateTimePattern.CreateWithInvariantCulture("yyyyMMdd", DateTimeZoneProviders.Tzdb)
+let dateTimeToDatestampStr (time: ZonedDateTime): string = zonedDatestampPattern.Format(time)
+let dateTimeToDatestamp (time: ZonedDateTime): datestamp = Int32.Parse(dateTimeToDatestampStr time)
 
 let date (year: int) (month: int) (day: int) = new LocalDate(year, month, day)
 
@@ -83,6 +86,10 @@ let datestampToDate (datestamp: datestamp): LocalDate =
   let month = System.Convert.ToInt32(ds.Substring(4, 6))
   let day = System.Convert.ToInt32(ds.Substring(6, 8))
   date year month day
+
+let datestampPattern = LocalDatePattern.CreateWithInvariantCulture("yyyyMMdd")
+let localDateToDatestampStr (date: LocalDate): string = datestampPattern.Format(date)
+let localDateToDatestamp (date: LocalDate): datestamp = Int32.Parse(localDateToDatestampStr date)
 
 let years n: Period = Period.FromYears(n)
 let days n: Period = Period.FromDays(n)

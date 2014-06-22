@@ -40,10 +40,10 @@ type DatabaseAdapter<'dbConnection> = {
 
 
   // (securityIds: IndexedSeq<int>): IndexedSeq<CorporateAction>
-  queryCorporateActions: 'dbConnection -> array<int> -> array<CorporateAction>
+  queryCorporateActions: 'dbConnection -> seq<int> -> seq<CorporateAction>
 
   // (securityIds: IndexedSeq<int>, startTime: DateTime, endTime: DateTime): IndexedSeq<CorporateAction>
-  queryCorporateActionsBetween: 'dbConnection -> array<int> -> ZonedDateTime -> ZonedDateTime -> array<CorporateAction>
+  queryCorporateActionsBetween: 'dbConnection -> seq<int> -> ZonedDateTime -> ZonedDateTime -> seq<CorporateAction>
 
 
   // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
@@ -113,10 +113,10 @@ type Dao<'dbConnection> = {
 
 
   // (securityIds: IndexedSeq<int>): IndexedSeq<CorporateAction>
-  queryCorporateActions: array<int> -> array<CorporateAction>
+  queryCorporateActions: seq<int> -> seq<CorporateAction>
 
   // (securityIds: IndexedSeq<int>, startTime: DateTime, endTime: DateTime): IndexedSeq<CorporateAction>
-  queryCorporateActionsBetween: array<int> -> ZonedDateTime -> ZonedDateTime -> array<CorporateAction>
+  queryCorporateActionsBetween: seq<int> -> ZonedDateTime -> ZonedDateTime -> seq<CorporateAction>
 
 
   // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
@@ -413,15 +413,15 @@ module Postgres =
       }
     | _ -> raise (new ArgumentException(sprintf "Unknown corporate action type: %s" kind))
 
-  let queryCorporateActions connection (securityIds: seq<SecurityId>): array<CorporateAction> =
+  let queryCorporateActions connection (securityIds: seq<SecurityId>): seq<CorporateAction> =
     let sql = """
       select id, type, security_id, declaration_date, ex_date, record_date, payable_date, number from corporate_actions
       where security_id in (@securityIds)
       order by ex_date
     """
-    query connection sql [intListParam "securityIds" securityIds] toCorporateAction |> Seq.toArray
+    query connection sql [intListParam "securityIds" securityIds] toCorporateAction
 
-  let queryCorporateActionsBetween connection (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime): array<CorporateAction> =
+  let queryCorporateActionsBetween connection (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime): seq<CorporateAction> =
     let sql = """
       select id, type, security_id, declaration_date, ex_date, record_date, payable_date, number from corporate_actions
       where security_id in (@securityIds)
@@ -438,7 +438,6 @@ module Postgres =
         longParam "endTime" <| dateTimeToTimestamp endTime
       ]
       toCorporateAction
-     |> Seq.toArray
 
 
   // quarterly report queries

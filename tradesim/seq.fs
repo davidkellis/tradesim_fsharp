@@ -27,3 +27,13 @@ let treeMap<'k, 'v when 'k : comparison> (entities: seq<'v>) (keyExtractorFn: 'v
   Seq.iter (fun value -> tree.Add(keyExtractorFn value, value)) entities
   tree
 
+
+let iterIEnumerable (fn: 'x -> unit) (xs: System.Collections.Generic.IEnumerable<'x>): unit =
+  for x in xs do
+    fn x
+
+let mapIEnumerator (fn: 'x -> 'y) (xs: System.Collections.Generic.IEnumerator<'x>): seq<'y> =
+  seq { 
+    while xs.MoveNext() do
+      yield fn xs.Current
+  }

@@ -53,20 +53,21 @@ let findCorporateActionHistory(securityId: SecurityId) (dao: Dao<_>): CorporateA
       putCorporateActionHistory securityId newCorporateActionHistory
       newCorporateActionHistory
 
-let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime: ZonedDateTime) (endTime: ZonedDateTime): array<CorporateAction> =
+let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime: ZonedDateTime) (endTime: ZonedDateTime): seq<CorporateAction> =
   let startTimestamp = dateTimeToDatestamp startTime
   let endTimestamp = (dateTimeToDatestamp endTime) + 1    // add 1 because RangeFromTo includes the start and excludes the end, so adding 1 ensures that we include the end
   let subHistory = history.RangeFromTo(startTimestamp, endTimestamp)
-  let corporateActions = Seq.mapIEnumerator (fun (pair: KeyValuePair<datestamp, CorporateAction>) -> pair.Value) (subHistory.GetEnumerator())
+//  let corporateActions = Seq.mapIEnumerator (fun (pair: KeyValuePair<datestamp, CorporateAction>) -> pair.Value) (subHistory.GetEnumerator())
+  Seq.mapIEnumerator (fun (pair: KeyValuePair<datestamp, CorporateAction>) -> pair.Value) (subHistory.GetEnumerator())
 //    println(s"findCorporateActionsFromHistory(history, $startTime, $endTime) -> ${corporateActions.toVector}")
-  Seq.toArray corporateActions
+//  Seq.toArray corporateActions
 
-//let findCorporateActions(securityId: SecurityId, startTime: DateTime, endTime: DateTime): Vector<CorporateAction> = {
-//  let history = findCorporateActionHistory(securityId)
-//  findCorporateActionsFromHistory(history, startTime, endTime)
-//}
-//let findCorporateActions(securityIds: Vector<int>, startTime: DateTime, endTime: DateTime): Vector<CorporateAction> =
-//  securityIds.flatMap(findCorporateActions(_, startTime, endTime))
+//let findCorporateActionsForSecurity (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
+//  let history = findCorporateActionHistory securityId dao
+//  findCorporateActionsFromHistory history startTime endTime
+//
+//let findCorporateActions (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
+//  Seq.flatMap (fun securityId -> findCorporateActionsForSecurity securityId startTime endTime dap) securityIds
 //
 //let findEodBarPriorToCorporateAction(corporateAction: CorporateAction): Option<Bar> =
 //  findEodBarPriorTo(midnight(corporateAction.exDate), corporateAction.securityId)
@@ -74,7 +75,7 @@ let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime
 //// computes a cumulative price adjustment factor
 //let cumulativePriceAdjustmentFactor(securityId: SecurityId, startTime: DateTime, endTime: DateTime): decimal =
 //  priceAdjustmentFactors(securityId, startTime, endTime).map(_.adjustmentFactor).foldLeft(decimal(1))(_ * _)
-//
+
 ///**
 // * Returns a sequence of <corporate-action, prior-eod-bar, adjustment-factor> tuples ordered in ascending (i.e. oldest to most recent) order of the corporate action's ex-date.
 // * The first element of the tuple, <corporate-action> is the corporate action from which the <adjustment-factor> is computed.

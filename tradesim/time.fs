@@ -94,7 +94,16 @@ let localDateToDatestamp (date: LocalDate): datestamp = Int32.Parse(localDateToD
 let years n: Period = Period.FromYears(n)
 let days n: Period = Period.FromDays(n)
 let hours n: Period = Period.FromHours(n)
+let minutes n: Period = Period.FromMinutes(n)
 let seconds n: Period = Period.FromSeconds(n)
+
+let hoursD n: Duration = Duration.FromHours(n)
+let minutesD n: Duration = Duration.FromMinutes(n)
+let secondsD n: Duration = Duration.FromSeconds(n)
+let millisD n: Duration = Duration.FromMilliseconds(n)
+
+let midnightOnDate (date: LocalDate): ZonedDateTime = localDateToDateTime date 0 0 0
+let midnight (time: ZonedDateTime): ZonedDateTime = datetime time.Year time.Month time.Day 0 0 0
 
 let compareDateTimes (t1: ZonedDateTime) (t2: ZonedDateTime): int = t1.CompareTo(t2)
 

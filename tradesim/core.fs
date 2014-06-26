@@ -131,6 +131,14 @@ type CorporateAction =
   SplitCA of Split
   | CashDividendCA of CashDividend
 
+let corporateActionSecurityId = function
+  | SplitCA split -> split.securityId
+  | CashDividendCA dividend -> dividend.securityId
+
+let corporateActionExDate = function
+  | SplitCA split -> split.exDate
+  | CashDividendCA dividend -> dividend.exDate
+
 
 // quarterly and annual report types
 

@@ -31,10 +31,7 @@ let loadCorporateActionHistory (securityId: SecurityId) (dao: Dao<_>): Corporate
   let corporateActions = queryCorporateActions [securityId] dao
   let corporateActionHistory = new CorporateActionHistory()
   Seq.iter 
-    (function
-     | SplitCA split as ca -> corporateActionHistory.Add(localDateToDatestamp split.exDate, ca)
-     | CashDividendCA dividend as ca-> corporateActionHistory.Add(localDateToDatestamp dividend.exDate, ca)
-    )
+    (fun ca -> corporateActionHistory.Add(localDateToDatestamp <| corporateActionExDate ca, ca) )
     corporateActions
   corporateActionHistory
 
@@ -62,52 +59,17 @@ let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime
 //    println(s"findCorporateActionsFromHistory(history, $startTime, $endTime) -> ${corporateActions.toVector}")
 //  Seq.toArray corporateActions
 
-//let findCorporateActionsForSecurity (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
-//  let history = findCorporateActionHistory securityId dao
-//  findCorporateActionsFromHistory history startTime endTime
-//
-//let findCorporateActions (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
-//  Seq.flatMap (fun securityId -> findCorporateActionsForSecurity securityId startTime endTime dap) securityIds
-//
-//let findEodBarPriorToCorporateAction(corporateAction: CorporateAction): Option<Bar> =
-//  findEodBarPriorTo(midnight(corporateAction.exDate), corporateAction.securityId)
-//
-//// computes a cumulative price adjustment factor
-//let cumulativePriceAdjustmentFactor(securityId: SecurityId, startTime: DateTime, endTime: DateTime): decimal =
-//  priceAdjustmentFactors(securityId, startTime, endTime).map(_.adjustmentFactor).foldLeft(decimal(1))(_ * _)
+let findCorporateActionsForSecurity (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
+  let history = findCorporateActionHistory securityId dao
+  findCorporateActionsFromHistory history startTime endTime
 
-///**
-// * Returns a sequence of <corporate-action, prior-eod-bar, adjustment-factor> tuples ordered in ascending (i.e. oldest to most recent) order of the corporate action's ex-date.
-// * The first element of the tuple, <corporate-action> is the corporate action from which the <adjustment-factor> is computed.
-// * The second element of the tuple, <prior-eod-bar> is the most recent EOD bar prior to the <corporate-action>.
-// * The last element of the tuple, <adjustment-factor> is the adjustment factor for the given <corporate-action>.
-// * NOTE:
-// *   The <adjustment-factor> can be
-// *   multiplied by a particular unadjusted historical price in order to compute a corporate-action-adjusted historical price. A given unadjusted
-// *   historical share count can be divided by the <adjustment-factor> to compute the associated corporate-action-adjusted historical share count (e.g.
-// *   to produce an adjusted share volume or an adjusted "shares outstanding" measurement).
-// *   Each adjustment-factor is not cumulative, it is specifically tied to a particular corporate-action.
-// *   The definition of the adjustment-factor is taken from http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html:
-// *   "Factor from a base date used to adjust prices after distributions so that equivalent comparisons can be made between prices before and after the distribution."
-// */
-//let priceAdjustmentFactors(securityId: SecurityId, startTime: DateTime, endTime: DateTime): Vector<AdjustmentFactor> = {
-//  if (isBefore(startTime, endTime)) {
-//    let corporateActions = findCorporateActions(securityId, startTime, endTime)
-//    let corporateActionEodBarPairs = corporateActions.map(corporateAction => (corporateAction, findEodBarPriorToCorporateAction(corporateAction)) )
-//    corporateActionEodBarPairs.foldLeft(Vector<AdjustmentFactor>()) { (adjustmentFactors, actionBarPair) =>
-//      let (corporateAction, priorEodBar) = actionBarPair
-//      adjustmentFactors :+ AdjustmentFactor(corporateAction, priorEodBar, computeAdjustmentFactor(corporateAction, priorEodBar, adjustmentFactors))
-//    }
-//  } else Vector<AdjustmentFactor>()
-//}
-//
-//let computeAdjustmentFactor(corporateAction: CorporateAction, priorEodBar: Option<Bar>, priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal = {
-//  corporateAction match {
-//    case Split(_, _, ratio) => computeSplitAdjustmentFactor(ratio)
-//    case CashDividend(symbol, _, exDate, _, _, amount) => computeDividendAdjustmentFactor(corporateAction.asInstanceOf<CashDividend>, priorEodBar, priorAdjustmentFactors)
-//  }
-//}
-//
+let findCorporateActions (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
+  Seq.flatMap (fun securityId -> findCorporateActionsForSecurity securityId startTime endTime dao) securityIds
+
+let findEodBarPriorToCorporateAction (corporateAction: CorporateAction) dao: Option<Bar> =
+  findEodBarPriorTo <| midnightOnDate (corporateActionExDate corporateAction) <| corporateActionSecurityId corporateAction <| dao
+
+// todo, resume work here
 ///**
 // * See http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html for implementation notes.
 // * Returns an adjustment factor that:
@@ -140,6 +102,48 @@ let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime
 //  applicableAdjustmentFactors.map(_.adjustmentFactor).foldLeft(decimal(1))(_ * _)
 //}
 //
+//let computeAdjustmentFactor(corporateAction: CorporateAction, priorEodBar: Option<Bar>, priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal = {
+//  corporateAction match {
+//    case Split(_, _, ratio) => computeSplitAdjustmentFactor(ratio)
+//    case CashDividend(symbol, _, exDate, _, _, amount) => computeDividendAdjustmentFactor(corporateAction.asInstanceOf<CashDividend>, priorEodBar, priorAdjustmentFactors)
+//  }
+//}
+
+
+(*
+ * Returns a sequence of <corporate-action, prior-eod-bar, adjustment-factor> tuples ordered in ascending (i.e. oldest to most recent) order of the corporate action's ex-date.
+ * The first element of the tuple, <corporate-action> is the corporate action from which the <adjustment-factor> is computed.
+ * The second element of the tuple, <prior-eod-bar> is the most recent EOD bar prior to the <corporate-action>.
+ * The last element of the tuple, <adjustment-factor> is the adjustment factor for the given <corporate-action>.
+ * NOTE:
+ *   The <adjustment-factor> can be
+ *   multiplied by a particular unadjusted historical price in order to compute a corporate-action-adjusted historical price. A given unadjusted
+ *   historical share count can be divided by the <adjustment-factor> to compute the associated corporate-action-adjusted historical share count (e.g.
+ *   to produce an adjusted share volume or an adjusted "shares outstanding" measurement).
+ *   Each adjustment-factor is not cumulative, it is specifically tied to a particular corporate-action.
+ *   The definition of the adjustment-factor is taken from http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html:
+ *   "Factor from a base date used to adjust prices after distributions so that equivalent comparisons can be made between prices before and after the distribution."
+ *)
+let priceAdjustmentFactors (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: List<AdjustmentFactor> =
+  if startTime < endTime then
+    let corporateActions = findCorporateActionsForSecurity securityId startTime endTime dao
+    let corporateActionEodBarPairs = Seq.map (fun corporateAction -> (corporateAction, findEodBarPriorToCorporateAction corporateAction dao) ) corporateActions
+    Seq.fold
+      (fun adjustmentFactors (corporateAction, priorEodBar) -> 
+         let adjustmentFactor = {corporateAction = corporateAction; 
+                                 priorEodBar = priorEodBar; 
+                                 adjustmentFactor = computeAdjustmentFactor corporateAction priorEodBar adjustmentFactors}
+         adjustmentFactor :: adjustmentFactors
+      )
+      List.empty<AdjustmentFactor>
+      corporateActionEodBarPairs
+  else
+    List.empty<AdjustmentFactor>
+
+// computes a cumulative price adjustment factor
+let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime): decimal =
+  priceAdjustmentFactors(securityId, startTime, endTime).map(_.adjustmentFactor).foldLeft(decimal(1))(_ * _)
+
 ///**
 // * Given a price, <price>, of <symbol> that was observed at <price-observation-time>,
 // * returns an adjusted price that (using <price> as a base price) has been adjusted for corporate actions that take effect between

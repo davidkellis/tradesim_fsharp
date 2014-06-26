@@ -8,8 +8,8 @@ let iterate f x =
   let rec iterate' x = seq { yield x; yield! iterate' <| f x }
   iterate' x
 
-// e.g. Seq.flatMap (fun (e: Exchange) -> e.id) exchanges
-let flatMap (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> = 
+// e.g. Seq.flatMapO (fun (e: Exchange) -> e.id) exchanges
+let flatMapO (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> = 
   Seq.fold
     (fun memo t -> 
       let optU = f t
@@ -19,6 +19,13 @@ let flatMap (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> =
     []
     ts
   |> List.toSeq
+
+// e.g. Seq.flatMap (fun (e: Exchange) -> getSecurities e) exchanges
+let flatMap (f: 't -> seq<'u>) (ts: seq<'t>): seq<'u> = 
+  Seq.fold
+    (fun memo t -> Seq.append memo (f t))
+    Seq.empty
+    ts
 
 let firstOption (xs: seq<'t>): Option<'t> = Seq.tryPick Some xs
 

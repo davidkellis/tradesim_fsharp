@@ -319,7 +319,7 @@ module Postgres =
       connection
       sql 
       [stringListParam "symbols" symbols; 
-       intListParam "exchangeIds" <| Seq.flatMap (fun (e: Exchange) -> e.id) exchanges]
+       intListParam "exchangeIds" <| Seq.flatMapO (fun (e: Exchange) -> e.id) exchanges]
       toSecurity
 
 

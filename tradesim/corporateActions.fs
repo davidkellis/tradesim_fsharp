@@ -2,6 +2,7 @@
 
 open C5
 open FSharpx.Collections
+open FSharpx
 open NodaTime
 
 open Math
@@ -69,45 +70,45 @@ let findCorporateActions (securityIds: seq<SecurityId>) (startTime: ZonedDateTim
 let findEodBarPriorToCorporateAction (corporateAction: CorporateAction) dao: Option<Bar> =
   findEodBarPriorTo <| midnightOnDate (corporateActionExDate corporateAction) <| corporateActionSecurityId corporateAction <| dao
 
-// todo, resume work here
-///**
-// * See http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html for implementation notes.
-// * Returns an adjustment factor that:
-// * 1. when multiplied by an unadjusted stock price, yields an adjusted stock price. i.e. unadjusted-price * adjustment-factor = adjusted-price
-// * 2. when divided into an unadjusted share count, yields an adjusted share count. i.e. unadjusted-qty / adjustment-factor = adjusted-qty
-// */
-//let computeSplitAdjustmentFactor(splitRatio: decimal): decimal = 1 / splitRatio
-//
-///**
-// * See http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html for implementation notes.
-// * <prior-eod-bar> is the most recent EOD bar prior to the ex-date of <dividend>
-// *
-// * Returns an adjustment factor that:
-// * 1. when multiplied by an unadjusted stock price, yields an adjusted stock price. i.e. unadjusted-price * adjustment-factor = adjusted-price
-// * 2. when divided into an unadjusted share count, yields an adjusted share count. i.e. unadjusted-qty / adjustment-factor = adjusted-qty
-// */
-//let computeDividendAdjustmentFactor(dividend: CashDividend, priorEodBar: Option<Bar>, priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal = {
-//  priorEodBar.map(eodBar =>
-//    1 - dividend.amount / (barClose(eodBar) * computeCumulativeDividendAdjustmentFactor(dividend, eodBar, priorAdjustmentFactors))
-//  ).getOrElse(1)
-//}
-//
-///**
-// * priorAdjustmentFactors is a sequence of AdjustmentFactor(corporate-action, prior-eod-bar, adjustment-factor) tuples ordered in ascending
-// *   (i.e. oldest to most recent) order of the corporate action's ex-date.
-// */
-//let computeCumulativeDividendAdjustmentFactor(dividend: CashDividend, priorEodBar: Bar, priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal = {
-//  let adjustmentFactorsInDescendingOrderOfExDate = priorAdjustmentFactors.reverse
-//  let applicableAdjustmentFactors = adjustmentFactorsInDescendingOrderOfExDate.takeWhile(_.priorEodBar.get == priorEodBar)
-//  applicableAdjustmentFactors.map(_.adjustmentFactor).foldLeft(decimal(1))(_ * _)
-//}
-//
-//let computeAdjustmentFactor(corporateAction: CorporateAction, priorEodBar: Option<Bar>, priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal = {
-//  corporateAction match {
-//    case Split(_, _, ratio) => computeSplitAdjustmentFactor(ratio)
-//    case CashDividend(symbol, _, exDate, _, _, amount) => computeDividendAdjustmentFactor(corporateAction.asInstanceOf<CashDividend>, priorEodBar, priorAdjustmentFactors)
-//  }
-//}
+(*
+ * See http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html for implementation notes.
+ * Returns an adjustment factor that:
+ * 1. when multiplied by an unadjusted stock price, yields an adjusted stock price. i.e. unadjusted-price * adjustment-factor = adjusted-price
+ * 2. when divided into an unadjusted share count, yields an adjusted share count. i.e. unadjusted-qty / adjustment-factor = adjusted-qty
+ *)
+let computeSplitAdjustmentFactor (splitRatio: decimal): decimal = 1M / splitRatio
+
+(*
+* priorAdjustmentFactors is a sequence of AdjustmentFactor(corporate-action, prior-eod-bar, adjustment-factor) tuples ordered in ascending
+*   (i.e. oldest to most recent) order of the corporate action's ex-date.
+*)
+let computeCumulativeDividendAdjustmentFactor (dividend: CashDividend) (priorEodBar: Bar) (priorAdjustmentFactors: List<AdjustmentFactor>): decimal =
+  let adjustmentFactorsInDescendingOrderOfExDate = List.rev priorAdjustmentFactors
+  let applicableAdjustmentFactors = List.takeWhile (fun adjFactor -> Option.get adjFactor.priorEodBar = priorEodBar) adjustmentFactorsInDescendingOrderOfExDate
+  applicableAdjustmentFactors
+  |> List.map (fun adjFactor -> adjFactor.adjustmentFactor)
+  |> List.fold (*) 1M
+
+(*
+ * See http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html for implementation notes.
+ * <prior-eod-bar> is the most recent EOD bar prior to the ex-date of <dividend>
+ *
+ * Returns an adjustment factor that:
+ * 1. when multiplied by an unadjusted stock price, yields an adjusted stock price. i.e. unadjusted-price * adjustment-factor = adjusted-price
+ * 2. when divided into an unadjusted share count, yields an adjusted share count. i.e. unadjusted-qty / adjustment-factor = adjusted-qty
+ *)
+let computeDividendAdjustmentFactor (dividend: CashDividend) (priorEodBar: Option<Bar>) (priorAdjustmentFactors: List<AdjustmentFactor>): decimal =
+  Option.map
+    (fun eodBar ->
+      1M - dividend.amount / (eodBar.c * computeCumulativeDividendAdjustmentFactor dividend eodBar priorAdjustmentFactors)
+    )
+    priorEodBar
+  |> Option.getOrElse 1M
+
+let computeAdjustmentFactor (corporateAction: CorporateAction) (priorEodBar: Option<Bar>) (priorAdjustmentFactors: List<AdjustmentFactor>): decimal =
+  match corporateAction with
+  | SplitCA {ratio = ratio} -> computeSplitAdjustmentFactor ratio
+  | CashDividendCA ({exDate = exDate; amount = amount} as div) -> computeDividendAdjustmentFactor div priorEodBar priorAdjustmentFactors
 
 
 (*
@@ -141,8 +142,10 @@ let priceAdjustmentFactors (securityId: SecurityId) (startTime: ZonedDateTime) (
     List.empty<AdjustmentFactor>
 
 // computes a cumulative price adjustment factor
-let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime): decimal =
-  priceAdjustmentFactors(securityId, startTime, endTime).map(_.adjustmentFactor).foldLeft(decimal(1))(_ * _)
+let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: decimal =
+  priceAdjustmentFactors securityId startTime endTime dao
+  |> List.map (fun adjFactor -> adjFactor.adjustmentFactor)
+  |> List.fold (*) 1M
 
 ///**
 // * Given a price, <price>, of <symbol> that was observed at <price-observation-time>,

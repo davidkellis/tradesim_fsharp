@@ -50,3 +50,5 @@ let takeWhile (predicateFn: 'x -> bool) (xs: seq<'x>): Vector<'x> =
     else
       memo
   takeWhileR <| xs.GetEnumerator() <| Vector.empty
+
+let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, seq<'t>> = ???

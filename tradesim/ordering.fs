@@ -23,14 +23,14 @@ let isLimitOrder = function
   | LimitBuy _ | LimitSell _ -> true
   | _ -> false
 
-let setOrderQty (order: Order) (newQty: int64): Order = 
+let setOrderQty (newQty: int64) (order: Order): Order = 
   match order with
   | MarketBuy details -> MarketBuy { details with qty = newQty }
   | MarketSell details -> MarketSell { details with qty = newQty }
   | LimitBuy details -> LimitBuy { details with qty = newQty }
   | LimitSell details -> LimitSell { details with qty = newQty }
 
-let setLimitPrice (order: Order) (newLimitPrice: decimal): Order = 
+let setLimitPrice (newLimitPrice: decimal) (order: Order): Order = 
   match order with
   | LimitBuy details -> LimitBuy { details with limitPrice = newLimitPrice }
   | LimitSell details -> LimitSell { details with limitPrice = newLimitPrice }

@@ -1,5 +1,6 @@
 ﻿module dke.tradesim.Seq
 
+open System.Collections.Immutable
 open C5
 
 // Returns a lazy sequence of x, (f x), (f (f x)) etc.
@@ -37,3 +38,5 @@ let mapIEnumerator (fn: 'x -> 'y) (xs: System.Collections.Generic.IEnumerator<'x
     while xs.MoveNext() do
       yield fn xs.Current
   }
+
+let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, seq<'t>> = Seq.groupBy fn ts |> Map.ofSeq

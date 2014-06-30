@@ -18,6 +18,13 @@ open Quotes
 type AdjustmentFactor = {corporateAction: CorporateAction; priorEodBar: Option<Bar>; adjustmentFactor: decimal}
 type QtyAdjustmentFactor = {corporateAction: CorporateAction; adjustmentFactor: decimal}
 
+let corporateActionSecurityId = function
+  | SplitCA split -> split.securityId
+  | CashDividendCA dividend -> dividend.securityId
+
+let corporateActionExDate = function
+  | SplitCA split -> split.exDate
+  | CashDividendCA dividend -> dividend.exDate
 
 let queryCorporateActions (securityIds: seq<SecurityId>) (dao: Dao<_>): array<CorporateAction> =
   infoL <| lazy (sprintf "queryCorporateActions %s" (String.joinInts "," securityIds))
@@ -224,46 +231,46 @@ let adjustPortfolioForCorporateActions (currentState: 'StateT) (earlierObservati
     currentState
     corporateActions
 
-//let adjustOpenOrdersForCorporateActions(openOrders: Vector<Order>,
-//                                        earlierObservationTime: DateTime,
-//                                        laterObservationTime: DateTime): Vector<Order> = {
-//  if (openOrders.isEmpty) Vector<Order>()
-//  else {
-//    let securityIds = openOrders.map(_.securityId)
-//    let corporateActions = findCorporateActions(securityIds, earlierObservationTime, laterObservationTime)
-//    let corporateActionsPerSymbol = corporateActions.groupBy(_.securityId)
-////      println(s"********* Corporate Actions (for open orders): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
-//    openOrders.map { (openOrder) =>
-//      let corporateActionsForSymbol = corporateActionsPerSymbol.getOrElse(openOrder.securityId, Vector<CorporateAction>())
-//      corporateActionsForSymbol.foldLeft(openOrder)((order, corporateAction) => adjustOpenOrder(corporateAction, order))
-//    }
-//  }
-//}
-//
-//
 
-//
-//let adjustOpenOrder(corporateAction: CorporateAction, openOrder: Order): Order = corporateAction match {
-//  case split: Split => adjustOpenOrder(split, openOrder)
-//  case dividend: CashDividend => adjustOpenOrder(dividend, openOrder)
-//}
-//
-//let adjustOpenOrder(split: Split, openOrder: Order): Order = {
-//  let splitRatio = split.ratio
-//  let orderQty = openOrder.qty
-//  let adjQty = floor(orderQty * splitRatio).toint64
-//  openOrder match {
-//    case limitOrder: LimitOrder =>
-//      let limitPrice = limitOrder.limitPrice
-//      let adjLimitPrice = limitPrice / splitRatio
-//      threadThrough(limitOrder)(setOrderQty(_, adjQty),
-//                                setLimitPrice(_, adjLimitPrice))
-//    case marketOrder: MarketOrder => setOrderQty(marketOrder, adjQty)
-//  }
-//}
-//
-//let adjustOpenOrder(dividend: CashDividend, openOrder: Order): Order = openOrder
-//
+let adjustOpenOrderForSplit (split: Split) (openOrder: Order): Order =
+  let splitRatio = split.ratio
+  let qty = orderQty openOrder
+  let adjQty = floor (decimal qty * splitRatio) |> int64
+  match openOrder with
+  | LimitBuy o | LimitSell o ->
+    let limitPrice = o.limitPrice
+    let adjLimitPrice = limitPrice / splitRatio
+    openOrder |> setOrderQty adjQty |> setLimitPrice adjLimitPrice
+  | _ -> setOrderQty adjQty openOrder
+
+let adjustOpenOrderForCashDividend (dividend: CashDividend) (openOrder: Order): Order = openOrder
+
+let adjustOpenOrder (corporateAction: CorporateAction) (openOrder: Order): Order =
+  match corporateAction with
+  | SplitCA split -> adjustOpenOrderForSplit split openOrder
+  | CashDividendCA dividend -> adjustOpenOrderForCashDividend dividend openOrder
+
+let adjustOpenOrdersForCorporateActions (openOrders: Vector<Order>) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: Vector<Order> =
+  if Vector.isEmpty openOrders then
+    Vector.empty
+  else
+    let securityIds = Vector.map (fun o -> o.securityId) openOrders
+    let corporateActions = findCorporateActions securityIds earlierObservationTime laterObservationTime dao
+    let corporateActionsPerSymbol = Vector.groupIntoMapBy corporateActionSecurityId corporateActions
+//      println(s"********* Corporate Actions (for open orders): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
+    Vector.map
+      (fun openOrder ->
+        let corporateActionsForSymbol = Map.tryFind openOrder.securityId corporateActionsPerSymbol |> Option.getOrElse(Vector.empty<CorporateAction>)
+        Vector.fold
+          (fun order corporateAction -> adjustOpenOrder corporateAction order)
+          openOrder
+          corporateActionsForSymbol
+      )
+      openOrders
+
+
+
+
 //
 //// returns a split adjusted share quantity, given an unadjusted share quantity
 //let adjustShareQtyForCorporateActions(unadjustedQty: decimal, securityId: SecurityId, earlierObservationTime: DateTime, laterObservationTime: DateTime): decimal = {

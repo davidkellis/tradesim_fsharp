@@ -195,7 +195,7 @@ type Transaction =
   | SplitAdjustmentTx of SplitAdjustment
   | CashDividendPaymentTx of CashDividendPayment
 
-type TransactionLog = seq<Transaction>
+type TransactionLog = Vector<Transaction>
 
 
 // trading strategy and state typeclasses
@@ -224,6 +224,8 @@ type StrategyState<'stateT> = {
   // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: Vector<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 'stateT
 //  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> Vector<Order> -> TransactionLog -> seq<PortfolioValue> -> 'stateT
   withOrders: Vector<Order> -> 'stateT -> 'stateT
+  withPortfolio: Portfolio -> 'stateT -> 'stateT
+  withTransactions: TransactionLog -> 'stateT -> 'stateT
 }
 
 // TradingStrategy typeclass

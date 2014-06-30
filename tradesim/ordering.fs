@@ -38,9 +38,9 @@ let setLimitPrice (order: Order) (newLimitPrice: decimal): Order =
 
 let sharesOnHand (portfolio: Portfolio) (securityId: SecurityId): int64 = portfolio.stocks.TryFind(securityId) |> Option.getOrElse 0L
 
-let addCash (portfolio: Portfolio) (amount: decimal): Portfolio = { portfolio with cash = portfolio.cash + amount }
+let addCash (amount: decimal) (portfolio: Portfolio): Portfolio = { portfolio with cash = portfolio.cash + amount }
 
-let setSharesOnHand (portfolio: Portfolio) (securityId: SecurityId) (qty: int64): Portfolio =
+let setSharesOnHand (securityId: SecurityId) (qty: int64) (portfolio: Portfolio) : Portfolio =
   { portfolio with stocks = portfolio.stocks.Add(securityId, qty) }
 
 let cashOnHand (state: 'StateT) (stateInterface: StrategyState<'StateT>): decimal = (stateInterface.portfolio state).cash

@@ -166,10 +166,53 @@ let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDa
 let adjustPriceForCorporateActions (price: decimal) (securityId: SecurityId) (priceObservationTime: ZonedDateTime) (adjustmentTime: ZonedDateTime) dao: decimal =
   price * cumulativePriceAdjustmentFactor securityId priceObservationTime adjustmentTime dao
 
-let adjustPortfolio (corporateAction: CorporateAction) (currentState: 'StateT): 'StateT =
+(*
+ * Given a portfolio and split, this function applies the split to the portfolio and returns a split-adjusted portfolio.
+ * Note:
+ *   new holdings = old holdings * split ratio
+ *)
+let adjustPortfolioForSplit (split: Split) (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+  let portfolio = stateInterface.portfolio currentState
+  let securityId = split.securityId
+  let exDate = split.exDate
+  let splitRatio = split.ratio
+  let qty = sharesOnHand portfolio securityId
+  let adjQty = decimal qty * splitRatio
+  let adjSharesOnHandDecimal = floor adjQty
+  let adjSharesOnHand = int64 adjSharesOnHandDecimal
+  let fractionalShareQty = adjQty - adjSharesOnHandDecimal
+  let eodBar = findEodBarPriorTo (midnightOnDate exDate) securityId dao
+  eodBar
+  |> Option.map
+    (fun eodBar ->
+      let closingPrice = eodBar.c
+      let splitAdjustedSharePrice = adjustPriceForCorporateActions closingPrice securityId eodBar.endTime (midnightOnDate exDate) dao
+      let fractionalShareCashValue = fractionalShareQty * splitAdjustedSharePrice
+      let adjustedPortfolio = portfolio |> setSharesOnHand securityId adjSharesOnHand |> addCash fractionalShareCashValue
+      let updatedTransactionLog = Vector.conj
+                                    (SplitAdjustmentTx {securityId = split.securityId; exDate = split.exDate; ratio = split.ratio; adjustmentTime = (stateInterface.time currentState); shareQtyDelta = adjSharesOnHand - qty; cashPayout = fractionalShareCashValue})
+                                    (stateInterface.transactions currentState)
+      currentState |> stateInterface.withPortfolio adjustedPortfolio |> stateInterface.withTransactions updatedTransactionLog
+    )
+  |> Option.getOrElse currentState
+
+// returns the amount of cash the given portfolio is entitled to receive from the given cash-dividend
+let computeDividendPaymentAmount (cashDividend: CashDividend) (sharesOnHand: int64): decimal = decimal sharesOnHand * cashDividend.amount
+
+let adjustPortfolioForCashDividend (dividend: CashDividend) (currentState: 'StateT) (stateInterface: StrategyState<'StateT>): 'StateT =
+  let portfolio = stateInterface.portfolio currentState
+  let qty = sharesOnHand portfolio dividend.securityId
+  let dividendPaymentAmount = computeDividendPaymentAmount dividend qty
+  let adjustedPortfolio = addCash dividendPaymentAmount portfolio
+  let updatedTransactionLog = Vector.conj 
+                                (CashDividendPaymentTx {securityId = dividend.securityId; exDate = dividend.exDate; payableDate = dividend.payableDate; amountPerShare = dividend.amount; adjustmentTime = (stateInterface.time currentState); shareQty = qty; total = dividendPaymentAmount})
+                                (stateInterface.transactions currentState)
+  currentState |> stateInterface.withPortfolio adjustedPortfolio |> stateInterface.withTransactions updatedTransactionLog
+
+let adjustPortfolio (corporateAction: CorporateAction) (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
   match corporateAction with
-  | SplitCA split -> adjustPortfolioForSplit split currentState
-  | CashDividendCA dividend -> adjustPortfolioForCashDividend dividend currentState
+  | SplitCA split -> adjustPortfolioForSplit split currentState dao stateInterface
+  | CashDividendCA dividend -> adjustPortfolioForCashDividend dividend currentState stateInterface
 
 let adjustPortfolioForCorporateActions (currentState: 'StateT) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao (stateInterface: StrategyState<'StateT>): 'StateT =
   let portfolio = stateInterface.portfolio currentState
@@ -177,7 +220,7 @@ let adjustPortfolioForCorporateActions (currentState: 'StateT) (earlierObservati
   let corporateActions = findCorporateActions securityIds earlierObservationTime laterObservationTime dao
 //    println(s"********* Corporate Actions (for portfolio): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
   Vector.fold
-    (fun updatedState corporateAction -> adjustPortfolio corporateAction updatedState)
+    (fun updatedState corporateAction -> adjustPortfolio corporateAction updatedState dao stateInterface)
     currentState
     corporateActions
 
@@ -198,51 +241,7 @@ let adjustPortfolioForCorporateActions (currentState: 'StateT) (earlierObservati
 //}
 //
 //
-///**
-// * Given a portfolio and split, this function applies the split to the portfolio and returns a split-adjusted portfolio.
-// * Note:
-// *   new holdings = old holdings * split ratio
-// */
-//let adjustPortfolio<StateT <: State<StateT>>(split: Split, currentState: StateT): StateT = {
-//  let portfolio = currentState.portfolio
-//  let securityId = split.securityId
-//  let exDate = split.exDate
-//  let splitRatio = split.ratio
-//  let qty = sharesOnHand(portfolio, securityId)
-//  let adjQty = qty * splitRatio
-//  let adjSharesOnHand = floor(adjQty).toint64
-//  let fractionalShareQty = adjQty - adjSharesOnHand
-//  let eodBar = findEodBarPriorTo(midnight(exDate), securityId)
-//  eodBar.map { eodBar =>
-//    let closingPrice = barClose(eodBar)
-//    let splitAdjustedSharePrice = adjustPriceForCorporateActions(closingPrice, securityId, eodBar.endTime, midnight(exDate))
-//    let fractionalShareCashValue = fractionalShareQty * splitAdjustedSharePrice
-//    let adjustedPortfolio = threadThrough(portfolio)(setSharesOnHand(_, securityId, adjSharesOnHand),
-//                                                     addCash(_, fractionalShareCashValue))
-//    let updatedTransactionLog = currentState.transactions :+ SplitAdjustment(split.securityId,
-//                                                                             split.exDate,
-//                                                                             split.ratio,
-//                                                                             currentState.time,
-//                                                                             adjSharesOnHand - qty,
-//                                                                             fractionalShareCashValue)
-//    currentState.copy(portfolio = adjustedPortfolio, transactions = updatedTransactionLog)
-//  }.getOrElse(currentState)
-//}
-//
-//let adjustPortfolio<StateT <: State<StateT>>(dividend: CashDividend, currentState: StateT): StateT = {
-//  let portfolio = currentState.portfolio
-//  let qty = sharesOnHand(portfolio, dividend.securityId)
-//  let dividendPaymentAmount = computeDividendPaymentAmount(portfolio, dividend, qty)
-//  let adjustedPortfolio = addCash(portfolio, dividendPaymentAmount)
-//  let updatedTransactionLog = currentState.transactions :+ CashDividendPayment(dividend.securityId,
-//                                                                               dividend.exDate,
-//                                                                               dividend.payableDate,
-//                                                                               dividend.amount,
-//                                                                               currentState.time,
-//                                                                               qty,
-//                                                                               dividendPaymentAmount)
-//  currentState.copy(portfolio = adjustedPortfolio, transactions = updatedTransactionLog)
-//}
+
 //
 //let adjustOpenOrder(corporateAction: CorporateAction, openOrder: Order): Order = corporateAction match {
 //  case split: Split => adjustOpenOrder(split, openOrder)
@@ -265,10 +264,6 @@ let adjustPortfolioForCorporateActions (currentState: 'StateT) (earlierObservati
 //
 //let adjustOpenOrder(dividend: CashDividend, openOrder: Order): Order = openOrder
 //
-//// returns the amount of cash the given portfolio is entitled to receive from the given cash-dividend
-//let computeDividendPaymentAmount(portfolio: Portfolio, cashDividend: CashDividend, sharesOnHand: int64): decimal = {
-//  sharesOnHand * cashDividend.amount
-//}
 //
 //// returns a split adjusted share quantity, given an unadjusted share quantity
 //let adjustShareQtyForCorporateActions(unadjustedQty: decimal, securityId: SecurityId, earlierObservationTime: DateTime, laterObservationTime: DateTime): decimal = {

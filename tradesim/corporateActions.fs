@@ -6,6 +6,7 @@ open FSharpx
 open NodaTime
 
 open Math
+open Vector
 open Cache
 open Logging
 open Time
@@ -51,21 +52,20 @@ let findCorporateActionHistory(securityId: SecurityId) (dao: Dao<_>): CorporateA
       putCorporateActionHistory securityId newCorporateActionHistory
       newCorporateActionHistory
 
-let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime: ZonedDateTime) (endTime: ZonedDateTime): seq<CorporateAction> =
+let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime: ZonedDateTime) (endTime: ZonedDateTime): Vector<CorporateAction> =
   let startTimestamp = dateTimeToDatestamp startTime
   let endTimestamp = (dateTimeToDatestamp endTime) + 1    // add 1 because RangeFromTo includes the start and excludes the end, so adding 1 ensures that we include the end
   let subHistory = history.RangeFromTo(startTimestamp, endTimestamp)
 //  let corporateActions = Seq.mapIEnumerator (fun (pair: KeyValuePair<datestamp, CorporateAction>) -> pair.Value) (subHistory.GetEnumerator())
-  Seq.mapIEnumerator (fun (pair: KeyValuePair<datestamp, CorporateAction>) -> pair.Value) (subHistory.GetEnumerator())
+  Vector.mapIEnumerator (fun (pair: KeyValuePair<datestamp, CorporateAction>) -> pair.Value) (subHistory.GetEnumerator())
 //    println(s"findCorporateActionsFromHistory(history, $startTime, $endTime) -> ${corporateActions.toVector}")
-//  Seq.toArray corporateActions
 
-let findCorporateActionsForSecurity (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
+let findCorporateActionsForSecurity (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: Vector<CorporateAction> =
   let history = findCorporateActionHistory securityId dao
   findCorporateActionsFromHistory history startTime endTime
 
-let findCorporateActions (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: seq<CorporateAction> =
-  Seq.flatMap (fun securityId -> findCorporateActionsForSecurity securityId startTime endTime dao) securityIds
+let findCorporateActions (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: Vector<CorporateAction> =
+  Vector.flatMapSeq (fun securityId -> findCorporateActionsForSecurity securityId startTime endTime dao) securityIds
 
 let findEodBarPriorToCorporateAction (corporateAction: CorporateAction) dao: Option<Bar> =
   findEodBarPriorTo <| midnightOnDate (corporateActionExDate corporateAction) <| corporateActionSecurityId corporateAction <| dao
@@ -81,13 +81,14 @@ let computeSplitAdjustmentFactor (splitRatio: decimal): decimal = 1M / splitRati
 (*
 * priorAdjustmentFactors is a sequence of AdjustmentFactor(corporate-action, prior-eod-bar, adjustment-factor) tuples ordered in ascending
 *   (i.e. oldest to most recent) order of the corporate action's ex-date.
+* Assumes priorAdjustmentFactors is sorted in order of ascending order of ex-date
 *)
-let computeCumulativeDividendAdjustmentFactor (dividend: CashDividend) (priorEodBar: Bar) (priorAdjustmentFactors: List<AdjustmentFactor>): decimal =
-  let adjustmentFactorsInDescendingOrderOfExDate = List.rev priorAdjustmentFactors
-  let applicableAdjustmentFactors = List.takeWhile (fun adjFactor -> Option.get adjFactor.priorEodBar = priorEodBar) adjustmentFactorsInDescendingOrderOfExDate
+let computeCumulativeDividendAdjustmentFactor (dividend: CashDividend) (priorEodBar: Bar) (priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal =
+  let adjustmentFactorsInDescendingOrderOfExDate = Vector.rev priorAdjustmentFactors
+  let applicableAdjustmentFactors = Vector.takeWhile (fun adjFactor -> Option.get adjFactor.priorEodBar = priorEodBar) adjustmentFactorsInDescendingOrderOfExDate
   applicableAdjustmentFactors
-  |> List.map (fun adjFactor -> adjFactor.adjustmentFactor)
-  |> List.fold (*) 1M
+  |> Vector.map (fun adjFactor -> adjFactor.adjustmentFactor)
+  |> Vector.fold (*) 1M
 
 (*
  * See http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html for implementation notes.
@@ -97,18 +98,15 @@ let computeCumulativeDividendAdjustmentFactor (dividend: CashDividend) (priorEod
  * 1. when multiplied by an unadjusted stock price, yields an adjusted stock price. i.e. unadjusted-price * adjustment-factor = adjusted-price
  * 2. when divided into an unadjusted share count, yields an adjusted share count. i.e. unadjusted-qty / adjustment-factor = adjusted-qty
  *)
-let computeDividendAdjustmentFactor (dividend: CashDividend) (priorEodBar: Option<Bar>) (priorAdjustmentFactors: List<AdjustmentFactor>): decimal =
-  Option.map
-    (fun eodBar ->
-      1M - dividend.amount / (eodBar.c * computeCumulativeDividendAdjustmentFactor dividend eodBar priorAdjustmentFactors)
-    )
-    priorEodBar
+let computeDividendAdjustmentFactor (dividend: CashDividend) (priorEodBar: Option<Bar>) (priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal =
+  priorEodBar
+  |> Option.map (fun eodBar -> 1M - dividend.amount / (eodBar.c * computeCumulativeDividendAdjustmentFactor dividend eodBar priorAdjustmentFactors) )
   |> Option.getOrElse 1M
 
-let computeAdjustmentFactor (corporateAction: CorporateAction) (priorEodBar: Option<Bar>) (priorAdjustmentFactors: List<AdjustmentFactor>): decimal =
+let computeAdjustmentFactor (corporateAction: CorporateAction) (priorEodBar: Option<Bar>) (priorAdjustmentFactors: Vector<AdjustmentFactor>): decimal =
   match corporateAction with
   | SplitCA {ratio = ratio} -> computeSplitAdjustmentFactor ratio
-  | CashDividendCA ({exDate = exDate; amount = amount} as div) -> computeDividendAdjustmentFactor div priorEodBar priorAdjustmentFactors
+  | CashDividendCA div -> computeDividendAdjustmentFactor div priorEodBar priorAdjustmentFactors
 
 
 (*
@@ -125,27 +123,27 @@ let computeAdjustmentFactor (corporateAction: CorporateAction) (priorEodBar: Opt
  *   The definition of the adjustment-factor is taken from http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html:
  *   "Factor from a base date used to adjust prices after distributions so that equivalent comparisons can be made between prices before and after the distribution."
  *)
-let priceAdjustmentFactors (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: List<AdjustmentFactor> =
+let priceAdjustmentFactors (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: Vector<AdjustmentFactor> =
   if startTime < endTime then
-    let corporateActions = findCorporateActionsForSecurity securityId startTime endTime dao
-    let corporateActionEodBarPairs = Seq.map (fun corporateAction -> (corporateAction, findEodBarPriorToCorporateAction corporateAction dao) ) corporateActions
-    Seq.fold
+    let corporateActions = findCorporateActionsForSecurity securityId startTime endTime dao     // corporate actions ordered from oldest to newest
+    let corporateActionEodBarPairs = Vector.map (fun corporateAction -> (corporateAction, findEodBarPriorToCorporateAction corporateAction dao) ) corporateActions
+    Vector.fold
       (fun adjustmentFactors (corporateAction, priorEodBar) -> 
          let adjustmentFactor = {corporateAction = corporateAction; 
                                  priorEodBar = priorEodBar; 
                                  adjustmentFactor = computeAdjustmentFactor corporateAction priorEodBar adjustmentFactors}
-         adjustmentFactor :: adjustmentFactors
+         Vector.conj adjustmentFactor adjustmentFactors
       )
-      List.empty<AdjustmentFactor>
+      Vector.empty<AdjustmentFactor>
       corporateActionEodBarPairs
   else
-    List.empty<AdjustmentFactor>
+    Vector.empty<AdjustmentFactor>
 
 // computes a cumulative price adjustment factor
 let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: decimal =
   priceAdjustmentFactors securityId startTime endTime dao
-  |> List.map (fun adjFactor -> adjFactor.adjustmentFactor)
-  |> List.fold (*) 1M
+  |> Vector.map (fun adjFactor -> adjFactor.adjustmentFactor)
+  |> Vector.fold (*) 1M
 
 ///**
 // * Given a price, <price>, of <symbol> that was observed at <price-observation-time>,

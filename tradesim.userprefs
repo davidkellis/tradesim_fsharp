@@ -5,7 +5,8 @@
       <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
       <File FileName="tradesim/string.fs" Line="1" Column="1" />
       <File FileName="tradesim/cache.fs" Line="1" Column="1" />
-      <File FileName="tradesim/seq.fs" Line="1" Column="1" />
+      <File FileName="tradesim/seq.fs" Line="4" Column="1" />
+      <File FileName="tradesim/vector.fs" Line="23" Column="5" />
       <File FileName="tradesim/typeclass.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
       <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
@@ -13,7 +14,7 @@
       <File FileName="tradesim/ordering.fs" Line="1" Column="1" />
       <File FileName="tradesim/db.fs" Line="1" Column="1" />
       <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
-      <File FileName="tradesim/corporateActions.fs" Line="72" Column="26" />
+      <File FileName="tradesim/corporateActions.fs" Line="69" Column="103" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

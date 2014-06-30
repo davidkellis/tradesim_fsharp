@@ -10,15 +10,13 @@ let iterate f x =
 
 // e.g. Seq.flatMapO (fun (e: Exchange) -> e.id) exchanges
 let flatMapO (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> = 
-  Seq.fold
-    (fun memo t -> 
+  seq {
+    for t in ts do
       let optU = f t
       match optU with 
-      | None -> memo 
-      | Some u -> u :: memo)
-    []
-    ts
-  |> List.toSeq
+      | Some u -> yield u
+      | _ -> ()
+  }
 
 // e.g. Seq.flatMap (fun (e: Exchange) -> getSecurities e) exchanges
 let flatMap (f: 't -> seq<'u>) (ts: seq<'t>): seq<'u> = 

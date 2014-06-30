@@ -145,35 +145,42 @@ let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDa
   |> Vector.map (fun adjFactor -> adjFactor.adjustmentFactor)
   |> Vector.fold (*) 1M
 
-///**
-// * Given a price, <price>, of <symbol> that was observed at <price-observation-time>,
-// * returns an adjusted price that (using <price> as a base price) has been adjusted for corporate actions that take effect between
-// * <price-observation-time> and <adjustment-time>.
-// * Assumes <price-observation-time> occurred strictly before <adjustment-time> (i.e. <price-observation-time> is strictly
-// * older than <adjustment-time>).
-// * This function can be interpreted as:
-// * "Adjust the price, <price>, of <symbol>, that was observed at <price-observation-time> for corporate actions that took effect between
-// * <price-observation-time> and <adjustment-time>. The adjusted price is the price that one would expect for <symbol> to trade at as of
-// * <adjustment-time>"
-// * NOTE:
-// *   See http://www.investopedia.com/ask/answers/06/adjustedclosingprice.asp#axzz24Wa9LgDj for instructions on how to adjust a price for splits.
-// *   See http://www.quantshare.com/sa-112-stock-split-dividend
-// *   or
-// *   http://help.yahoo.com/kb/index?locale=en_US&page=content&y=PROD_FIN&id=SLN2311&impressions=true
-// *   http://help.yahoo.com/kb/index?locale=en_US&page=content&y=PROD_FIN&id=SLN2311&actp=lorax&pir=wMsp3EFibUlGxLjgTY.StSPNcMXGv318Io7yMwp2vXYNYOLFM2Y-
-// *   for instructions on how to adjust a price for cash dividends.
-// */
-//let adjustPriceForCorporateActions(price: decimal, securityId: SecurityId, priceObservationTime: DateTime, adjustmentTime: DateTime): decimal =
-//  price * cumulativePriceAdjustmentFactor(securityId, priceObservationTime, adjustmentTime)
-//
-//let adjustPortfolioForCorporateActions<StateT <: State<StateT>>(currentState: StateT, earlierObservationTime: DateTime, laterObservationTime: DateTime): StateT = {
-//  let portfolio = currentState.portfolio
-//  let securityIds = portfolio.stocks.keys.toVector
-//  let corporateActions = findCorporateActions(securityIds, earlierObservationTime, laterObservationTime)
-////    println(s"********* Corporate Actions (for portfolio): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
-//  corporateActions.foldLeft(currentState)((updatedState, corporateAction) => adjustPortfolio(corporateAction, updatedState))
-//}
-//
+(*
+ * Given a price, <price>, of <symbol> that was observed at <price-observation-time>,
+ * returns an adjusted price that (using <price> as a base price) has been adjusted for corporate actions that take effect between
+ * <price-observation-time> and <adjustment-time>.
+ * Assumes <price-observation-time> occurred strictly before <adjustment-time> (i.e. <price-observation-time> is strictly
+ * older than <adjustment-time>).
+ * This function can be interpreted as:
+ * "Adjust the price, <price>, of <symbol>, that was observed at <price-observation-time> for corporate actions that took effect between
+ * <price-observation-time> and <adjustment-time>. The adjusted price is the price that one would expect for <symbol> to trade at as of
+ * <adjustment-time>"
+ * NOTE:
+ *   See http://www.investopedia.com/ask/answers/06/adjustedclosingprice.asp#axzz24Wa9LgDj for instructions on how to adjust a price for splits.
+ *   See http://www.quantshare.com/sa-112-stock-split-dividend
+ *   or
+ *   http://help.yahoo.com/kb/index?locale=en_US&page=content&y=PROD_FIN&id=SLN2311&impressions=true
+ *   http://help.yahoo.com/kb/index?locale=en_US&page=content&y=PROD_FIN&id=SLN2311&actp=lorax&pir=wMsp3EFibUlGxLjgTY.StSPNcMXGv318Io7yMwp2vXYNYOLFM2Y-
+ *   for instructions on how to adjust a price for cash dividends.
+ *)
+let adjustPriceForCorporateActions (price: decimal) (securityId: SecurityId) (priceObservationTime: ZonedDateTime) (adjustmentTime: ZonedDateTime) dao: decimal =
+  price * cumulativePriceAdjustmentFactor securityId priceObservationTime adjustmentTime dao
+
+let adjustPortfolio (corporateAction: CorporateAction) (currentState: 'StateT): 'StateT =
+  match corporateAction with
+  | SplitCA split -> adjustPortfolioForSplit split currentState
+  | CashDividendCA dividend -> adjustPortfolioForCashDividend dividend currentState
+
+let adjustPortfolioForCorporateActions (currentState: 'StateT) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+  let portfolio = stateInterface.portfolio currentState
+  let securityIds = portfolio.stocks.Keys
+  let corporateActions = findCorporateActions securityIds earlierObservationTime laterObservationTime dao
+//    println(s"********* Corporate Actions (for portfolio): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
+  Vector.fold
+    (fun updatedState corporateAction -> adjustPortfolio corporateAction updatedState)
+    currentState
+    corporateActions
+
 //let adjustOpenOrdersForCorporateActions(openOrders: Vector<Order>,
 //                                        earlierObservationTime: DateTime,
 //                                        laterObservationTime: DateTime): Vector<Order> = {
@@ -190,10 +197,6 @@ let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDa
 //  }
 //}
 //
-//let adjustPortfolio<StateT <: State<StateT>>(corporateAction: CorporateAction, currentState: StateT): StateT = corporateAction match {
-//  case split: Split => adjustPortfolio(split, currentState)
-//  case dividend: CashDividend => adjustPortfolio(dividend, currentState)
-//}
 //
 ///**
 // * Given a portfolio and split, this function applies the split to the portfolio and returns a split-adjusted portfolio.

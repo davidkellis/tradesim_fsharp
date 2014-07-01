@@ -251,16 +251,16 @@ let adjustOpenOrder (corporateAction: CorporateAction) (openOrder: Order): Order
   | CashDividendCA dividend -> adjustOpenOrderForCashDividend dividend openOrder
 
 let adjustOpenOrdersForCorporateActions (openOrders: Vector<Order>) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: Vector<Order> =
-  if Vector.isEmpty openOrders then
-    Vector.empty
+  if (Vector.isEmpty openOrders) then
+    Vector.empty<Order>
   else
-    let securityIds = Vector.map (fun o -> o.securityId) openOrders
+    let securityIds = Vector.map orderSecurityId openOrders
     let corporateActions = findCorporateActions securityIds earlierObservationTime laterObservationTime dao
     let corporateActionsPerSymbol = Vector.groupIntoMapBy corporateActionSecurityId corporateActions
 //      println(s"********* Corporate Actions (for open orders): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
     Vector.map
       (fun openOrder ->
-        let corporateActionsForSymbol = Map.tryFind openOrder.securityId corporateActionsPerSymbol |> Option.getOrElse(Vector.empty<CorporateAction>)
+        let corporateActionsForSymbol = Map.tryFind (orderSecurityId openOrder) corporateActionsPerSymbol |> Option.getOrElse Vector.empty<CorporateAction>
         Vector.fold
           (fun order corporateAction -> adjustOpenOrder corporateAction order)
           openOrder
@@ -269,44 +269,41 @@ let adjustOpenOrdersForCorporateActions (openOrders: Vector<Order>) (earlierObse
       openOrders
 
 
+let computeShareQtyAdjustmentFactor(corporateAction: CorporateAction): decimal =
+  match corporateAction with
+  | SplitCA {ratio = ratio} -> computeSplitAdjustmentFactor ratio
+  | CashDividendCA _ -> 1M
 
+(*
+ * Returns a sequence of AdjustmentFactors ordered in ascending (i.e. oldest to most recent) order of the corporate action's ex-date.
+ * The first element of the tuple, <corporate-action> is the corporate action from which the <adjustment-factor> is computed.
+ * The last element of the tuple, <adjustment-factor> is the adjustment factor for the given <corporate-action>.
+ * NOTE:
+ *   A given unadjusted historical share count can be divided by the <adjustment-factor> to compute the associated
+ *   corporate-action-adjusted historical share count (e.g. to produce an adjusted share volume or an adjusted "shares outstanding"
+ *   measurement).
+ *   Each adjustment-factor is not cumulative, it is specifically tied to a particular corporate-action.
+ *   The definition of the adjustment-factor is taken from http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html:
+ *   "Factor from a base date used to adjust prices after distributions so that equivalent comparisons can be made between prices
+ *   before and after the distribution."
+ *)
+let shareQtyAdjustmentFactors (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: Vector<QtyAdjustmentFactor> = 
+  if earlierObservationTime < laterObservationTime then
+    let corporateActions = findCorporateActionsForSecurity securityId earlierObservationTime laterObservationTime dao
+    Vector.fold
+      (fun qtyAdjustmentFactors corporateAction -> Vector.conj {corporateAction = corporateAction; adjustmentFactor = computeShareQtyAdjustmentFactor corporateAction} qtyAdjustmentFactors )
+      Vector.empty<QtyAdjustmentFactor>
+      corporateActions
+  else
+    Vector.empty<QtyAdjustmentFactor>
 
-//
-//// returns a split adjusted share quantity, given an unadjusted share quantity
-//let adjustShareQtyForCorporateActions(unadjustedQty: decimal, securityId: SecurityId, earlierObservationTime: DateTime, laterObservationTime: DateTime): decimal = {
-//  unadjustedQty / cumulativeShareQtyAdjustmentFactor(securityId, earlierObservationTime, laterObservationTime)
-//}
-//
-//// computes a cumulative share quantity adjustment factor
-//let cumulativeShareQtyAdjustmentFactor(securityId: SecurityId, earlierObservationTime: DateTime, laterObservationTime: DateTime): decimal =
-//  shareQtyAdjustmentFactors(securityId, earlierObservationTime, laterObservationTime).map(_.adjustmentFactor).foldLeft(decimal(1))(_ * _)
-//
-///**
-// * Returns a sequence of AdjustmentFactors ordered in ascending (i.e. oldest to most recent) order of the corporate action's ex-date.
-// * The first element of the tuple, <corporate-action> is the corporate action from which the <adjustment-factor> is computed.
-// * The last element of the tuple, <adjustment-factor> is the adjustment factor for the given <corporate-action>.
-// * NOTE:
-// *   A given unadjusted historical share count can be divided by the <adjustment-factor> to compute the associated
-// *   corporate-action-adjusted historical share count (e.g. to produce an adjusted share volume or an adjusted "shares outstanding"
-// *   measurement).
-// *   Each adjustment-factor is not cumulative, it is specifically tied to a particular corporate-action.
-// *   The definition of the adjustment-factor is taken from http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html:
-// *   "Factor from a base date used to adjust prices after distributions so that equivalent comparisons can be made between prices
-// *   before and after the distribution."
-// */
-//let shareQtyAdjustmentFactors(securityId: SecurityId, earlierObservationTime: DateTime, laterObservationTime: DateTime): Vector<QtyAdjustmentFactor> = {
-//  if (isBefore(earlierObservationTime, laterObservationTime)) {
-//    let corporateActions = findCorporateActions(securityId, earlierObservationTime, laterObservationTime)
-//    corporateActions.foldLeft(Vector<QtyAdjustmentFactor>()) { (qtyAdjustmentFactors, corporateAction) =>
-//      qtyAdjustmentFactors :+ QtyAdjustmentFactor(corporateAction, computeShareQtyAdjustmentFactor(corporateAction))
-//    }
-//  } else Vector<QtyAdjustmentFactor>()
-//}
-//
-//let computeShareQtyAdjustmentFactor(corporateAction: CorporateAction): decimal = {
-//  corporateAction match {
-//    case Split(_, _, ratio) => computeSplitAdjustmentFactor(ratio)
-//    case _ => decimal(1)
-//  }
-//}
-//
+// computes a cumulative share quantity adjustment factor
+let cumulativeShareQtyAdjustmentFactor (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: decimal =
+  shareQtyAdjustmentFactors securityId earlierObservationTime laterObservationTime dao
+  |> Vector.map (fun qtyAdjFactor -> qtyAdjFactor.adjustmentFactor)
+  |> Vector.fold (*) 1M
+
+// returns a split adjusted share quantity, given an unadjusted share quantity
+let adjustShareQtyForCorporateActions (unadjustedQty: decimal) (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: decimal =
+  unadjustedQty / cumulativeShareQtyAdjustmentFactor securityId earlierObservationTime laterObservationTime dao
+

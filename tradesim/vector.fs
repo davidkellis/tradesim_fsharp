@@ -51,4 +51,12 @@ let takeWhile (predicateFn: 'x -> bool) (xs: seq<'x>): Vector<'x> =
       memo
   takeWhileR <| xs.GetEnumerator() <| Vector.empty
 
-let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, seq<'t>> = ???
+let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, Vector<'t>> =
+  Seq.fold
+    (fun map t ->
+      let key = (fn t)
+      let vector = Map.findOrDefault key Vector.empty map |> Vector.conj t
+      Map.add key vector map
+    )
+    Map.empty
+    ts

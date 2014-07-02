@@ -6,7 +6,7 @@ open Core
 open Quotes
 open CorporateActions
 
-let adjEodQuote (time: ZonedDateTime) (securityId: SecurityId) (priceFn: Bar -> decimal) dao: Option<decimal> =
+let adjEodQuote (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn) dao: Option<decimal> =
   let bar = findEodBar time securityId dao
   Option.map 
     (fun bar ->
@@ -23,7 +23,7 @@ let adjEodOpen (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decima
 let adjEodSimQuote (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decimal> = adjEodQuote time securityId barSimQuote dao
 
 
-let adjEodQuotePriorTo (time: ZonedDateTime) (securityId: SecurityId) (priceFn: Bar -> decimal) dao: Option<decimal> =
+let adjEodQuotePriorTo (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn) dao: Option<decimal> =
   let bar = findEodBarPriorTo time securityId dao
   Option.map
     (fun bar ->

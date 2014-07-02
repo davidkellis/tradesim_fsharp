@@ -12,6 +12,8 @@ open Core
 open Time
 open Database
 
+type BarQuoteFn = Bar -> decimal
+
 let barSimQuoteCache = buildLruCache<string, decimal> 200
 let getSimQuote = get barSimQuoteCache
 let putSimQuote = put barSimQuoteCache

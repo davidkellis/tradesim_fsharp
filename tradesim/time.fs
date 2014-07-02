@@ -112,7 +112,7 @@ let periodBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Period = Period.Betwe
 let durationBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Duration = t1.ToInstant() - t2.ToInstant()
 
 let intervalBetweenInstants (i1: Instant) (i2: Instant): Interval = new Interval(i1, i2)
-let intervalBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Interval = intervalBetweenInstants t1.ToInstant() t2.ToInstant()
+let intervalBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Interval = intervalBetweenInstants (t1.ToInstant()) (t2.ToInstant())
 
 let intervalsOverlap (i1: Interval) (i2: Interval): bool = i1.Contains(i2.Start) || i1.Contains(i2.End) || (i2.Start < i1.Start && i1.End <= i2.End)
 

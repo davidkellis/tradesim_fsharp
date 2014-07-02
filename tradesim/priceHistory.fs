@@ -105,27 +105,49 @@ let commonPriceHistoryDateRange (securityIds: seq<int>) dao: Option<Interval> =
  * Usage: (common-trial-period-start-dates <"AAPL" "F"> (years 1))
  *        -> <#<ZonedDateTime 1984-09-07T09:30:00.000Z> #<ZonedDateTime 2011-10-10T16:00:00.000Z>>
  *)
-let commonTrialPeriodStartDates(securityIds: seq<int>, trialPeriodLength: Period): Option<Interval> = {
-  let intervals = securityIds.map(priceHistoryInterval(_))
-  let start = intervals.flatMap(intervalOp => intervalOp.map(interval => interval.getStart)).reduceLeft(maxZonedDateTime)  // get the latest (max) start date
-  let end = intervals.flatMap(intervalOp => intervalOp.map(interval => interval.getEnd)).reduceLeft(minZonedDateTime)      // get the earliest (min) end date
-  let adjustedEnd = end.minus(trialPeriodLength)
-  if (isBefore(adjustedEnd, start)) None
-  else Option(intervalBetween(start, adjustedEnd))
-}
+let commonTrialPeriodStartDates (securityIds: seq<int>) (trialPeriodLength: Period) dao: Option<Interval> =
+  let intervals = securityIds |> Seq.map (fun securityId -> priceHistoryInterval securityId dao)
+  let iStart = intervals
+               |> Seq.flatMapO
+                 (Option.map (fun interval -> interval.Start))
+               |> Seq.reduce
+                 maxInstant   // get the latest (max) start date
+  let iEnd = intervals
+             |> Seq.flatMapO
+               (Option.map (fun interval -> interval.End))
+             |> Seq.reduce
+               minInstant     // get the earliest (min) end date
+  let adjustedEnd = iEnd - trialPeriodLength.ToDuration()
+  if adjustedEnd < iStart then
+    None
+  else
+    Some <| intervalBetweenInstants iStart adjustedEnd
 
-let commonTrialPeriodStartDates(securityIds: seq<int>,
-                                trialPeriodLength: Period,
-                                startOffsetDirection: Symbol,
-                                startOffset: Period,
-                                endOffsetDirection: Symbol,
-                                endOffset: Period): Option<Interval> = {
-  let offsetPriceHistoryInterval: (SecurityId) => Option<Interval> =
-    priceHistoryInterval(_).map(offsetInterval(_, startOffsetDirection, startOffset, endOffsetDirection, endOffset))
-  let intervals = securityIds.map(offsetPriceHistoryInterval)
-  let start = intervals.flatMap(intervalOp => intervalOp.map(interval => interval.getStart)).reduceLeft(maxZonedDateTime)  // get the latest (max) start date
-  let end = intervals.flatMap(intervalOp => intervalOp.map(interval => interval.getEnd)).reduceLeft(minZonedDateTime)      // get the earliest (min) end date
-  let adjustedEnd = end.minus(trialPeriodLength)
-  if (isBefore(adjustedEnd, start)) None
-  else Option(intervalBetween(start, adjustedEnd))
-}
+let commonTrialPeriodStartDatesWithOffsets
+    (securityIds: seq<int>)
+    (trialPeriodLength: Period)
+    (startOffsetDirection: Direction)
+    (startOffset: Period)
+    (endOffsetDirection: Direction)
+    (endOffset: Period)
+    dao
+    : Option<Interval> =
+  let getPriceHistoryInterval =
+    (fun securityId -> priceHistoryInterval securityId dao) 
+    >> Option.map (fun interval -> offsetInterval interval startOffsetDirection startOffset endOffsetDirection endOffset)
+  let intervals = securityIds |> Seq.map getPriceHistoryInterval
+  let iStart = intervals
+               |> Seq.flatMapO
+                 (Option.map (fun interval -> interval.Start))
+               |> Seq.reduce
+                 maxInstant   // get the latest (max) start date
+  let iEnd = intervals
+             |> Seq.flatMapO
+               (Option.map (fun interval -> interval.End))
+             |> Seq.reduce
+               minInstant     // get the earliest (min) end date
+  let adjustedEnd = iEnd - trialPeriodLength.ToDuration()
+  if adjustedEnd < iStart then
+    None
+  else
+    Some <| intervalBetweenInstants iStart adjustedEnd

@@ -96,6 +96,7 @@
     <Compile Include="ordering.fs" />
     <Compile Include="db.fs" />
     <Compile Include="quotes.fs" />
+    <Compile Include="priceHistory.fs" />
     <Compile Include="corporateActions.fs" />
     <Compile Include="adjustedQuotes.fs" />
     <Compile Include="minterval_tests.fs" />

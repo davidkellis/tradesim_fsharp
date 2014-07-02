@@ -111,7 +111,8 @@ let periodBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Period = Period.Betwe
 
 let durationBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Duration = t1.ToInstant() - t2.ToInstant()
 
-let intervalBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Interval = new Interval(t1.ToInstant(), t2.ToInstant())
+let intervalBetweenInstants (i1: Instant) (i2: Instant): Interval = new Interval(i1, i2)
+let intervalBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Interval = intervalBetweenInstants t1.ToInstant() t2.ToInstant()
 
 let intervalsOverlap (i1: Interval) (i2: Interval): bool = i1.Contains(i2.Start) || i1.Contains(i2.End) || (i2.Start < i1.Start && i1.End <= i2.End)
 
@@ -123,15 +124,17 @@ let isInstantBetween (instant: ZonedDateTime) (t1: ZonedDateTime) (t2: ZonedDate
 // t1 <= instant <= t2
 let isInstantBetweenInclusive (instant: ZonedDateTime) (t1: ZonedDateTime) (t2: ZonedDateTime): bool = t1 <= instant && instant <= t2
 
+let maxInstant (i1: Instant) (i2: Instant): Instant = if (i1 > i2) then i1 else i2
 let maxDatetime (t1: ZonedDateTime) (t2: ZonedDateTime): ZonedDateTime = if (t1 > t2) then t1 else t2
 
+let minInstant (i1: Instant) (i2: Instant): Instant = if (i1 < i2) then i1 else i2
 let minDatetime (t1: ZonedDateTime) (t2: ZonedDateTime): ZonedDateTime = if (t1 < t2) then t1 else t2
 
 type Direction = Before | After
 let offsetDateTime (t: ZonedDateTime) (direction: Direction) (magnitude: Period): ZonedDateTime = 
   match direction with
-  | Before -> t.Minus(magnitude.ToDuration())
-  | After -> t.Plus(magnitude.ToDuration())
+  | Before -> t - magnitude.ToDuration()
+  | After -> t + magnitude.ToDuration()
 
 let offsetInterval (interval: Interval)
                    (startOffsetDirection: Direction)

@@ -4,7 +4,8 @@ open CSharpTest.Net.Collections
 //open Archer.Collections
 
 // builds least-recently-used cache
-let buildLruCache<'k, 'v when 'k : comparison> (maxEntries: int): LurchTable<'k, 'v> = 
+//let buildLruCache<'k, 'v when 'k : comparison> (maxEntries: int): LurchTable<'k, 'v> = 
+let buildLruCache<'k, 'v> (maxEntries: int): LurchTable<'k, 'v> = 
   new LurchTable<'k, 'v>(LurchTableOrder.Access, maxEntries)
 
 let get (cache: LurchTable<'k, 'v>) (key: 'k): Option<'v> = 

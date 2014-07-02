@@ -92,6 +92,7 @@
     <Compile Include="time.fs" />
     <Compile Include="minterval.fs" />
     <Compile Include="specialDates.fs" />
+    <Compile Include="schedule.fs" />
     <Compile Include="core.fs" />
     <Compile Include="ordering.fs" />
     <Compile Include="db.fs" />

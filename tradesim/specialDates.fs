@@ -66,3 +66,24 @@ let easter year: LocalDate =
 
 // the Friday before Easter Sunday
 let goodFriday year: LocalDate = easter year - Period.FromDays(2L)
+
+(*
+ * holidayFn is a function of an integer year that returns a LocalDate representing the date
+ * that the holiday falls on in that year
+ * Example: isHoliday(datetimeUtils(2012, 1, 16), martinLutherKingJrDay) => true
+ *)
+let isHoliday (date: LocalDate) (holidayFn: int -> LocalDate): bool = holidayFn date.Year = date
+
+let HolidayLookupFunctions = [
+    newYears;
+    martinLutherKingJrDay;
+    presidentsDay;
+    goodFriday;
+    memorialDay;
+    independenceDay;
+    laborDay;
+    thanksgiving;
+    christmas
+  ]
+
+let isAnyHoliday (date: LocalDate): bool = List.exists (isHoliday date) HolidayLookupFunctions

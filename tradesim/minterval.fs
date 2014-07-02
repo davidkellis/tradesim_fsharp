@@ -69,3 +69,12 @@ let subtractMInterval (minuend: MInterval) (subtrahend: MInterval): MInterval =
   createMInterval mintervals
 
 let isMIntervalEmpty (mInterval: MInterval): bool = Array.isEmpty mInterval
+
+let overlaps (mInterval1: MInterval) (mInterval2: MInterval): bool =
+  let intervalPairs = 
+    seq { 
+      for i1 in mInterval1 do
+      for i2 in mInterval2 do
+        yield (i1, i2)
+    }
+  Seq.exists (fun (interval1, interval2) -> intervalsOverlap interval1 interval2) intervalPairs

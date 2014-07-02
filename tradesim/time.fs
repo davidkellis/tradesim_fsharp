@@ -16,6 +16,16 @@ type DayOfWeek =
   | Saturday = 6
   | Sunday = 7
 
+let dayOfWeekToInt = function
+  DayOfWeek.Monday -> 1
+  | DayOfWeek.Tuesday -> 2
+  | DayOfWeek.Wednesday -> 3
+  | DayOfWeek.Thursday -> 4
+  | DayOfWeek.Friday -> 5
+  | DayOfWeek.Saturday -> 6
+  | DayOfWeek.Sunday -> 7
+  | _ -> failwith "Day of week must be in range 1-7 inclusive."
+
 type Month = 
   January = 1
   | February = 2
@@ -181,7 +191,7 @@ let interspersedIntervals (startTimeInterval: Interval) (intervalLength: Period)
 
 let daysInMonth (year: int) (month: int): int = DateTime.DaysInMonth(year, month)
 
-let dayOfWeek(t: ZonedDateTime): int = t.DayOfWeek
+let dayOfWeek (t: ZonedDateTime): int = t.DayOfWeek
 
 (*
  * Returns the number of days that must be added to the first day of the given month to arrive at the first

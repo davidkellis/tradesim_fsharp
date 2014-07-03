@@ -77,11 +77,18 @@
     <Reference Include="System.Collections.Immutable">
       <HintPath>..\Microsoft.Bcl.Immutable.1.1.22-beta\lib\portable-net45+win8+wpa81\System.Collections.Immutable.dll</HintPath>
     </Reference>
+    <Reference Include="MathNet.Numerics">
+      <HintPath>..\MathNet.Numerics.3.0.2\lib\net40\MathNet.Numerics.dll</HintPath>
+    </Reference>
+    <Reference Include="MathNet.Numerics.FSharp">
+      <HintPath>..\MathNet.Numerics.FSharp.3.0.2\lib\net40\MathNet.Numerics.FSharp.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="stdlib.fs" />
     <Compile Include="math.fs" />
+    <Compile Include="stats.fs" />
     <Compile Include="string.fs" />
     <Compile Include="seq.fs" />
     <Compile Include="vector.fs" />
@@ -101,6 +108,7 @@
     <Compile Include="priceHistory.fs" />
     <Compile Include="corporateActions.fs" />
     <Compile Include="portfolio.fs" />
+    <Compile Include="trial.fs" />
     <Compile Include="adjustedQuotes.fs" />
     <Compile Include="minterval_tests.fs" />
     <Compile Include="runner.fs" />

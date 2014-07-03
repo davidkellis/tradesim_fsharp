@@ -1,19 +1,22 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/schedule.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/stats.fs">
     <Files>
-      <File FileName="tradesim/stdlib.fs" Line="12" Column="5" />
-      <File FileName="tradesim/string.fs" Line="1" Column="1" />
+      <File FileName="tradesim/stdlib.fs" Line="32" Column="4" />
+      <File FileName="tradesim/string.fs" Line="3" Column="5" />
       <File FileName="tradesim/cache.fs" Line="16" Column="5" />
-      <File FileName="tradesim/seq.fs" Line="1" Column="1" />
+      <File FileName="tradesim/seq.fs" Line="44" Column="1" />
       <File FileName="tradesim/vector.fs" Line="1" Column="1" />
-      <File FileName="tradesim/time.fs" Line="175" Column="3" />
-      <File FileName="tradesim/core.fs" Line="96" Column="9" />
-      <File FileName="tradesim/db.fs" Line="1" Column="1" />
-      <File FileName="tradesim/quotes.fs" Line="108" Column="62" />
-      <File FileName="tradesim/priceHistory.fs" Line="126" Column="1" />
-      <File FileName="tradesim/portfolio.fs" Line="22" Column="5" />
-      <File FileName="tradesim/schedule.fs" Line="70" Column="25" />
+      <File FileName="tradesim/time.fs" Line="1" Column="1" />
+      <File FileName="tradesim/core.fs" Line="1" Column="1" />
+      <File FileName="tradesim/db.fs" Line="93" Column="3" />
+      <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
+      <File FileName="tradesim/priceHistory.fs" Line="1" Column="1" />
+      <File FileName="tradesim/portfolio.fs" Line="1" Column="1" />
+      <File FileName="tradesim/schedule.fs" Line="92" Column="5" />
+      <File FileName="tradesim/securities.fs" Line="21" Column="1" />
+      <File FileName="tradesim/stats.fs" Line="1" Column="1" />
+      <File FileName="tradesim/trial.fs" Line="17" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

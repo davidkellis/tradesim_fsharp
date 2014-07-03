@@ -96,6 +96,7 @@
     <Compile Include="core.fs" />
     <Compile Include="ordering.fs" />
     <Compile Include="db.fs" />
+    <Compile Include="securities.fs" />
     <Compile Include="quotes.fs" />
     <Compile Include="priceHistory.fs" />
     <Compile Include="corporateActions.fs" />

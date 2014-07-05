@@ -26,7 +26,7 @@ module Decimal =
       acc
     elif exp = 0 then
       1m
-    else
+    else  // exp < 0
       1m / pow x -exp
 
   // This is a recursive implementation of the Bisection Method as defined by pseudocode in

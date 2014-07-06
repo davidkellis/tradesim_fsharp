@@ -88,7 +88,7 @@ let maxSharesPurchasable (trial: Trial)
                          (bestOfferPriceFn: PriceQuoteFn): Option<decimal> =
   let commissionPerTrade = trial.commissionPerTrade
   let commissionPerShare = trial.commissionPerShare
-  bestOfferPriceFn time securityId |> Option.map (fun price -> integralQuotient (principal - commissionPerTrade) (price + commissionPerShare))
+  bestOfferPriceFn time securityId |> Option.map (fun price -> Decimal.integralQuotient (principal - commissionPerTrade) (price + commissionPerShare))
 
 let maxSharesPurchasableByPortfolio trial portfolio time securityId bestOfferPriceFn: Option<decimal> = maxSharesPurchasable trial portfolio.cash time securityId bestOfferPriceFn
 
@@ -150,7 +150,7 @@ let buyEqually (trial: Trial)
   Vector.fold 
     (fun state securityId ->
       let qty = maxSharesPurchasable trial principalPerSecurity (stateInterface.time currentState) securityId bestOfferPriceFn
-      qty |> Option.map (fun qty -> buyImmediately state securityId (Math.floor qty |> int64) stateInterface) |> Option.getOrElse(state)
+      qty |> Option.map (fun qty -> buyImmediately state securityId (Decimal.floor qty |> int64) stateInterface) |> Option.getOrElse(state)
     )
     currentState
     securityIds

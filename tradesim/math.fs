@@ -1,14 +1,20 @@
 ﻿module dke.tradesim.Math
 
-let ceil (d: decimal): decimal = System.Math.Ceiling(d)
-
-let floor (d: decimal): decimal = System.Math.Floor(d)
-
-let round (d: decimal): decimal = System.Math.Round(d)
-
-let integralQuotient (dividend: decimal) (divisor: decimal): decimal = floor (dividend / divisor)
-
 module Decimal = 
+  let Zero = 0M
+  let One = 1M
+
+  let ceil (d: decimal): decimal = System.Math.Ceiling(d)
+
+  let floor (d: decimal): decimal = System.Math.Floor(d)
+
+  let round (d: decimal): decimal = System.Math.Round(d)
+  let roundTo (fractionalDigits: int) (d: decimal): decimal = System.Math.Round(d, fractionalDigits)
+
+  let integralQuotient (dividend: decimal) (divisor: decimal): decimal = floor (dividend / divisor)
+
+  let wholePart (d: decimal): decimal = integralQuotient d One
+  let fractionalPart (d: decimal): decimal = d - wholePart d
 
   let billionth = 0.000000001m
 

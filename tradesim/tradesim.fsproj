@@ -110,7 +110,8 @@
     <Compile Include="portfolio.fs" />
     <Compile Include="trial.fs" />
     <Compile Include="adjustedQuotes.fs" />
-    <Compile Include="minterval_tests.fs" />
+    <Compile Include="statsTests.fs" />
+    <Compile Include="mintervalTests.fs" />
     <Compile Include="runner.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />

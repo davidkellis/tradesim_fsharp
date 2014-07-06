@@ -4,6 +4,7 @@ open System.Collections.Generic
 
 open MathNet.Numerics
 open MathNet.Numerics.LinearAlgebra
+open MathNet.Numerics.LinearRegression
 
 open Math
 
@@ -17,10 +18,10 @@ module Sample =
     onlineMean (xs.GetEnumerator()) 0M 0L
 
   (*
-   * example:
+   * Example:
    *   ols(DenseMatrix((1.59, 1.0), (2.89, 1.0), (3.76, 1.0), (4.93, 1.0)), DenseVector(1.14, 2.54, 3.89, 4.18))
    *   -> breeze.linalg.DenseVector<Double> = DenseVector(0.9563205952545724, -0.21118555987567958)
-   * verification in R:
+   * Verification in R:
    *   > xs <- c(1.59, 2.89, 3.76, 4.93)
    *   > ys <- c(1.14, 2.54, 3.89, 4.18)
    *   > xs_m=matrix(c(xs, 1, 1, 1, 1), 4)
@@ -30,10 +31,10 @@ module Sample =
    *   [1,]  0.9563206
    *   [2,] -0.2111856
    *)
-//  let ols(observations: DenseMatrix<Double>, outputs: DenseVector<Double>): DenseVector<Double> = {
-//    LinearRegression.regress(observations, outputs)
-//  }
-//
+  let ols (observations: Matrix<double>) (outputs: Vector<double>): Vector<double> =
+    MultipleRegression.NormalEquations(observations, outputs)
+
+  // function to create linear regression model based on ordinary least squares method of determining the slope and y-intercept of the linear model
 //  let linearModel(observations: DenseMatrix<Double>, outputs: DenseVector<Double>): Function<seq<Double>, Double> = {
 //    let beta = ols(observations, outputs).toArray
 //    (observation: seq<Double>) => {
@@ -157,7 +158,7 @@ module Sample =
   
 
   type OlsResult = {slope: decimal; intercept: decimal}
-  let ols (xs: seq<decimal>) (ys: seq<decimal>): OlsResult =
+  let simpleOls (xs: seq<decimal>) (ys: seq<decimal>): OlsResult =
     let pairs = Seq.zip xs ys
     let onlineRegression = new OnlineRegression()
     Seq.iter (fun (x, y) -> onlineRegression.push(x, y)) pairs
@@ -215,6 +216,7 @@ module Sample =
         )
         hs
   
+  // implementation based on description of R-1 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
   let quantilesR1 (interpolate: bool) (isSorted: bool) (percentages: seq<decimal>) (xs: seq<decimal>): seq<decimal> =
     quantiles 
       (fun (n: decimal) (p: decimal) -> if p = 0m then 1m else n * p + 0.5m)
@@ -226,6 +228,7 @@ module Sample =
 
   // The R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
   // see: http://stat.ethz.ch/R-manual/R-patched/library/stats/html/quantile.html
+  // implementation based on description of R-8 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
   let OneThird = 1m / 3m
   let TwoThirds = 2m / 3m
   let quantilesR8 (interpolate: bool) (isSorted: bool) (percentages: seq<decimal>) (xs: seq<decimal>): seq<decimal> =

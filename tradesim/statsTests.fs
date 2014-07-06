@@ -3,6 +3,7 @@
 open System
 open NUnit.Framework
 open FsUnit
+open MathNet.Numerics.LinearAlgebra
 
 open dke.tradesim.Math
 open dke.tradesim.Stats
@@ -53,12 +54,26 @@ let ``stdDev computes sample standard deviation`` () =
 [<Test>]
 // checked against wolfram alpha with this:
 //   linear fit {1.59,1.14}, {2.89,2.54}, {3.76,3.89}, {4.93,4.18}
-let ``ols performs a linear regression`` () =
+let ``simpleOls performs a linear regression`` () =
   let xs = [1.59m; 2.89m; 3.76m; 4.93m]
   let ys = [1.14m; 2.54m; 3.89m; 4.18m]
-  let result = Sample.ols xs ys
+  let result = Sample.simpleOls xs ys
   result.slope |> Decimal.roundTo 6 |> should equal 0.956321m
   result.intercept |> Decimal.roundTo 6 |> should equal -0.211186m
+
+[<Test>]
+// checked against wolfram alpha with this:
+//   linear fit {1.59,1.14}, {2.89,2.54}, {3.76,3.89}, {4.93,4.18}
+let ``ols performs a linear regression`` () =
+  let xs: Matrix<double> = matrix [[1.59; 1.0]
+                                   [2.89; 1.0]
+                                   [3.76; 1.0]
+                                   [4.93; 1.0]]
+  let ys: Vector<double> = vector [1.14; 2.54; 3.89; 4.18]
+  let result = Sample.ols xs ys
+  result.[0] |> Double.roundTo 10 |> should equal 0.9563205953
+  result.[1] |> Double.roundTo 10 |> should equal -0.2111855599
+
 
 [<Test>]
 // test example taken from http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf

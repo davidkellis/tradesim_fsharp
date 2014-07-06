@@ -1,5 +1,8 @@
 ﻿module dke.tradesim.Math
 
+module Double =
+  let roundTo (fractionalDigits: int) (d: double): double = System.Math.Round(d, fractionalDigits)
+
 module Decimal = 
   let Zero = 0M
   let One = 1M

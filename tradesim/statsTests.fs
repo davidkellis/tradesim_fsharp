@@ -62,7 +62,7 @@ let ``ols performs a linear regression`` () =
 
 [<Test>]
 // test example taken from http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
-let ``percentile should calculate the nth percentile`` () =
+let ``quantilesR8 should calculate the nth quantile`` () =
   let xs = [5; 1; 9; 3; 14; 9; 7] |> List.map decimal
 
   // in R:

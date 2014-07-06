@@ -193,22 +193,24 @@ module Sample =
     let hs = Seq.map (p >> hFn n >> subtract1) percentages   // NOTE: these indices are 0-based indices into sortedXs
     let getIthX = Array.get sortedXs
 
-    if interpolate then           // interpolate
+    if interpolate then                   // interpolate
       Seq.map
         (fun h ->
-          let i = Decimal.wholePart h     // i is a 0-based index into sortedXs
+          let i = Decimal.floor h         // i is a 0-based index into sortedXs   (smaller index to interpolate between)
+          let j = Decimal.ceil h          // j is a 0-based index into sortedXs   (larger index to interpolate between)
           let f = h - i                   // f is the fractional part of real-valued index h
           let intI = int i
-          (1m - f) * getIthX intI + f * getIthX (intI + 1)    // [1] - (1-f) * x_k + f * x_k+1 === x_k + f*(x_k+1 - x_k)
+          let intJ = int j
+          (1m - f) * getIthX intI + f * getIthX intJ    // [1] - (1-f) * x_k + f * x_k+1 === x_k + f*(x_k+1 - x_k)
           // [1]:
           // see: http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
           // also: (1-f) * x_k + f * x_k+1 === x_k - f*x_k + f*x_k+1 === x_k + f*(x_k+1 - x_k) which is what I'm after
         )
         hs
-    else                          // round (instead of interpolating)
+    else                                  // floor the index instead of interpolating
       Seq.map
         (fun h ->
-          let i = int (Decimal.round h)   // i is a 0-based index into sortedXs
+          let i = int (Decimal.floor h)   // i is a 0-based index into sortedXs
           getIthX i
         )
         hs

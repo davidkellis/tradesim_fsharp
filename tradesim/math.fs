@@ -66,6 +66,8 @@ module Decimal =
   let findRootWithBisectionMethod5 f a b maxN epsilon: decimal = findRootWithBisectionMethodR f a b (f a) (f b) maxN epsilon 1
   let findRootWithBisectionMethod f a b: decimal = findRootWithBisectionMethod5 f a b 300 billionth
 
+  // todo: implement Brent's root finding method: http://en.wikipedia.org/wiki/Brent%27s_method
+
   // Returns the nth root of A
   // -> A^(1/n)
   // It works by finding the positive root (i.e. positive zero) of the function f(x) = x^n - A
@@ -120,3 +122,9 @@ module Decimal =
     (h / 3m) * ((f a) + (2m * summation) + (f b))
 
   let integrateWithSimpsonsRule f a b = integrateWithCompositeSimpsonsRule f a b 100
+
+  // todo: implement Gaussian Quadrature numerical integration method:
+  // http://austingwalters.com/gaussian-quadrature/
+  // http://en.wikipedia.org/wiki/Gaussian_quadrature
+  // http://mathworld.wolfram.com/Legendre-GaussQuadrature.html
+  // http://pomax.github.io/bezierinfo/legendre-gauss.html

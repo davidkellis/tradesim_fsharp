@@ -131,32 +131,37 @@ module Sample =
     onlineCorrelation.correlation
 
 
-  let stdDev(xs: seq<decimal>): decimal =
+  let stdDev (xs: seq<decimal>): decimal =
     let onlineVariance = new OnlineVariance()
     Seq.iter onlineVariance.push xs
     onlineVariance.stdDev
 
-  let variance(xs: seq<decimal>): decimal = 
-    // onlineVariance based on http://www.johndcook.com/standard_deviation.html
-    let rec onlineVariance (enum: IEnumerator<decimal>) (m_k: decimal) (s_k: decimal) (k: int64): decimal =
-      if enum.MoveNext() then
-        let kPlus1 = k + 1L
-        let x_kPlus1 = enum.Current
-        let m_kPlus1 = m_k + (x_kPlus1 - m_k) / decimal kPlus1
-        let s_kPlus1 = s_k + (x_kPlus1 - m_k) * (x_kPlus1 - m_kPlus1)
-        onlineVariance enum m_kPlus1 s_kPlus1 kPlus1
-      else
-        if k > 1L then
-          s_k / decimal (k - 1L)
-        else
-          0M
-    
-    if Seq.isEmpty xs then
-      0M
-    else
-      let enum = xs.GetEnumerator()
-      enum.MoveNext() |> ignore
-      onlineVariance enum enum.Current 0M 1L
+  let variance (xs: seq<decimal>): decimal =
+    let onlineVariance = new OnlineVariance()
+    Seq.iter onlineVariance.push xs
+    onlineVariance.variance
+
+//  let variance (xs: seq<decimal>): decimal = 
+//    // onlineVariance based on http://www.johndcook.com/standard_deviation.html
+//    let rec onlineVariance (enum: IEnumerator<decimal>) (m_k: decimal) (s_k: decimal) (k: int64): decimal =
+//      if enum.MoveNext() then
+//        let kPlus1 = k + 1L
+//        let x_kPlus1 = enum.Current
+//        let m_kPlus1 = m_k + (x_kPlus1 - m_k) / decimal kPlus1
+//        let s_kPlus1 = s_k + (x_kPlus1 - m_k) * (x_kPlus1 - m_kPlus1)
+//        onlineVariance enum m_kPlus1 s_kPlus1 kPlus1
+//      else
+//        if k > 1L then
+//          s_k / decimal (k - 1L)
+//        else
+//          0M
+//    
+//    if Seq.isEmpty xs then
+//      0M
+//    else
+//      let enum = xs.GetEnumerator()
+//      enum.MoveNext() |> ignore
+//      onlineVariance enum enum.Current 0M 1L
   
 
   type OlsResult = {slope: decimal; intercept: decimal}

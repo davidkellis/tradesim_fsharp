@@ -7,6 +7,7 @@ open MathNet.Numerics.LinearAlgebra
 open MathNet.Numerics.LinearRegression
 
 open Math
+open dke.tradesim.Seq
 
 module Sample =
   let mean (xs: seq<decimal>): decimal =
@@ -35,16 +36,17 @@ module Sample =
     MultipleRegression.NormalEquations(observations, outputs)
 
   // function to create linear regression model based on ordinary least squares method of determining the slope and y-intercept of the linear model
-//  let linearModel(observations: DenseMatrix<Double>, outputs: DenseVector<Double>): Function<seq<Double>, Double> = {
-//    let beta = ols(observations, outputs).toArray
-//    (observation: seq<Double>) => {
-//      observation.zipWithIndex.foldLeft(0.0) { (sum, observedValueWithIndexPair) =>
-//        let (observedValue, index) = observedValueWithIndexPair
-//        let coefficient = beta(index)
-//        sum + coefficient * observedValue
-//      }
-//    }
-//  }
+  let linearModel (observations: Matrix<double>) (outputs: Vector<double>): seq<double> -> double =
+    let beta = ols observations outputs |> Vector.toArray
+    (fun (observation: seq<double>) ->
+      Seq.zipWithIndex observation
+      |> Seq.fold
+           (fun sum (observedValue, index) ->
+             let coefficient = beta.[index]
+             sum + coefficient * observedValue
+           )
+           0.0
+    )
 
 
   // copied from http://www.johndcook.com/standard_deviation.html

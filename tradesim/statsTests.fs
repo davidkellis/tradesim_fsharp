@@ -65,15 +65,31 @@ let ``simpleOls performs a linear regression`` () =
 // checked against wolfram alpha with this:
 //   linear fit {1.59,1.14}, {2.89,2.54}, {3.76,3.89}, {4.93,4.18}
 let ``ols performs a linear regression`` () =
-  let xs: Matrix<double> = matrix [[1.59; 1.0]
-                                   [2.89; 1.0]
-                                   [3.76; 1.0]
-                                   [4.93; 1.0]]
-  let ys: Vector<double> = vector [1.14; 2.54; 3.89; 4.18]
+  let mutable xs: Matrix<double> = matrix [[1.59; 1.0]
+                                           [2.89; 1.0]
+                                           [3.76; 1.0]
+                                           [4.93; 1.0]]
+  let mutable ys: Vector<double> = vector [1.14; 2.54; 3.89; 4.18]
   let result = Sample.ols xs ys
   result.[0] |> Double.roundTo 10 |> should equal 0.9563205953
   result.[1] |> Double.roundTo 10 |> should equal -0.2111855599
 
+[<Test>]
+let ``linearModel estimates a linear equation that fits the given data points`` () =
+  let f x1 x2 = (2.0 / 3.0) * x1 + 43.0 * x2 + 57.0
+
+  let mutable xs: Matrix<double> =  matrix [[152.15; 8.21   ; 1.0]
+                                            [346.6 ; -281.48; 1.0]
+                                            [98.2  ; 198.2  ; 1.0]
+                                            [-18.5 ; 17.686 ; 1.0]]
+  let mutable ys: Vector<double> = vector [f 152.15 8.21    
+                                           f 346.6  -281.48 
+                                           f 98.2   198.2   
+                                           f -18.5  17.686  ]
+  let f' = Sample.linearModel xs ys
+
+  f' [18.1; -992.2; 1.0] |> Double.roundTo 10 |> should equal (f 18.1 -992.2 |> Double.roundTo 10)
+  f' [-1818.11; 0.418; 1.0] |> Double.roundTo 10 |> should equal (f -1818.11 0.418 |> Double.roundTo 10)
 
 [<Test>]
 // test example taken from http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf

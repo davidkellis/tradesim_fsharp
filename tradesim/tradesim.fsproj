@@ -88,9 +88,9 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="stdlib.fs" />
     <Compile Include="math.fs" />
-    <Compile Include="stats.fs" />
     <Compile Include="string.fs" />
     <Compile Include="seq.fs" />
+    <Compile Include="stats.fs" />
     <Compile Include="vector.fs" />
     <Compile Include="option.fs" />
     <Compile Include="cache.fs" />

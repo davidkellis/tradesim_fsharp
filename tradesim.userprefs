@@ -1,12 +1,12 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim_protobuf/MyClass.cs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/trial.fs">
     <Files>
-      <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
+      <File FileName="tradesim/stdlib.fs" Line="4" Column="1" />
       <File FileName="tradesim/seq.fs" Line="1" Column="1" />
       <File FileName="tradesim/vector.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
-      <File FileName="tradesim/core.fs" Line="1" Column="1" />
+      <File FileName="tradesim/core.fs" Line="212" Column="3" />
       <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
       <File FileName="tradesim/priceHistory.fs" Line="1" Column="1" />
       <File FileName="tradesim/portfolio.fs" Line="1" Column="1" />
@@ -15,8 +15,20 @@
       <File FileName="tradesim/math.fs" Line="1" Column="1" />
       <File FileName="tradesim/stats.fs" Line="1" Column="1" />
       <File FileName="tradesim/statsTests.fs" Line="1" Column="1" />
-      <File FileName="tradesim_protobuf/MyClass.cs" Line="9" Column="1" />
+      <File FileName="tradesim/db.fs" Line="15" Column="1" />
+      <File FileName="tradesim/trial.fs" Line="37" Column="26" />
     </Files>
+    <Pads>
+      <Pad Id="MonoDevelop.NUnit.TestPad">
+        <State expanded="True" selected="True">
+          <Node name="tradesim" expanded="True">
+            <Node name="Test" expanded="True">
+              <Node name="Stats" expanded="True" />
+            </Node>
+          </Node>
+        </State>
+      </Pad>
+    </Pads>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />

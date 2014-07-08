@@ -10,6 +10,7 @@ open Stdlib
 open Time
 open Core
 open Logging
+open dke.tradesim.protobuf
 
 
 type DatabaseAdapter<'dbConnection> = {

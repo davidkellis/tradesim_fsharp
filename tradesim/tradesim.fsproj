@@ -109,4 +109,10 @@
     <Compile Include="runner.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />
+  <ItemGroup>
+    <ProjectReference Include="..\tradesim_protobuf\tradesim_protobuf.csproj">
+      <Project>{0EF29FE8-5769-4862-BE74-54FA4722C765}</Project>
+      <Name>tradesim_protobuf</Name>
+    </ProjectReference>
+  </ItemGroup>
 </Project>

@@ -226,6 +226,7 @@ type StrategyState<'stateT> = {
   withOrders: Vector<Order> -> 'stateT -> 'stateT
   withPortfolio: Portfolio -> 'stateT -> 'stateT
   withTransactions: TransactionLog -> 'stateT -> 'stateT
+  withOrdersPortfolioTransactions: Vector<Order> -> Portfolio -> TransactionLog -> 'stateT -> 'stateT
 }
 
 // TradingStrategy typeclass

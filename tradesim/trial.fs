@@ -2,6 +2,7 @@
 
 open NodaTime
 open FSharpx
+open FSharpx.Collections
 
 open Core
 open Time
@@ -34,19 +35,20 @@ let buildScheduledTimeIncrementer (timeComponent: Period) (periodIncrement: Peri
 (*
  * Just like buildScheduledTimeIncrementer, except the initial time increment is <initialPeriodIncrement>
  *)
-// todo, resume work here
-let buildInitialJumpTimeIncrementer(timeComponent: Period, initialPeriodIncrement: Period, periodIncrement: Period, tradingSchedule: TradingSchedule): ZonedDateTime -> ZonedDateTime =
-  let mutable currentState = 'bigjump
-  (time: ZonedDateTime) => {
-    if (currentState == 'bigjump) {
-      currentState = 'smalljump
-      let nextDay = nextTradingDay(time.toLocalDate, initialPeriodIncrement, tradingSchedule).toDateTimeAtStartOfDay(time.getZone)
-      timeComponent.toDateTime(nextDay)
-    } else {
-      let nextDay = nextTradingDay(time.toLocalDate, periodIncrement, tradingSchedule).toDateTimeAtStartOfDay(time.getZone)
-      timeComponent.toDateTime(nextDay)
-    }
-  }
+let buildInitialJumpTimeIncrementer (timeComponent: Period) 
+                                    (initialPeriodIncrement: Period) 
+                                    (subsequentPeriodIncrement: Period) 
+                                    (tradingSchedule: TradingSchedule)
+                                    : ZonedDateTime -> ZonedDateTime =
+  let mutable currentState = 0
+  (fun time ->
+    (if currentState = 0 then
+      currentState <- 1
+      nextTradingDay time.LocalDateTime.Date initialPeriodIncrement tradingSchedule
+    else
+      nextTradingDay time.LocalDateTime.Date subsequentPeriodIncrement tradingSchedule
+    ) |> (fun date -> localDateToDateTime date (int timeComponent.Hours) (int timeComponent.Minutes) (int timeComponent.Seconds))
+  )
 
 (*
  * Returns a function of <time> and <symbol>, that when invoked returns the price at which a trade of <symbol> would have been
@@ -58,17 +60,19 @@ let buildInitialJumpTimeIncrementer(timeComponent: Period, initialPeriodIncremen
  *   Example: if the slippage amount is a +3%, then slippage should be given as 0.03.
  *            if the slippage amount is a -4%, then slippage should be given as -0.04.
  *)
-let naiveFillPriceWithSlippage(priceBarFn: PriceBarFn,
-                               slippage: BigDecimal): PriceQuoteFn = {
-  (time: ZonedDateTime, securityId: SecurityId) => {
-    let bar = priceBarFn(time, securityId)
-    bar.map { bar =>
-      let slippageMultiplier = 1 + slippage
-      let fillPrice = barSimQuote(bar) * slippageMultiplier
-      adjustPriceForCorporateActions(fillPrice, securityId, bar.endTime, time)
-    }
-  }
-}
+let naiveFillPriceWithSlippage (priceBarFn: PriceBarFn)
+                               (slippage: decimal)
+                               dao
+                               : PriceQuoteFn =
+  (fun time securityId ->
+    priceBarFn time securityId
+    |> Option.map 
+      (fun bar ->
+        let slippageMultiplier = 1m + slippage
+        let fillPrice = barSimQuote bar * slippageMultiplier
+        adjustPriceForCorporateActions fillPrice securityId bar.endTime time dao
+      )
+  )
 
 (*
  * Returns a function of <time> and <symbol>, that when invoked returns the price at which a trade of <symbol> would have been
@@ -82,19 +86,21 @@ let naiveFillPriceWithSlippage(priceBarFn: PriceBarFn,
  * The formula is:
  *   order-price + slippage-multiplier * ([high|low] - order-price)
  *)
-let tradingBloxFillPriceWithSlippage(priceBarFn: PriceBarFn,
-                                     orderPriceFn: (Bar) => BigDecimal,
-                                     priceBarExtremumFn: (Bar) => BigDecimal,
-                                     slippage: BigDecimal): PriceQuoteFn = {
-  (time: ZonedDateTime, securityId: SecurityId) => {
-    let bar = priceBarFn(time, securityId)
-    bar.map { bar =>
-      let orderPrice = orderPriceFn(bar)
-      let fillPrice = orderPrice + slippage * (priceBarExtremumFn(bar) - orderPrice)
-      adjustPriceForCorporateActions(fillPrice, securityId, bar.endTime, time)
-    }
-  }
-}
+let tradingBloxFillPriceWithSlippage (priceBarFn: PriceBarFn)
+                                     (orderPriceFn: BarQuoteFn)
+                                     (priceBarExtremumFn: BarQuoteFn)
+                                     (slippage: decimal)
+                                     dao
+                                     : PriceQuoteFn =
+  (fun time securityId ->
+    priceBarFn time securityId
+    |> Option.map 
+      (fun bar ->
+        let orderPrice = orderPriceFn bar
+        let fillPrice = orderPrice + slippage * (priceBarExtremumFn bar - orderPrice)
+        adjustPriceForCorporateActions fillPrice securityId bar.endTime time dao
+      )
+  )
 
 (*
  * trial.purchase-fill-price is a function of <time> and <symbol> that returns the fill price of a buy order for <symbol> at <time>
@@ -105,35 +111,29 @@ let tradingBloxFillPriceWithSlippage(priceBarFn: PriceBarFn,
  * fewer or more shares/cash/etc. than current-state.portfolio (meaning, the portfolio will be adjusted for filled orders);
  * and new-current-state.transactions may contain additional filled orders (NOTE: filled orders have a non-nil fill-price)
  *)
-let executeOrders[StateT <: State[StateT]](trial: Trial, currentState: StateT): StateT = {
+let executeOrders (trial: Trial) (currentState: 'StateT) (stateInterface: StrategyState<'StateT>): 'StateT =
   let purchaseFillPriceFn = trial.purchaseFillPrice
   let saleFillPriceFn = trial.saleFillPrice
 
-  let executeOrders(portfolio: Portfolio, orders: IndexedSeq[Order], unfilledOrders: IndexedSeq[Order], transactions: TransactionLog): StateT = {
-    if (orders.isEmpty)                                                                     // if there aren't any open orders...
-      currentState.copy(portfolio = portfolio,                                              // return the new/next current state
-                        orders = unfilledOrders,
-                        transactions = transactions)
-    else {                                                                                  // otherwise, try to fill the first open order:
-      let order = orders.head
-      let nextOrders = orders.tail
-      let currentTime = currentState.time
+  let rec executeOrdersR (portfolio: Portfolio) (orders: Vector<Order>) (unfilledOrders: Vector<Order>) (transactions: TransactionLog): 'StateT =
+    if Vector.isEmpty orders then                                                                           // if there aren't any open orders...
+      stateInterface.withOrdersPortfolioTransactions unfilledOrders portfolio transactions currentState     // return the new/next current state
+    else                                                                                                    // otherwise, try to fill the first open order:
+      let order = Vector.head orders
+      let nextOrders = Vector.tail orders   // todo, implement Vector.tail efficiently
+      let currentTime = stateInterface.time currentState
 
-      if (isOrderFillable(order, currentTime, trial, portfolio, purchaseFillPriceFn, saleFillPriceFn)) { // if the order is fillable, then fill it, and continue
-        let fillPrice = orderFillPrice(order, currentTime, purchaseFillPriceFn, saleFillPriceFn).get     // isOrderFillable implies that this expression returns a BigDecimal
-        let filledOrder = order.changeFillPrice(fillPrice)
-        let nextPortfolio = adjustPortfolioFromFilledOrder(trial, portfolio, filledOrder)
-        let nextTransactions = transactions :+ filledOrder
+      if isOrderFillable order currentTime trial portfolio purchaseFillPriceFn saleFillPriceFn then         // if the order is fillable, then fill it, and continue
+        let fillPrice = computeOrderFillPrice order currentTime purchaseFillPriceFn saleFillPriceFn         // isOrderFillable implies that this expression returns a decimal
+        let filledOrder = setOrderFillPrice fillPrice order
+        let nextPortfolio = adjustPortfolioFromFilledOrder trial portfolio filledOrder
+        let nextTransactions = Vector.conj (OrderTx filledOrder) transactions
 
-        executeOrders(nextPortfolio, nextOrders, unfilledOrders, nextTransactions)
-      } else {                                                                              // otherwise, don't fill it, and continue
-        executeOrders(portfolio, nextOrders, unfilledOrders :+ order, transactions)
-      }
-    }
-  }
+        executeOrdersR nextPortfolio nextOrders unfilledOrders nextTransactions
+      else                                                                                  // otherwise, don't fill it, and continue
+        executeOrdersR portfolio nextOrders (Vector.conj order unfilledOrders) transactions
 
-  executeOrders(currentState.portfolio, currentState.orders, Vector(), currentState.transactions)
-}
+  executeOrdersR (stateInterface.portfolio currentState) (stateInterface.orders currentState) Vector.empty currentState.transactions
 
 (*
  * Returns a new State that has been adjusted for stock splits and dividend payouts that have gone into effect at some point within the
@@ -233,23 +233,23 @@ let printAndReturnState[StateT <: State[StateT]](currentState: StateT): StateT =
   currentState
 }
 
-let computeTrialYield[StateT <: State[StateT]](trial: Trial, state: StateT): Option[BigDecimal] = {
+let computeTrialYield[StateT <: State[StateT]](trial: Trial, state: StateT): Option[decimal] = {
   state.portfolioValueHistory.lastOption.map(_.value / trial.principal)
 }
 
-let computeTrialMfe[StateT <: State[StateT]](trial: Trial, state: StateT): Option[BigDecimal] = {
+let computeTrialMfe[StateT <: State[StateT]](trial: Trial, state: StateT): Option[decimal] = {
   let ordering = Ordering.by((_: PortfolioValue).value)
   let maxPortfolioValue = state.portfolioValueHistory.reduceOption(ordering.max)
   maxPortfolioValue.map(_.value / trial.principal)
 }
 
-let computeTrialMae[StateT <: State[StateT]](trial: Trial, state: StateT): Option[BigDecimal] = {
+let computeTrialMae[StateT <: State[StateT]](trial: Trial, state: StateT): Option[decimal] = {
   let ordering = Ordering.by((_: PortfolioValue).value)
   let minPortfolioValue = state.portfolioValueHistory.reduceOption(ordering.min)
   minPortfolioValue.map(_.value / trial.principal)
 }
 
-let computeTrialStdDev[StateT <: State[StateT]](state: StateT): Option[BigDecimal] = {
+let computeTrialStdDev[StateT <: State[StateT]](state: StateT): Option[decimal] = {
   if (state.portfolioValueHistory.isEmpty)
     None
   else
@@ -263,9 +263,9 @@ let buildAllTrialIntervals(securityIds: IndexedSeq[SecurityId], intervalLength: 
 
 type TrialGenerator = (IndexedSeq[SecurityId], ZonedDateTime, ZonedDateTime, Period) => Trial
 
-let buildTrialGenerator(principal: BigDecimal,
-                        commissionPerTrade: BigDecimal,
-                        commissionPerShare: BigDecimal,
+let buildTrialGenerator(principal: decimal,
+                        commissionPerTrade: decimal,
+                        commissionPerShare: decimal,
                         timeIncrementerFn: (ZonedDateTime) => ZonedDateTime,
                         purchaseFillPriceFn: PriceQuoteFn,
                         saleFillPriceFn: PriceQuoteFn): TrialGenerator =

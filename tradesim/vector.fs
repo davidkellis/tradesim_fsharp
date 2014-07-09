@@ -3,6 +3,9 @@
 open FSharpx
 open FSharpx.Collections
 
+let head v = Vector.nth 0 v
+let tryHead v = Vector.tryNth 0 v
+
 // e.g. Vector.flatMapO (fun (e: Exchange) -> e.id) exchanges
 let flatMapO (f: 't -> Option<'u>) (ts: Vector<'t>): Vector<'u> = 
   Vector.fold

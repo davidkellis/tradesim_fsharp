@@ -30,6 +30,13 @@ let setOrderQty (newQty: int64) (order: Order): Order =
   | LimitBuy details -> LimitBuy { details with qty = newQty }
   | LimitSell details -> LimitSell { details with qty = newQty }
 
+let setOrderFillPrice (newFillPrice: Option<decimal>) (order: Order): Order = 
+  match order with
+  | MarketBuy details -> MarketBuy { details with fillPrice = newFillPrice }
+  | MarketSell details -> MarketSell { details with fillPrice = newFillPrice }
+  | LimitBuy details -> LimitBuy { details with fillPrice = newFillPrice }
+  | LimitSell details -> LimitSell { details with fillPrice = newFillPrice }
+
 let setLimitPrice (newLimitPrice: decimal) (order: Order): Order = 
   match order with
   | LimitBuy details -> LimitBuy { details with limitPrice = newLimitPrice }

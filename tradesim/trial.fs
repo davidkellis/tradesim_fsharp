@@ -114,26 +114,29 @@ let tradingBloxFillPriceWithSlippage (priceBarFn: PriceBarFn)
 let executeOrders (trial: Trial) (currentState: 'StateT) (stateInterface: StrategyState<'StateT>): 'StateT =
   let purchaseFillPriceFn = trial.purchaseFillPrice
   let saleFillPriceFn = trial.saleFillPrice
+  let currentTime = stateInterface.time currentState
+  let currentPortfolio = stateInterface.portfolio currentState
+  let currentTransactionLog = stateInterface.transactions currentState
+  let currentPendingOrders = stateInterface.orders currentState
 
-  let rec executeOrdersR (portfolio: Portfolio) (orders: Vector<Order>) (unfilledOrders: Vector<Order>) (transactions: TransactionLog): 'StateT =
-    if Vector.isEmpty orders then                                                                           // if there aren't any open orders...
-      stateInterface.withOrdersPortfolioTransactions unfilledOrders portfolio transactions currentState     // return the new/next current state
-    else                                                                                                    // otherwise, try to fill the first open order:
-      let order = Vector.head orders
-      let nextOrders = Vector.tail orders   // todo, implement Vector.tail efficiently
-      let currentTime = stateInterface.time currentState
+  let (nextPortfolio, nextTransactionLog, unfilledOrders) =
+    Vector.fold
+      (fun (portfolio, transactions, unfilledOrders) order ->
+        if isOrderFillable order currentTime trial portfolio purchaseFillPriceFn saleFillPriceFn then         // if the order is fillable, then fill it, and continue
+          let fillPrice = computeOrderFillPrice order currentTime purchaseFillPriceFn saleFillPriceFn         // isOrderFillable implies that this expression returns (Some decimal)
+          let filledOrder = setOrderFillPrice fillPrice order
+          let nextPortfolio = adjustPortfolioFromFilledOrder trial portfolio filledOrder
+          let nextTransactions = Vector.conj (OrderTx filledOrder) transactions
 
-      if isOrderFillable order currentTime trial portfolio purchaseFillPriceFn saleFillPriceFn then         // if the order is fillable, then fill it, and continue
-        let fillPrice = computeOrderFillPrice order currentTime purchaseFillPriceFn saleFillPriceFn         // isOrderFillable implies that this expression returns a decimal
-        let filledOrder = setOrderFillPrice fillPrice order
-        let nextPortfolio = adjustPortfolioFromFilledOrder trial portfolio filledOrder
-        let nextTransactions = Vector.conj (OrderTx filledOrder) transactions
+          (nextPortfolio, nextTransactions, unfilledOrders)
+        else                                                                                                  // otherwise, don't fill it, and try to fill the other outstanding orders
+          let nextUnfilledOrders = Vector.conj order unfilledOrders
+          (portfolio, transactions, nextUnfilledOrders)
+      )
+      (currentPortfolio, currentTransactionLog, Vector.empty<Order>)
+      currentPendingOrders
 
-        executeOrdersR nextPortfolio nextOrders unfilledOrders nextTransactions
-      else                                                                                  // otherwise, don't fill it, and continue
-        executeOrdersR portfolio nextOrders (Vector.conj order unfilledOrders) transactions
-
-  executeOrdersR (stateInterface.portfolio currentState) (stateInterface.orders currentState) Vector.empty currentState.transactions
+  stateInterface.withOrdersPortfolioTransactions unfilledOrders nextPortfolio nextTransactionLog currentState     // return the new/next current state
 
 (*
  * Returns a new State that has been adjusted for stock splits and dividend payouts that have gone into effect at some point within the

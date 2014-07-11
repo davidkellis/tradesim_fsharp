@@ -105,6 +105,11 @@ type Bar = {
   volume: int64
 }
 
+let barOpen bar = bar.o
+let barHigh bar = bar.h
+let barLow bar = bar.l
+let barClose bar = bar.c
+
 type PriceBarFn = ZonedDateTime -> SecurityId -> Option<Bar>
 
 
@@ -216,17 +221,19 @@ type StrategyState<'stateT> = {
   portfolio: 'stateT -> Portfolio
   orders: 'stateT -> Vector<Order>
   transactions: 'stateT -> TransactionLog
-  portfolioValueHistory: 'stateT -> seq<PortfolioValue>
+  portfolioValueHistory: 'stateT -> seq<PortfolioValue>   // todo, make this Vector<PortfolioValue> or LinkedList<PortfolioValue> ?
 
   // (time: ZonedDateTime) -> (principal: decimal) -> 'stateT
   initialize: ZonedDateTime -> decimal -> 'stateT
 
-  // (previousTime: ZonedDateTime) -> (time: ZonedDateTime) -> (portfolio: Portfolio) -> (orders: Vector<Order>) -> (transaction: TransactionLog) -> (portfolioValueHistory: seq<PortfolioValue>) -> 'stateT
-//  copy: ZonedDateTime -> ZonedDateTime -> Portfolio -> Vector<Order> -> TransactionLog -> seq<PortfolioValue> -> 'stateT
   withOrders: Vector<Order> -> 'stateT -> 'stateT
   withPortfolio: Portfolio -> 'stateT -> 'stateT
   withTransactions: TransactionLog -> 'stateT -> 'stateT
   withOrdersPortfolioTransactions: Vector<Order> -> Portfolio -> TransactionLog -> 'stateT -> 'stateT
+
+  // (time: ZonedDateTime) -> (previousTime: ZonedDateTime) -> 'stateT -> 'stateT
+  withTime: ZonedDateTime -> ZonedDateTime -> 'stateT -> 'stateT
+  withPortfolioValueHistory: seq<PortfolioValue> -> 'stateT -> 'stateT
 }
 
 // TradingStrategy typeclass

@@ -4,16 +4,16 @@
     <Files>
       <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
       <File FileName="tradesim/seq.fs" Line="1" Column="1" />
-      <File FileName="tradesim/vector.fs" Line="6" Column="28" />
+      <File FileName="tradesim/vector.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
-      <File FileName="tradesim/core.fs" Line="194" Column="10" />
-      <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
+      <File FileName="tradesim/core.fs" Line="224" Column="56" />
+      <File FileName="tradesim/quotes.fs" Line="21" Column="5" />
       <File FileName="tradesim/priceHistory.fs" Line="1" Column="1" />
       <File FileName="tradesim/portfolio.fs" Line="1" Column="1" />
       <File FileName="tradesim/schedule.fs" Line="1" Column="1" />
       <File FileName="tradesim/securities.fs" Line="1" Column="1" />
       <File FileName="tradesim/ordering.fs" Line="38" Column="63" />
-      <File FileName="tradesim/trial.fs" Line="123" Column="45" />
+      <File FileName="tradesim/trial.fs" Line="156" Column="117" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

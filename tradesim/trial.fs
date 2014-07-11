@@ -142,22 +142,25 @@ let executeOrders (trial: Trial) (currentState: 'StateT) (stateInterface: Strate
  * Returns a new State that has been adjusted for stock splits and dividend payouts that have gone into effect at some point within the
  * interlet [current-state.previous-time, current-state.time].
  *)
-let adjustStrategyStateForRecentSplitsAndDividends[StateT <: State[StateT]](currentState: StateT): StateT = {
-  let openOrders = currentState.orders
-  let previousTime = currentState.previousTime
-  let currentTime = currentState.time
-  let currentStateWithAdjustedPortfolio = adjustPortfolioForCorporateActions(currentState, previousTime, currentTime)
-  let adjustedOpenOrders = adjustOpenOrdersForCorporateActions(openOrders, previousTime, currentTime)
-  currentStateWithAdjustedPortfolio.copy(orders = adjustedOpenOrders)
-}
+let adjustStrategyStateForRecentSplitsAndDividends (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+  let openOrders = stateInterface.orders currentState
+  let previousTime = stateInterface.previousTime currentState
+  let currentTime = stateInterface.time currentState
+  let currentStateWithAdjustedPortfolio = adjustPortfolioForCorporateActions currentState previousTime currentTime dao stateInterface
+  let adjustedOpenOrders = adjustOpenOrdersForCorporateActions openOrders previousTime currentTime dao
+  stateInterface.withOrders adjustedOpenOrders currentStateWithAdjustedPortfolio
 
-let incrementStateTime[StateT <: State[StateT]](nextTime: ZonedDateTime, currentState: StateT): StateT = currentState.copy(previousTime = currentState.time, time = nextTime)
+let incrementStateTime (nextTime: ZonedDateTime) (currentState: 'StateT) (stateInterface: StrategyState<'StateT>): 'StateT = 
+  stateInterface.withTime nextTime (stateInterface.time currentState) currentState
 
-let logCurrentPortfolioValue[StateT <: State[StateT]](currentState: StateT): StateT = {
-  let currentPortfolioValue = portfolioValue(currentState.portfolio, currentState.time, barClose _, barSimQuote _)
-  let newHistory = currentState.portfolioValueHistory :+ PortfolioValue(currentState.time, currentPortfolioValue)
-  currentState.copy(portfolioValueHistory = newHistory)
-}
+// todo, finish this once I decide what data structure to use for the StrategyState<'StateT>'s portfolioValueHistory
+let logCurrentPortfolioValue (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+  let currentPortfolio = stateInterface.portfolio currentState
+  let currentTime = stateInterface.time currentState
+  let currentPortfolioValueHistory = stateInterface.portfolioValueHistory currentState
+  let currentPortfolioValue = portfolioValue currentPortfolio currentTime barClose barSimQuote dao
+  let newPortfolioValueHistory = Vector.conj {time = currentTime; value = currentPortfolioValue} currentPortfolioValueHistory
+  stateInterface.withPortfolioValueHistory newPortfolioValueHistory currentState
 
 let closeAllOpenPositions[StateT <: State[StateT]](trial: Trial, currentState: StateT): StateT = {
   threadThrough(currentState)(

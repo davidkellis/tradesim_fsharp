@@ -215,31 +215,33 @@ type BaseStrategyState = {
   portfolioValueHistory: seq<PortfolioValue>
 }
 
-type StrategyState<'stateT> = {
-  previousTime: 'stateT -> ZonedDateTime
-  time: 'stateT -> ZonedDateTime
-  portfolio: 'stateT -> Portfolio
-  orders: 'stateT -> Vector<Order>
-  transactions: 'stateT -> TransactionLog
-  portfolioValueHistory: 'stateT -> seq<PortfolioValue>   // todo, make this Vector<PortfolioValue> or LinkedList<PortfolioValue> ?
+type StrategyState<'StateT> = {
+  previousTime: 'StateT -> ZonedDateTime
+  time: 'StateT -> ZonedDateTime
+  portfolio: 'StateT -> Portfolio
+  orders: 'StateT -> Vector<Order>
+  transactions: 'StateT -> TransactionLog
+  portfolioValueHistory: 'StateT -> Vector<PortfolioValue>   // todo, make this Vector<PortfolioValue> or LinkedList<PortfolioValue> ?
 
-  // (time: ZonedDateTime) -> (principal: decimal) -> 'stateT
-  initialize: ZonedDateTime -> decimal -> 'stateT
+  // (time: ZonedDateTime) -> (principal: decimal) -> 'StateT
+  initialize: ZonedDateTime -> decimal -> 'StateT
 
-  withOrders: Vector<Order> -> 'stateT -> 'stateT
-  withPortfolio: Portfolio -> 'stateT -> 'stateT
-  withTransactions: TransactionLog -> 'stateT -> 'stateT
-  withOrdersPortfolioTransactions: Vector<Order> -> Portfolio -> TransactionLog -> 'stateT -> 'stateT
+  withOrders: Vector<Order> -> 'StateT -> 'StateT
+  withPortfolio: Portfolio -> 'StateT -> 'StateT
+  withTransactions: TransactionLog -> 'StateT -> 'StateT
+  withOrdersPortfolioTransactions: Vector<Order> -> Portfolio -> TransactionLog -> 'StateT -> 'StateT
 
-  // (time: ZonedDateTime) -> (previousTime: ZonedDateTime) -> 'stateT -> 'stateT
-  withTime: ZonedDateTime -> ZonedDateTime -> 'stateT -> 'stateT
-  withPortfolioValueHistory: seq<PortfolioValue> -> 'stateT -> 'stateT
+  // (time: ZonedDateTime) -> (previousTime: ZonedDateTime) -> 'StateT -> 'StateT
+  withTime: ZonedDateTime -> ZonedDateTime -> 'StateT -> 'StateT
+  withPortfolioValueHistory: Vector<PortfolioValue> -> 'StateT -> 'StateT
+
+  toString: 'StateT -> string
 }
 
 // TradingStrategy typeclass
-type TradingStrategy<'strategyT, 'stateT> = {
-  name: 'strategyT -> string
-  buildInitialState: 'strategyT -> ('strategyT -> Trial -> 'stateT)
-  buildNextState: 'strategyT -> ('strategyT -> Trial -> 'stateT -> 'stateT)
-  isFinalState: 'strategyT -> ('strategyT -> Trial -> 'stateT -> bool)
+type TradingStrategy<'StrategyT, 'StateT> = {
+  name: 'StrategyT -> string
+  buildInitialState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT)
+  buildNextState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> 'StateT)
+  isFinalState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> bool)
 }

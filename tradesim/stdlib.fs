@@ -19,6 +19,14 @@ let str2 (a: string) (b: string): string =
   let builder = new System.Text.StringBuilder()
   builder.Append(a).Append(b).ToString()
 
+let maxBy<'t, 'u when 'u : comparison> (valueFn: 't -> 'u) (a: 't) (b: 't): 't =
+  if (valueFn a) >= (valueFn b) then a
+  else b
+
+let minBy<'t, 'u when 'u : comparison> (valueFn: 't -> 'u) (a: 't) (b: 't): 't =
+  if (valueFn a) <= (valueFn b) then a
+  else b
+
 let to2ArgComparer<'t> (cmpFn: 't -> 't -> int): System.Collections.Generic.IComparer<'t> = 
   { 
     new System.Collections.Generic.IComparer<'t> 

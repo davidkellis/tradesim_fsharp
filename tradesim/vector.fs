@@ -6,6 +6,8 @@ open FSharpx.Collections
 let head v = Vector.nth 0 v
 let tryHead v = Vector.tryNth 0 v
 
+let tail (v: Vector<'t>) = Seq.tail v
+
 // e.g. Vector.flatMapO (fun (e: Exchange) -> e.id) exchanges
 let flatMapO (f: 't -> Option<'u>) (ts: Vector<'t>): Vector<'u> = 
   Vector.fold

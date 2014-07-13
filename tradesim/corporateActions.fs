@@ -178,7 +178,7 @@ let adjustPriceForCorporateActions (price: decimal) (securityId: SecurityId) (pr
  * Note:
  *   new holdings = old holdings * split ratio
  *)
-let adjustPortfolioForSplit (split: Split) (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+let adjustPortfolioForSplit (split: Split) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
   let portfolio = stateInterface.portfolio currentState
   let securityId = split.securityId
   let exDate = split.exDate
@@ -206,7 +206,7 @@ let adjustPortfolioForSplit (split: Split) (currentState: 'StateT) dao (stateInt
 // returns the amount of cash the given portfolio is entitled to receive from the given cash-dividend
 let computeDividendPaymentAmount (cashDividend: CashDividend) (sharesOnHand: int64): decimal = decimal sharesOnHand * cashDividend.amount
 
-let adjustPortfolioForCashDividend (dividend: CashDividend) (currentState: 'StateT) (stateInterface: StrategyState<'StateT>): 'StateT =
+let adjustPortfolioForCashDividend (dividend: CashDividend) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
   let portfolio = stateInterface.portfolio currentState
   let qty = sharesOnHand portfolio dividend.securityId
   let dividendPaymentAmount = computeDividendPaymentAmount dividend qty
@@ -216,18 +216,18 @@ let adjustPortfolioForCashDividend (dividend: CashDividend) (currentState: 'Stat
                                 (stateInterface.transactions currentState)
   currentState |> stateInterface.withPortfolio adjustedPortfolio |> stateInterface.withTransactions updatedTransactionLog
 
-let adjustPortfolio (corporateAction: CorporateAction) (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+let adjustPortfolio (corporateAction: CorporateAction) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
   match corporateAction with
-  | SplitCA split -> adjustPortfolioForSplit split currentState dao stateInterface
-  | CashDividendCA dividend -> adjustPortfolioForCashDividend dividend currentState stateInterface
+  | SplitCA split -> adjustPortfolioForSplit split stateInterface currentState dao
+  | CashDividendCA dividend -> adjustPortfolioForCashDividend dividend stateInterface currentState
 
-let adjustPortfolioForCorporateActions (currentState: 'StateT) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+let adjustPortfolioForCorporateActions (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: 'StateT =
   let portfolio = stateInterface.portfolio currentState
   let securityIds = portfolio.stocks.Keys
   let corporateActions = findCorporateActions securityIds earlierObservationTime laterObservationTime dao
 //    println(s"********* Corporate Actions (for portfolio): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
   Vector.fold
-    (fun updatedState corporateAction -> adjustPortfolio corporateAction updatedState dao stateInterface)
+    (fun updatedState corporateAction -> adjustPortfolio corporateAction stateInterface updatedState dao)
     currentState
     corporateActions
 

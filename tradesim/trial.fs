@@ -4,6 +4,7 @@ open NodaTime
 open FSharpx
 open FSharpx.Collections
 
+open Stdlib
 open Core
 open Time
 open Database
@@ -18,7 +19,7 @@ open Stats
 open Logging
 
 
-let fixedTradingPeriodIsFinalState (strategy: TradingStrategy<'StrategyT, 'StateT>) (trial: Trial) (state: 'StateT) (stateInterface: StrategyState<'StateT>): bool = 
+let fixedTradingPeriodIsFinalState (strategy: TradingStrategy<'StrategyT, 'StateT>) (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): bool = 
   stateInterface.time state >= trial.endTime
 
 (*
@@ -40,10 +41,10 @@ let buildInitialJumpTimeIncrementer (timeComponent: Period)
                                     (subsequentPeriodIncrement: Period) 
                                     (tradingSchedule: TradingSchedule)
                                     : ZonedDateTime -> ZonedDateTime =
-  let mutable currentState = 0
+  let currentState = ref 0
   (fun time ->
-    (if currentState = 0 then
-      currentState <- 1
+    (if !currentState = 0 then
+      currentState := 1
       nextTradingDay time.LocalDateTime.Date initialPeriodIncrement tradingSchedule
     else
       nextTradingDay time.LocalDateTime.Date subsequentPeriodIncrement tradingSchedule
@@ -111,7 +112,7 @@ let tradingBloxFillPriceWithSlippage (priceBarFn: PriceBarFn)
  * fewer or more shares/cash/etc. than current-state.portfolio (meaning, the portfolio will be adjusted for filled orders);
  * and new-current-state.transactions may contain additional filled orders (NOTE: filled orders have a non-nil fill-price)
  *)
-let executeOrders (trial: Trial) (currentState: 'StateT) (stateInterface: StrategyState<'StateT>): 'StateT =
+let executeOrders (trial: Trial) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
   let purchaseFillPriceFn = trial.purchaseFillPrice
   let saleFillPriceFn = trial.saleFillPrice
   let currentTime = stateInterface.time currentState
@@ -142,19 +143,19 @@ let executeOrders (trial: Trial) (currentState: 'StateT) (stateInterface: Strate
  * Returns a new State that has been adjusted for stock splits and dividend payouts that have gone into effect at some point within the
  * interlet [current-state.previous-time, current-state.time].
  *)
-let adjustStrategyStateForRecentSplitsAndDividends (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+let adjustStrategyStateForRecentSplitsAndDividends (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
   let openOrders = stateInterface.orders currentState
   let previousTime = stateInterface.previousTime currentState
   let currentTime = stateInterface.time currentState
-  let currentStateWithAdjustedPortfolio = adjustPortfolioForCorporateActions currentState previousTime currentTime dao stateInterface
+  let currentStateWithAdjustedPortfolio = adjustPortfolioForCorporateActions stateInterface currentState previousTime currentTime dao
   let adjustedOpenOrders = adjustOpenOrdersForCorporateActions openOrders previousTime currentTime dao
   stateInterface.withOrders adjustedOpenOrders currentStateWithAdjustedPortfolio
 
-let incrementStateTime (nextTime: ZonedDateTime) (currentState: 'StateT) (stateInterface: StrategyState<'StateT>): 'StateT = 
+let incrementStateTime (nextTime: ZonedDateTime) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT = 
   stateInterface.withTime nextTime (stateInterface.time currentState) currentState
 
 // todo, finish this once I decide what data structure to use for the StrategyState<'StateT>'s portfolioValueHistory
-let logCurrentPortfolioValue (currentState: 'StateT) dao (stateInterface: StrategyState<'StateT>): 'StateT =
+let logCurrentPortfolioValue (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
   let currentPortfolio = stateInterface.portfolio currentState
   let currentTime = stateInterface.time currentState
   let currentPortfolioValueHistory = stateInterface.portfolioValueHistory currentState
@@ -162,15 +163,17 @@ let logCurrentPortfolioValue (currentState: 'StateT) dao (stateInterface: Strate
   let newPortfolioValueHistory = Vector.conj {time = currentTime; value = currentPortfolioValue} currentPortfolioValueHistory
   stateInterface.withPortfolioValueHistory newPortfolioValueHistory currentState
 
-let closeAllOpenPositions[StateT <: State[StateT]](trial: Trial, currentState: StateT): StateT = {
-  threadThrough(currentState)(
-    cancelAllPendingOrders,
-    closeAllOpenStockPositions,
-    executeOrders(trial, _)
-  )
-}
+let closeAllOpenPositions (trial: Trial) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
+  currentState
+  |> cancelAllPendingOrders stateInterface
+  |> closeAllOpenStockPositions stateInterface
+  |> executeOrders trial stateInterface
 
-/*
+let printAndReturnState (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
+  printfn "currentState=%s" (stateInterface.toString currentState)
+  currentState
+
+(*
  * This function runs a single trial.
  *
  * strategy is a Strategy object
@@ -191,141 +194,133 @@ let closeAllOpenPositions[StateT <: State[StateT]](trial: Trial, currentState: S
  *   been adjusted for corporate actions that took place between Jan 1, 2010 and June 1, 2010, but the user
  *   might only expect the final state to have been adjusted for corporate actions before Jan 1, 2010.
  *)
-let runTrial[StateT <: State[StateT]](strategy: Strategy[StateT], trial: Trial): StateT = {
-  let buildInitStrategyState = strategy.buildInitState
-  let buildNextStrategyState = strategy.buildNextState
-  let isFinalState = strategy.isFinalState
+let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) (strategy: 'StrategyT) (trial: Trial) dao: 'StateT =
+  let buildInitStrategyState = strategyInterface.buildInitialState strategy
+  let buildNextStrategyState = strategyInterface.buildNextState strategy
+  let isFinalState = strategyInterface.isFinalState strategy
   let incrementTime = trial.incrementTime
 
   // println("============================================")
   // println("strategy=" + strategy)
   // println("trial=" + trial)
 
-  let runTrial(currentState: StateT): StateT = {
+  let rec runTrialR (currentState: 'StateT): 'StateT =
     // println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
     // println("currentState=" + currentState)
 
-    if (isFinalState(strategy, trial, currentState)) {
-      threadThrough(currentState)(
-        closeAllOpenPositions(trial, _),
-        logCurrentPortfolioValue
-        // printAndReturnState
-      )
-    } else {
-      let currentTime = currentState.time
-      let nextTime = incrementTime(currentTime)
+    if isFinalState strategy trial currentState then
+      currentState
+      |> closeAllOpenPositions trial stateInterface
+      |> fun state -> logCurrentPortfolioValue stateInterface state dao
+//      |> printAndReturnState
+    else
+      let currentTime = stateInterface.time currentState
+      let nextTime = incrementTime currentTime
 
-      let nextState = threadThrough(currentState)(
-        logCurrentPortfolioValue,
-        buildNextStrategyState(strategy, trial, _),
-        //TODO: should we increment state.time by 100 milliseconds here to represent the time between order entry and order execution?
-        executeOrders(trial, _),   // for now, simulate immediate order fulfillment
-        incrementStateTime(nextTime, _),
-        adjustStrategyStateForRecentSplitsAndDividends
-      )
-      runTrial(nextState)
-    }
-  }
+      let nextState = 
+        currentState
+        |> fun state -> logCurrentPortfolioValue stateInterface state dao
+        |> buildNextStrategyState strategy trial
+        //todo: should we increment state.time by 100 milliseconds here to represent the time between order entry and order execution?
+        |> executeOrders trial stateInterface   // for now, simulate immediate order fulfillment
+        |> incrementStateTime nextTime stateInterface
+        |> fun state -> adjustStrategyStateForRecentSplitsAndDividends stateInterface state dao
 
-  let t1 = datetimeUtils.currentTime()
-  let result = runTrial(buildInitStrategyState(strategy, trial))
-  let t2 = datetimeUtils.currentTime()
-  verbose(s"Time: ${datetimeUtils.prettyFormatPeriod(datetimeUtils.periodBetween(t1, t2))}")
+      runTrialR nextState
+
+  let t1 = currentTime <| Some EasternTimeZone
+  let result = runTrialR <| buildInitStrategyState strategy trial
+  let t2 = currentTime <| Some EasternTimeZone
+  verbose <| sprintf "Time: ${datetimeUtils.prettyFormatPeriod(datetimeUtils.periodBetween(t1, t2))}"
   result
-}
 
-let printAndReturnState[StateT <: State[StateT]](currentState: StateT): StateT = {
-  println("currentState=" + currentState)
-  currentState
-}
+let computeTrialYield (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
+  stateInterface.portfolioValueHistory state
+  |> Vector.tryLast
+  |> Option.map (fun pv -> pv.value / trial.principal)
 
-let computeTrialYield[StateT <: State[StateT]](trial: Trial, state: StateT): Option[decimal] = {
-  state.portfolioValueHistory.lastOption.map(_.value / trial.principal)
-}
+let computeTrialMfe (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
+  (stateInterface.portfolioValueHistory state)
+  |> Seq.reduceOption (maxBy (fun pv -> pv.value))
+  |> Option.map (fun pv -> pv.value / trial.principal)
 
-let computeTrialMfe[StateT <: State[StateT]](trial: Trial, state: StateT): Option[decimal] = {
-  let ordering = Ordering.by((_: PortfolioValue).value)
-  let maxPortfolioValue = state.portfolioValueHistory.reduceOption(ordering.max)
-  maxPortfolioValue.map(_.value / trial.principal)
-}
+let computeTrialMae (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
+  (stateInterface.portfolioValueHistory state)
+  |> Seq.reduceOption (minBy (fun pv -> pv.value))
+  |> Option.map (fun pv -> pv.value / trial.principal)
 
-let computeTrialMae[StateT <: State[StateT]](trial: Trial, state: StateT): Option[decimal] = {
-  let ordering = Ordering.by((_: PortfolioValue).value)
-  let minPortfolioValue = state.portfolioValueHistory.reduceOption(ordering.min)
-  minPortfolioValue.map(_.value / trial.principal)
-}
-
-let computeTrialStdDev[StateT <: State[StateT]](state: StateT): Option[decimal] = {
-  if (state.portfolioValueHistory.isEmpty)
+let computeTrialStdDev (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
+  let portfolioValueHistory = stateInterface.portfolioValueHistory state
+  if Seq.isEmpty portfolioValueHistory then
     None
   else
-    Some(sample.stdDev(state.portfolioValueHistory.map(_.value)))
-}
+    Some <| Sample.stdDev (Seq.map (fun pv -> pv.value) portfolioValueHistory)
 
-let buildAllTrialIntervals(securityIds: IndexedSeq[SecurityId], intervalLength: Period, separationLength: Period): Seq[Interval] = {
-  let startDateRange = commonTrialPeriodStartDates(securityIds, intervalLength)
-  startDateRange.map(startDateRange => interspersedIntervals(startDateRange, intervalLength, separationLength)).getOrElse(Vector[Interval]())
-}
-
-type TrialGenerator = (IndexedSeq[SecurityId], ZonedDateTime, ZonedDateTime, Period) => Trial
-
-let buildTrialGenerator(principal: decimal,
-                        commissionPerTrade: decimal,
-                        commissionPerShare: decimal,
-                        timeIncrementerFn: (ZonedDateTime) => ZonedDateTime,
-                        purchaseFillPriceFn: PriceQuoteFn,
-                        saleFillPriceFn: PriceQuoteFn): TrialGenerator =
-  (securityIds: IndexedSeq[SecurityId],
-   startTime: ZonedDateTime,
-   endTime: ZonedDateTime,
-   trialDuration: Period) => Trial(securityIds,
-                                   principal,
-                                   commissionPerShare,
-                                   commissionPerTrade,
-                                   startTime,
-                                   endTime,
-                                   trialDuration,
-                                   timeIncrementerFn,
-                                   purchaseFillPriceFn,
-                                   saleFillPriceFn)
-
-let buildTrials[StateT <: State[StateT]](strategy: Strategy[StateT],
-                                         trialIntervalGeneratorFn: (IndexedSeq[SecurityId], Period) => Seq[Interval],
-                                         trialGeneratorFn: TrialGenerator,
-                                         securityIds: IndexedSeq[SecurityId],
-                                         trialDuration: Period): Seq[Trial] = {
-  let trialIntervals = trialIntervalGeneratorFn(securityIds, trialDuration)
-  trialIntervals.map(interlet => trialGeneratorFn(securityIds, interval.getStart, interval.getEnd, trialDuration))
-}
-
-let runTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = trials.map(runTrial(strategy, _)).toVector
-let runTrialsInParallel[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = trials.par.map(runTrial(strategy, _)).seq
-
-let logTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial], finalStates: Seq[StateT])(implicit adapter: Adapter) {
-  info(s"logTrials(${strategy.name}, ${trials.length} trials, ${finalStates.length} final states)")
-  adapter.insertTrials(strategy, trials.zip(finalStates))
-}
-
-let runAndLogTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = {
-  let t1 = currentTime()
-  let finalStates = runTrials(strategy, trials)
-  let t2 = currentTime()
-  info(s"Time to run trials: ${prettyFormatPeriod(periodBetween(t1, t2))}")
-  let t3 = currentTime()
-  logTrials(strategy, trials, finalStates)
-  let t4 = currentTime()
-  info(s"Time to log trials: ${prettyFormatPeriod(periodBetween(t3, t4))}")
-  finalStates
-}
-
-let runAndLogTrialsInParallel[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = {
-  let t1 = currentTime()
-  let finalStates = runTrialsInParallel(strategy, trials)
-  let t2 = currentTime()
-  info(s"Time to run trials: ${prettyFormatPeriod(periodBetween(t1, t2))}")
-  let t3 = currentTime()
-  logTrials(strategy, trials, finalStates)
-  let t4 = currentTime()
-  info(s"Time to log trials: ${prettyFormatPeriod(periodBetween(t3, t4))}")
-  finalStates
-}
+//let buildAllTrialIntervals(securityIds: IndexedSeq[SecurityId], intervalLength: Period, separationLength: Period): Seq[Interval] = {
+//  let startDateRange = commonTrialPeriodStartDates(securityIds, intervalLength)
+//  startDateRange.map(startDateRange => interspersedIntervals(startDateRange, intervalLength, separationLength)).getOrElse(Vector[Interval]())
+//}
+//
+//type TrialGenerator = (IndexedSeq[SecurityId], ZonedDateTime, ZonedDateTime, Period) => Trial
+//
+//let buildTrialGenerator(principal: decimal,
+//                        commissionPerTrade: decimal,
+//                        commissionPerShare: decimal,
+//                        timeIncrementerFn: (ZonedDateTime) => ZonedDateTime,
+//                        purchaseFillPriceFn: PriceQuoteFn,
+//                        saleFillPriceFn: PriceQuoteFn): TrialGenerator =
+//  (securityIds: IndexedSeq[SecurityId],
+//   startTime: ZonedDateTime,
+//   endTime: ZonedDateTime,
+//   trialDuration: Period) => Trial(securityIds,
+//                                   principal,
+//                                   commissionPerShare,
+//                                   commissionPerTrade,
+//                                   startTime,
+//                                   endTime,
+//                                   trialDuration,
+//                                   timeIncrementerFn,
+//                                   purchaseFillPriceFn,
+//                                   saleFillPriceFn)
+//
+//let buildTrials[StateT <: State[StateT]](strategy: Strategy[StateT],
+//                                         trialIntervalGeneratorFn: (IndexedSeq[SecurityId], Period) => Seq[Interval],
+//                                         trialGeneratorFn: TrialGenerator,
+//                                         securityIds: IndexedSeq[SecurityId],
+//                                         trialDuration: Period): Seq[Trial] = {
+//  let trialIntervals = trialIntervalGeneratorFn(securityIds, trialDuration)
+//  trialIntervals.map(interlet => trialGeneratorFn(securityIds, interval.getStart, interval.getEnd, trialDuration))
+//}
+//
+//let runTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = trials.map(runTrial(strategy, _)).toVector
+//let runTrialsInParallel[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = trials.par.map(runTrial(strategy, _)).seq
+//
+//let logTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial], finalStates: Seq[StateT])(implicit adapter: Adapter) {
+//  info(s"logTrials(${strategy.name}, ${trials.length} trials, ${finalStates.length} final states)")
+//  adapter.insertTrials(strategy, trials.zip(finalStates))
+//}
+//
+//let runAndLogTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = {
+//  let t1 = currentTime()
+//  let finalStates = runTrials(strategy, trials)
+//  let t2 = currentTime()
+//  info(s"Time to run trials: ${prettyFormatPeriod(periodBetween(t1, t2))}")
+//  let t3 = currentTime()
+//  logTrials(strategy, trials, finalStates)
+//  let t4 = currentTime()
+//  info(s"Time to log trials: ${prettyFormatPeriod(periodBetween(t3, t4))}")
+//  finalStates
+//}
+//
+//let runAndLogTrialsInParallel[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = {
+//  let t1 = currentTime()
+//  let finalStates = runTrialsInParallel(strategy, trials)
+//  let t2 = currentTime()
+//  info(s"Time to run trials: ${prettyFormatPeriod(periodBetween(t1, t2))}")
+//  let t3 = currentTime()
+//  logTrials(strategy, trials, finalStates)
+//  let t4 = currentTime()
+//  info(s"Time to log trials: ${prettyFormatPeriod(periodBetween(t3, t4))}")
+//  finalStates
+//}
+//

@@ -2,6 +2,7 @@
 
 open System.Collections.Immutable
 open C5
+open FSharpx.Collections
 
 // Returns a lazy sequence of x, (f x), (f (f x)) etc.
 // f must be free of side-effects
@@ -47,3 +48,9 @@ let apply (fns: seq<'t -> 'u>) (arg1: 't): seq<'u> = Seq.map (fun f -> f arg1) f
 let zipWithIndex (xs: seq<'t>): seq<'t * int> =
   Seq.initInfinite id
   |> Seq.zip xs
+
+let reduceOption (reducerFn: 't -> 't -> 't) (xs: seq<'t>): Option<'t> =
+  if Seq.isEmpty xs then
+    None
+  else
+    Some <| Seq.reduce reducerFn xs

@@ -74,7 +74,7 @@ type DatabaseAdapter<'dbConnection> = {
 
 
   //(strategy: Strategy<StateT>, trialStatePairs: seq<(Trial, StateT)>): Unit
-//  insertTrials: TradingStrategy<'strategyT,'stateT> -> seq<Trial * 'stateT> -> unit
+//  insertTrials: TradingStrategy<'StrategyT,'StateT> -> seq<Trial * 'StateT> -> unit
 
 //  queryForTrial: (strategyName: string,
 //                      securityId: SecurityId,
@@ -147,7 +147,7 @@ type Dao<'dbConnection> = {
 
 
   //(strategy: Strategy<StateT>, trialStatePairs: seq<(Trial, StateT)>): Unit
-//  insertTrials: TradingStrategy<'strategyT,'stateT> -> seq<Trial * 'stateT> -> unit
+//  insertTrials: TradingStrategy<'StrategyT,'StateT> -> seq<Trial * 'StateT> -> unit
 
 //  queryForTrial: (strategyName: string,
 //                      securityId: SecurityId,

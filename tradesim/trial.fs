@@ -3,6 +3,7 @@
 open NodaTime
 open FSharpx
 open FSharpx.Collections
+open FSharp.Collections.ParallelSeq
 
 open Stdlib
 open Core
@@ -256,71 +257,76 @@ let computeTrialStdDev (stateInterface: StrategyState<'StateT>) (state: 'StateT)
   else
     Some <| Sample.stdDev (Seq.map (fun pv -> pv.value) portfolioValueHistory)
 
-//let buildAllTrialIntervals(securityIds: IndexedSeq[SecurityId], intervalLength: Period, separationLength: Period): Seq[Interval] = {
-//  let startDateRange = commonTrialPeriodStartDates(securityIds, intervalLength)
-//  startDateRange.map(startDateRange => interspersedIntervals(startDateRange, intervalLength, separationLength)).getOrElse(Vector[Interval]())
-//}
-//
-//type TrialGenerator = (IndexedSeq[SecurityId], ZonedDateTime, ZonedDateTime, Period) => Trial
-//
-//let buildTrialGenerator(principal: decimal,
-//                        commissionPerTrade: decimal,
-//                        commissionPerShare: decimal,
-//                        timeIncrementerFn: (ZonedDateTime) => ZonedDateTime,
-//                        purchaseFillPriceFn: PriceQuoteFn,
-//                        saleFillPriceFn: PriceQuoteFn): TrialGenerator =
-//  (securityIds: IndexedSeq[SecurityId],
-//   startTime: ZonedDateTime,
-//   endTime: ZonedDateTime,
-//   trialDuration: Period) => Trial(securityIds,
-//                                   principal,
-//                                   commissionPerShare,
-//                                   commissionPerTrade,
-//                                   startTime,
-//                                   endTime,
-//                                   trialDuration,
-//                                   timeIncrementerFn,
-//                                   purchaseFillPriceFn,
-//                                   saleFillPriceFn)
-//
-//let buildTrials[StateT <: State[StateT]](strategy: Strategy[StateT],
-//                                         trialIntervalGeneratorFn: (IndexedSeq[SecurityId], Period) => Seq[Interval],
-//                                         trialGeneratorFn: TrialGenerator,
-//                                         securityIds: IndexedSeq[SecurityId],
-//                                         trialDuration: Period): Seq[Trial] = {
-//  let trialIntervals = trialIntervalGeneratorFn(securityIds, trialDuration)
-//  trialIntervals.map(interlet => trialGeneratorFn(securityIds, interval.getStart, interval.getEnd, trialDuration))
-//}
-//
-//let runTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = trials.map(runTrial(strategy, _)).toVector
-//let runTrialsInParallel[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = trials.par.map(runTrial(strategy, _)).seq
-//
-//let logTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial], finalStates: Seq[StateT])(implicit adapter: Adapter) {
-//  info(s"logTrials(${strategy.name}, ${trials.length} trials, ${finalStates.length} final states)")
-//  adapter.insertTrials(strategy, trials.zip(finalStates))
-//}
-//
-//let runAndLogTrials[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = {
-//  let t1 = currentTime()
-//  let finalStates = runTrials(strategy, trials)
-//  let t2 = currentTime()
-//  info(s"Time to run trials: ${prettyFormatPeriod(periodBetween(t1, t2))}")
-//  let t3 = currentTime()
-//  logTrials(strategy, trials, finalStates)
-//  let t4 = currentTime()
-//  info(s"Time to log trials: ${prettyFormatPeriod(periodBetween(t3, t4))}")
-//  finalStates
-//}
-//
-//let runAndLogTrialsInParallel[StateT <: State[StateT]](strategy: Strategy[StateT], trials: Seq[Trial]): Seq[StateT] = {
-//  let t1 = currentTime()
-//  let finalStates = runTrialsInParallel(strategy, trials)
-//  let t2 = currentTime()
-//  info(s"Time to run trials: ${prettyFormatPeriod(periodBetween(t1, t2))}")
-//  let t3 = currentTime()
-//  logTrials(strategy, trials, finalStates)
-//  let t4 = currentTime()
-//  info(s"Time to log trials: ${prettyFormatPeriod(periodBetween(t3, t4))}")
-//  finalStates
-//}
-//
+let buildAllTrialIntervals (securityIds: Vector<SecurityId>) (intervalLength: Period) (separationLength: Period) dao: seq<Interval> =
+  commonTrialPeriodStartDates securityIds intervalLength dao
+  |> Option.map (fun startDateRange -> interspersedIntervals startDateRange intervalLength separationLength)
+  |> Option.getOrElse Seq.empty
+
+// TrialGenerator = (securityIds: Vector<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) (trialDuration: Period) -> Trial
+type TrialGenerator = Vector<SecurityId> -> ZonedDateTime -> ZonedDateTime -> Period -> Trial
+
+let buildTrialGenerator (principal: decimal)
+                        (commissionPerTrade: decimal)
+                        (commissionPerShare: decimal)
+                        (timeIncrementerFn: ZonedDateTime -> ZonedDateTime)
+                        (purchaseFillPriceFn: PriceQuoteFn)
+                        (saleFillPriceFn: PriceQuoteFn)
+                        : TrialGenerator =
+  (fun (securityIds: Vector<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) (trialDuration: Period) -> 
+    {
+      securityIds = securityIds
+      principal = principal
+      commissionPerTrade = commissionPerTrade
+      commissionPerShare = commissionPerShare
+      startTime = startTime
+      endTime = endTime
+      duration = trialDuration
+      incrementTime = timeIncrementerFn
+      purchaseFillPrice = purchaseFillPriceFn
+      saleFillPrice = saleFillPriceFn
+    }
+  )
+
+let buildTrials (trialIntervalGeneratorFn: Vector<SecurityId> -> Period -> seq<Interval>)
+                (trialGeneratorFn: TrialGenerator)
+                (securityIds: Vector<SecurityId>)
+                (trialDuration: Period)
+                : seq<Trial> =
+  trialIntervalGeneratorFn securityIds trialDuration
+  |> Seq.map
+    (fun interval -> trialGeneratorFn securityIds (interval.Start |> instantToEasternTime) (interval.End |> instantToEasternTime) trialDuration)
+
+let runTrials strategyInterface stateInterface (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> = 
+  Seq.map (fun trial -> runTrial strategyInterface stateInterface strategy trial dao) trials
+
+let runTrialsInParallel strategyInterface stateInterface (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> = 
+  trials
+  |> PSeq.map (fun trial -> runTrial strategyInterface stateInterface strategy trial dao)
+  |> PSeq.toArray
+  |> Array.toSeq
+
+let logTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (strategy: 'StrategyT) (trials: seq<Trial>) (finalStates: seq<'StateT>) dap: unit =
+  infoL <| lazy ( sprintf "logTrials -> strategy=%s, %i trials, %i final states" (strategyInterface.name strategy) (Seq.length trials) (Seq.length finalStates))
+  dao.insertTrials strategy <| Seq.zip trials finalStates
+
+let runAndLogTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> =
+  let t1 = currentTime <| Some EasternTimeZone
+  let finalStates = runTrials strategyInterface stateInterface strategy trials dao
+  let t2 = currentTime <| Some EasternTimeZone
+  info <| sprintf "Time to run trials: %s" (prettyFormatPeriod <| periodBetween t1 t2)
+  let t3 = currentTime <| Some EasternTimeZone
+  logTrials strategyInterface strategy trials finalStates dao
+  let t4 = currentTime <| Some EasternTimeZone
+  info <| sprintf "Time to log trials: %s" (prettyFormatPeriod <| periodBetween t3 t4)
+  finalStates
+
+let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> =
+  let t1 = currentTime <| Some EasternTimeZone
+  let finalStates = runTrialsInParallel strategyInterface stateInterface strategy trials dao
+  let t2 = currentTime <| Some EasternTimeZone
+  info <| sprintf "Time to run trials: %s" (prettyFormatPeriod <| periodBetween t1 t2)
+  let t3 = currentTime <| Some EasternTimeZone
+  logTrials strategyInterface strategy trials finalStates dao
+  let t4 = currentTime <| Some EasternTimeZone
+  info <| sprintf "Time to log trials: %s" (prettyFormatPeriod <| periodBetween t3 t4)
+  finalStates

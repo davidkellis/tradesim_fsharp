@@ -77,6 +77,9 @@
     <Reference Include="MathNet.Numerics.FSharp">
       <HintPath>..\MathNet.Numerics.FSharp.3.0.2\lib\net40\MathNet.Numerics.FSharp.dll</HintPath>
     </Reference>
+    <Reference Include="FSharp.Collections.ParallelSeq">
+      <HintPath>..\FSharp.Collections.ParallelSeq.1.0\lib\net40\FSharp.Collections.ParallelSeq.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />

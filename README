@@ -11,6 +11,7 @@ Install:
 ./nuget install FSharpx.Core
 ./nuget install MathNet.Numerics
 ./nuget install MathNet.Numerics.FSharp
+./nuget install FSharp.Collections.ParallelSeq
 
 ./nuget install FsUnit
 

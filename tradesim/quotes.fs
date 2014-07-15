@@ -77,7 +77,7 @@ let queryEodBarsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (
   let t1 = currentTime None
   let result = dao.queryEodBarsBetween securityId earliestTime latestTime
   let t2 = currentTime None
-  Logging.verbose <| sprintf "Time: %s" (prettyFormatPeriod <| periodBetween t1 t2)
+  Logging.verbose <| sprintf "Time: %s" (formatPeriod <| periodBetween t1 t2)
   result
 
 let findOldestEodBar (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =

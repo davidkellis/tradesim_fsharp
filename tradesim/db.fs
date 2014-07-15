@@ -3,6 +3,7 @@
 open System
 open System.Data
 open System.Threading
+open FSharpx
 open NodaTime
 open Npgsql
 
@@ -73,17 +74,18 @@ type DatabaseAdapter<'dbConnection> = {
   queryAnnualReportsBetween: 'dbConnection -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<AnnualReport>
 
 
-  //(strategy: Strategy<StateT>, trialStatePairs: seq<(Trial, StateT)>): Unit
-//  insertTrials: TradingStrategy<'StrategyT,'StateT> -> seq<Trial * 'StateT> -> unit
+  // (strategyName: string)
+  // (securityId: SecurityId)
+  // (trialDuration: Period)
+  // (startDate: LocalDate)
+  // (principal: BigDecimal)
+  // (commissionPerTrade: BigDecimal)
+  // (commissionPerShare: BigDecimal)
+  // : Option<Trial>
+  queryForTrial: 'dbConnection -> string -> SecurityId -> Period -> LocalDate -> decimal -> decimal -> decimal -> Option<Trial>
 
-//  queryForTrial: (strategyName: string,
-//                      securityId: SecurityId,
-//                      trialDuration: Period,
-//                      startDate: LocalDate,
-//                      principal: BigDecimal,
-//                      commissionPerTrade: BigDecimal,
-//                      commissionPerShare: BigDecimal): Option<TrialsRow>
-
+  // (strategyName: string) (trialStatePairs: seq<(Trial, BaseStrategyState)>): unit
+  insertTrials: 'dbConnection -> string -> seq<Trial * BaseStrategyState> -> unit
 }
 
 type Dao<'dbConnection> = {
@@ -146,17 +148,18 @@ type Dao<'dbConnection> = {
   queryAnnualReportsBetween: SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<AnnualReport>
 
 
-  //(strategy: Strategy<StateT>, trialStatePairs: seq<(Trial, StateT)>): Unit
-//  insertTrials: TradingStrategy<'StrategyT,'StateT> -> seq<Trial * 'StateT> -> unit
+  // (strategyName: string)
+  // (securityId: SecurityId)
+  // (trialDuration: Period)
+  // (startDate: LocalDate)
+  // (principal: BigDecimal)
+  // (commissionPerTrade: BigDecimal)
+  // (commissionPerShare: BigDecimal)
+  // : Option<TrialsRow>
+  queryForTrial: string -> SecurityId -> Period -> LocalDate -> decimal -> decimal -> decimal -> Option<Trial>
 
-//  queryForTrial: (strategyName: string,
-//                      securityId: SecurityId,
-//                      trialDuration: Period,
-//                      startDate: LocalDate,
-//                      principal: BigDecimal,
-//                      commissionPerTrade: BigDecimal,
-//                      commissionPerShare: BigDecimal): Option<TrialsRow>
-
+  // (strategyName: string) (trialStatePairs: seq<(Trial, BaseStrategyState)>): unit
+  insertTrials: string -> seq<Trial * BaseStrategyState> -> unit
 }
 
 
@@ -589,60 +592,69 @@ module Postgres =
 
   // trial queries
 
-  //let toTrial (reader: NpgsqlDataReader): Trial =
-  //  {
-  //    securityIds = [dbGetInt reader "security_id"]
-  //    principal = dbGetDecimal reader "principal"
-  //    commissionPerTrade = dbGetDecimal reader "commission_per_trade"
-  //    commissionPerShare = dbGetDecimal reader "commission_per_share"
-  //    startTime = dbGetLong reader "start_time" |> timestampToDatetime
-  //    endTime = dbGetLong reader "end_time" |> timestampToDatetime
-  //    duration = dbGetString reader "duration" |> ???
-  //    incrementTime: ZonedDateTime -> ZonedDateTime
-  //    purchaseFillPrice: PriceQuoteFn
-  //    saleFillPrice: PriceQuoteFn
-  //  }
-  //
-  //let queryForTrial
-  //    (strategyName: String)
-  //    (securityId: SecurityId)
-  //    (trialDuration: Period)
-  //    (startDate: LocalDate)
-  //    (principal: decimal)
-  //    (commissionPerTrade: decimal)
-  //    (commissionPerShare: decimal) =
-  //  let sql = """
-  //    select s.id, trials.*
-  //    from strategies strategy
-  //    inner join trial_sets ts on ts.strategy_id = strategy.id
-  //    inner join trials t on t.trial_set_id = ts.id
-  //    inner join securities_trial_sets sts = sts on sts.trial_set_id = ts.id
-  //    inner join securities s on s.id = sts.security_id
-  //    where strategy.name = @strategyName
-  //      and s.id = @securityId
-  //      and ts.principal = @principal
-  //      and ts.duration = @trialDuration
-  //      and ts.commission_per_trade = @commissionPerTrade
-  //      and ts.commission_per_share = @commissionPerShare
-  //      and t.start_time >= @smallestStartTime
-  //      and t.start_time <= @largestStartTime
-  //    limit 1
-  //  """
-  //  query
-  //    sql
-  //    [
-  //      stringParam "strategyName" strategyName;
-  //      intParam "securityId" securityId;
-  //      decimalParam "principal" principal;
-  //      decimalParam "commissionPerTrade" commissionPerTrade;
-  //      decimalParam "commissionPerShare" commissionPerShare;
-  //      longParam "smallestStartTime" <| (localDateToDateTime startDate 0 0 0 |> dateTimeToTimestamp);
-  //      longParam "largestStartTime" <| (localDateToDateTime startDate 23 59 59 |> dateTimeToTimestamp)
-  //    ]
-  //    toTrial
-  //  >> Seq.firstOption
+  let toTrial (reader: NpgsqlDataReader): Trial =
+    {
+      securityIds = [dbGetInt reader "security_id"]
+      principal = dbGetDecimal reader "principal"
+      commissionPerTrade = dbGetDecimal reader "commission_per_trade"
+      commissionPerShare = dbGetDecimal reader "commission_per_share"
+      startTime = dbGetLong reader "start_time" |> timestampToDatetime
+      endTime = dbGetLong reader "end_time" |> timestampToDatetime
+      duration = dbGetStr reader "duration" |> parsePeriod |> Option.getOrElse (Period.FromSeconds(0L))
 
-  // todo, implement trial select and insert queries
+      // remaining attributes are irrelevant
+      incrementTime = id
+      purchaseFillPrice = fun t sId -> None
+      saleFillPrice = fun t sId -> None
+    }
+  
+  let queryForTrial
+      connection
+      (strategyName: String)
+      (securityId: SecurityId)
+      (trialDuration: Period)
+      (startDate: LocalDate)
+      (principal: decimal)
+      (commissionPerTrade: decimal)
+      (commissionPerShare: decimal)
+      : Option<Trial> =
+    let sql = """
+      select s.id as security_id, t.*
+      from strategies strategy
+      inner join trial_sets ts on ts.strategy_id = strategy.id
+      inner join trials t on t.trial_set_id = ts.id
+      inner join securities_trial_sets sts = sts on sts.trial_set_id = ts.id
+      inner join securities s on s.id = sts.security_id
+      where strategy.name = @strategyName
+        and s.id = @securityId
+        and ts.principal = @principal
+        and ts.duration = @trialDuration
+        and ts.commission_per_trade = @commissionPerTrade
+        and ts.commission_per_share = @commissionPerShare
+        and t.start_time >= @smallestStartTime
+        and t.start_time <= @largestStartTime
+      limit 1
+    """
+    query
+      connection
+      sql
+      [
+        stringParam "strategyName" strategyName;
+        intParam "securityId" securityId;
+        decimalParam "principal" principal;
+        decimalParam "commissionPerTrade" commissionPerTrade;
+        decimalParam "commissionPerShare" commissionPerShare;
+        longParam "smallestStartTime" <| (localDateToDateTime startDate 0 0 0 |> dateTimeToTimestamp);
+        longParam "largestStartTime" <| (localDateToDateTime startDate 23 59 59 |> dateTimeToTimestamp)
+      ]
+      toTrial
+    |> Seq.firstOption
+
+  
+  // trial commands
+
+  let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
+    ()
 
 
   let Adapter: DatabaseAdapter<NpgsqlConnection> = {
@@ -668,6 +680,9 @@ module Postgres =
     queryAnnualReportPriorTo = queryAnnualReportPriorTo
     queryAnnualReports = queryAnnualReports
     queryAnnualReportsBetween = queryAnnualReportsBetween
+
+    queryForTrial = queryForTrial
+    insertTrials = insertTrials
   }
 
   let createDao connection: Dao<NpgsqlConnection> = {
@@ -693,4 +708,7 @@ module Postgres =
     queryAnnualReportPriorTo = Adapter.queryAnnualReportPriorTo connection
     queryAnnualReports = Adapter.queryAnnualReports connection
     queryAnnualReportsBetween = Adapter.queryAnnualReportsBetween connection
+
+    queryForTrial = Adapter.queryForTrial connection
+    insertTrials = Adapter.insertTrials connection
   }

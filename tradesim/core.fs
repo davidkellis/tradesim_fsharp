@@ -212,7 +212,7 @@ type BaseStrategyState = {
   portfolio: Portfolio
   orders: Vector<Order>
   transactions: TransactionLog
-  portfolioValueHistory: seq<PortfolioValue>
+  portfolioValueHistory: Vector<PortfolioValue>
 }
 
 type StrategyState<'StateT> = {
@@ -237,6 +237,16 @@ type StrategyState<'StateT> = {
 
   toString: 'StateT -> string
 }
+
+let toBaseStrategyState stateInterface state: BaseStrategyState =
+  {
+    previousTime = stateInterface.previousTime state
+    time = stateInterface.time state
+    portfolio = stateInterface.portfolio state
+    orders = stateInterface.orders state
+    transactions = stateInterface.transactions state
+    portfolioValueHistory = stateInterface.portfolioValueHistory state
+  }
 
 // TradingStrategy typeclass
 type TradingStrategy<'StrategyT, 'StateT> = {

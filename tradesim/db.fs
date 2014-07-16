@@ -4,6 +4,7 @@ open System
 open System.Data
 open System.Threading
 open FSharpx
+open FSharpx.Collections
 open NodaTime
 open Npgsql
 
@@ -171,6 +172,7 @@ type SqlValue =
   | SqlFloat of double
   | SqlString of string
   | SqlDecimal of decimal
+  | SqlByteArray of array<byte>
 
 type SqlParam =
   SqlPrimitive of string * SqlValue
@@ -184,18 +186,21 @@ let sqlValueToSQL = function
   | SqlFloat f -> sprintf "%f" f
   | SqlString s -> sprintf "'%s'" (escapeString s)
   | SqlDecimal d -> sprintf "%M" d
+  | SqlByteArray ba -> failwith "sqlValueToSQL doesn't work with byte arrays."
 
 let intParam name i = SqlPrimitive (name, SqlInt i)
 let longParam name i = SqlPrimitive (name, SqlLong i)
 let floatParam name f = SqlPrimitive (name, SqlFloat f)
 let stringParam name s = SqlPrimitive (name, SqlString s)
 let decimalParam name d = SqlPrimitive (name, SqlDecimal d)
+let byteArrayParam name ba = SqlPrimitive (name, SqlByteArray ba)
 
 let intListParam name values = SqlList (name, Seq.map SqlInt values)
 let longListParam name values = SqlList (name, Seq.map SqlLong values)
 let floatListParam name values = SqlList (name, Seq.map SqlFloat values)
 let stringListParam name values = SqlList (name, Seq.map SqlString values)
 let decimalListParam name values = SqlList (name, Seq.map SqlDecimal values)
+let byteArrayListParam name values = SqlList (name, Seq.map SqlByteArray values)
 
 
 module Postgres = 
@@ -271,7 +276,48 @@ module Postgres =
       while reader.Read() do
         yield reader |> toType
     }
-   
+
+
+  // data insertion functions
+
+  let parameterizeSqlCommand (sqlCmd: NpgsqlCommand) (parameters: list<SqlParam>): NpgsqlCommand =
+    List.iter
+      (fun sqlParam -> 
+        match sqlParam with
+        | SqlList (key, values) ->
+          let paramName = sprintf "@%s" key
+          failwith "parameterizeSqlCommand doesn't implement parameterizing a query with a list."
+        | SqlPrimitive (key, sqlValue) ->
+          let paramName = sprintf "@%s" key
+          (match sqlValue with
+          | SqlInt value ->
+            sqlCmd.Parameters.AddWithValue(paramName, NpgsqlTypes.NpgsqlDbType.Integer, value)
+          | SqlLong value ->
+            sqlCmd.Parameters.AddWithValue(paramName, NpgsqlTypes.NpgsqlDbType.Bigint, value)
+          | SqlFloat value ->
+            sqlCmd.Parameters.AddWithValue(paramName, NpgsqlTypes.NpgsqlDbType.Double, value)
+          | SqlString value when value.Length <= 256 ->
+            sqlCmd.Parameters.AddWithValue(paramName, NpgsqlTypes.NpgsqlDbType.Varchar, value)
+          | SqlString value when value.Length > 256 ->
+            sqlCmd.Parameters.AddWithValue(paramName, NpgsqlTypes.NpgsqlDbType.Text, value)
+          | SqlDecimal value ->
+            sqlCmd.Parameters.AddWithValue(paramName, NpgsqlTypes.NpgsqlDbType.Numeric, value)
+          | SqlByteArray value ->
+            sqlCmd.Parameters.AddWithValue(paramName, NpgsqlTypes.NpgsqlDbType.Bytea, value)
+          | _ -> failwith "parameterizeSqlCommand failed: Unknown SqlPrimitive parameter type."
+          ) |> ignore
+      )
+      parameters
+    sqlCmd
+
+  let insert connection (sql: string) (parameters: list<SqlParam>): int =
+    let cmd = new NpgsqlCommand(sql, connection)
+    cmd.CommandType <- CommandType.Text
+
+    parameterizeSqlCommand cmd parameters |> ignore
+
+    unbox (cmd.ExecuteScalar())
+
 
   // exchange queries
 
@@ -651,11 +697,103 @@ module Postgres =
     |> Seq.firstOption
 
   
-  // trial commands
+  // trial insertion functions
+
+  let insertStrategy (strategyName: string): StrategiesRow =
+    val insertRow = () => {
+      val row = StrategiesRow(0, strategyName)
+      val strategyId = (Strategies returning Strategies.map(_.id)) += row
+      row.copy(id = strategyId)
+    }
+    Strategies.filter(_.name === strategyName).take(1).firstOption.getOrElse(insertRow())
 
   let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
-    ()
+    let sql = """
+      insert ...
+      ;select currval('table_sequence');
+    """
+    insert
+      connection
+      sql
+      []
+    |> ignore
 
+    Seq.tryHead trialStatePairs
+    |> Option.iter
+      (fun (firstTrial, firstStrategyState) ->
+        let strategyRow = insertStrategy strategyName
+        let trialSetRow = insertTrialSet strategyRow.id firstTrial
+
+        trialStatePairs.grouped(500).foreach { pairs =>
+          verbose "Building group of records."
+          val trialRows = pairs.map(pair => buildTrialsRow(trialSetRow.id, pair._1, pair._2)).toSeq
+          verbose "Inserting group of records."
+          try {
+            Trials ++= trialRows
+          } catch {
+            case e: java.sql.BatchUpdateException =>
+              println("*" * 80)
+              e.getNextException.printStackTrace()
+          }
+        }
+      )
+
+
+  def insertTrialSet(strategyId: Int, trial: Trial): TrialSetsRow = {
+    val insertRow = () => {
+      val row = TrialSetsRow(0, Some(trial.principal), Some(trial.commissionPerTrade), Some(trial.commissionPerShare), Some(trial.duration.toString), strategyId)
+      val trialSetId = (TrialSets returning TrialSets.map(_.id)) += row
+      joinTrialSetToSecurities(trialSetId, trial.securityIds)
+      row.copy(id = trialSetId)
+    }
+
+    val tsId_sId_pairs = (for {
+      ts <- TrialSets if ts.strategyId === strategyId
+      sToTs <- SecuritiesTrialSets if sToTs.trialSetId === ts.id
+      s <- Securities if sToTs.securityId === s.id
+      if s.id inSetBind trial.securityIds
+      if ts.principal === trial.principal
+      if ts.commissionPerTrade === trial.commissionPerTrade
+      if ts.commissionPerShare === trial.commissionPerShare
+    } yield (ts.id, s.id)).list
+
+//      val tsId_sId_pairs = (for {
+//        ((ts, joinTable), s) <- (TrialSets innerJoin SecuritiesTrialSets) innerJoin Securities
+//        if ts.strategyId === strategyId
+//        if s.id inSetBind trial.securityIds
+//        if ts.principal === trial.principal
+//        if ts.commissionPerTrade === trial.commissionPerTrade
+//        if ts.commissionPerShare === trial.commissionPerShare
+//      } yield (ts.id, s.id)).list
+
+    val groupedIdPairs = tsId_sId_pairs.groupBy(_._1)     // group (tsId, sId) pairs by tsId yielding a Map[tsId, Seq[sId]]
+
+    val groupedIdPairReferencingAllSecurities = groupedIdPairs.find(_._2.length == trial.securityIds.length)
+
+    val trialSetId = groupedIdPairReferencingAllSecurities.map(_._1)
+
+    trialSetId.flatMap { trialSetId =>
+      TrialSets.filter(_.id === trialSetId).take(1).firstOption
+    }.getOrElse(insertRow())
+  }
+
+  def joinTrialSetToSecurities(trialSetId: Int, securityIds: Seq[SecurityId]): Unit = {
+    val rows = securityIds.map(securityId => SecuritiesTrialSetsRow(securityId, trialSetId))
+    SecuritiesTrialSets ++= rows
+  }
+
+  def buildTrialsRow[StateT <: State[StateT]](trialSetId: Int, trial: Trial, state: StateT): TrialsRow = {
+    val startTime = timestamp(trial.startTime)
+    val endTime = timestamp(trial.endTime)
+    val transactionLog = convertTransactionsToProtobuf(state.transactions).toByteArray
+    val portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory).toByteArray
+    val trialYield = computeTrialYield(trial, state)
+    val mfe = computeTrialMfe(trial, state)
+    val mae = computeTrialMae(trial, state)
+    val dailyStdDev = computeTrialStdDev(state)
+
+    TrialsRow(0, startTime, endTime, transactionLog, portfolioValueLog, trialYield, mfe, mae, dailyStdDev, trialSetId)
+  }
 
   let Adapter: DatabaseAdapter<NpgsqlConnection> = {
     findExchanges = findExchanges

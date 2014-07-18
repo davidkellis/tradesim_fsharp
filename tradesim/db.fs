@@ -310,14 +310,21 @@ module Postgres =
       parameters
     sqlCmd
 
-  let insert connection (sql: string) (parameters: list<SqlParam>): int =
+  let insertReturningId connection (sql: string) (parameters: list<SqlParam>): Option<int> =
     let cmd = new NpgsqlCommand(sql, connection)
     cmd.CommandType <- CommandType.Text
 
     parameterizeSqlCommand cmd parameters |> ignore
 
-    unbox (cmd.ExecuteScalar())
+    unboxedOpt (cmd.ExecuteScalar())
 
+  let insert connection (sql: string) (parameters: list<SqlParam>): unit =
+    let cmd = new NpgsqlCommand(sql, connection)
+    cmd.CommandType <- CommandType.Text
+
+    parameterizeSqlCommand cmd parameters |> ignore
+
+    cmd.ExecuteNonQuery() |> ignore
 
   // exchange queries
 
@@ -697,47 +704,123 @@ module Postgres =
     |> Seq.firstOption
 
   
-  // trial insertion functions
+  // strategy insertion functions
 
-  let insertStrategy (strategyName: string): StrategiesRow =
-    val insertRow = () => {
-      val row = StrategiesRow(0, strategyName)
-      val strategyId = (Strategies returning Strategies.map(_.id)) += row
-      row.copy(id = strategyId)
+  type StrategyRecord = {id: int; name: string}
+
+  let toStrategyRecord (reader: NpgsqlDataReader): StrategyRecord =
+    {
+      id = dbGetInt reader "id"
+      name = dbGetStr reader "name"
     }
-    Strategies.filter(_.name === strategyName).take(1).firstOption.getOrElse(insertRow())
 
-  let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
+  let findStrategy connection (strategyName: string): Option<StrategyRecord> =
     let sql = """
-      insert ...
-      ;select currval('table_sequence');
+      select * from securities
+      where name = @name
+      limit 1
     """
-    insert
+    query
       connection
       sql
-      []
-    |> ignore
+      [stringParam "name" strategyName]
+      toStrategyRecord
+    |> Seq.firstOption
 
-    Seq.tryHead trialStatePairs
-    |> Option.iter
-      (fun (firstTrial, firstStrategyState) ->
-        let strategyRow = insertStrategy strategyName
-        let trialSetRow = insertTrialSet strategyRow.id firstTrial
+  let findOrCreateStrategy connection (strategyName: string): Option<StrategyRecord> =
+    let insertRecord = fun unit ->
+      let sql = """
+        insert into strategies
+        (name)
+        values
+        (@name)
+        returning id;
+      """
+      insertReturningId
+        connection
+        sql
+        [stringParam "name" strategyName]
+      |> Option.map (fun id -> {id = id; name = strategyName})
 
-        trialStatePairs.grouped(500).foreach { pairs =>
-          verbose "Building group of records."
-          val trialRows = pairs.map(pair => buildTrialsRow(trialSetRow.id, pair._1, pair._2)).toSeq
-          verbose "Inserting group of records."
-          try {
-            Trials ++= trialRows
-          } catch {
-            case e: java.sql.BatchUpdateException =>
-              println("*" * 80)
-              e.getNextException.printStackTrace()
-          }
-        }
-      )
+    findStrategy connection strategyName |> Option.orElseF insertRecord
 
+
+  // trialset insertion functions
+  type TrialSetRecord = {
+    id: int
+    principal: decimal
+    commissionPerTrade: decimal
+    commissionPerShare: decimal
+    duration: string
+    strategyId: int
+  }
+
+  let toTrialSetRecord (reader: NpgsqlDataReader): TrialSetRecord =
+    {
+      id = dbGetInt reader "id"
+      principal = dbGetDecimal reader "principal"
+      commissionPerTrade = dbGetDecimal reader "commission_per_trade"
+      commissionPerShare = dbGetDecimal reader "commission_per_share"
+      duration = dbGetStr reader "duration"
+      strategyId = dbGetInt reader "strategy_id"
+    }
+
+  let findTrialSet connection (principal: decimal) (commissionPerTrade: decimal) (commissionPerShare: decimal) (duration: string) (strategyId: int): Option<TrialSetRecord> =
+    let sql = """
+      select * from trial_sets
+      where
+        principal = @principal
+        and commission_per_trade = @commissionPerTrade
+        and commission_per_share = @commissionPerShare
+        and duration = @duration
+        and strategy_id = @strategyId
+      limit 1
+    """
+    query
+      connection
+      sql
+      [
+        decimalParam "principal" principal
+        decimalParam "commissionPerTrade" commissionPerTrade
+        decimalParam "commissionPerShare" commissionPerShare
+        stringParam "duration" duration
+        intParam "strategyId" strategyId
+      ]
+      toTrialSetRecord
+    |> Seq.firstOption
+
+  let findOrCreateTrialSet connection (principal: decimal) (commissionPerTrade: decimal) (commissionPerShare: decimal) (duration: string) (strategyId: int): Option<TrialSetRecord> =
+    let insertRecord = fun unit ->
+      let sql = """
+        insert into trial_sets
+        (principal, commission_per_trade, commission_per_share, duration, strategy_id)
+        values
+        (@principal, @commissionPerTrade, @commissionPerShare, @duration, @strategyId)
+        returning id;
+      """
+      insertReturningId
+        connection
+        sql
+        [
+          decimalParam "principal" principal
+          decimalParam "commissionPerTrade" commissionPerTrade
+          decimalParam "commissionPerShare" commissionPerShare
+          stringParam "duration" duration
+          intParam "strategyId" strategyId
+        ]
+      |> Option.map (fun id ->
+           {
+             id = id
+             principal = principal
+             commissionPerTrade = commissionPerTrade
+             commissionPerShare = commissionPerShare
+             duration = duration
+             strategyId = strategyId
+           }
+         )
+
+    findTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId
+    |> Option.orElseF insertRecord
 
   def insertTrialSet(strategyId: Int, trial: Trial): TrialSetsRow = {
     val insertRow = () => {
@@ -781,6 +864,45 @@ module Postgres =
     val rows = securityIds.map(securityId => SecuritiesTrialSetsRow(securityId, trialSetId))
     SecuritiesTrialSets ++= rows
   }
+
+
+  // trial insertion functions
+
+  let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
+    let sql = """
+      insert into trials s
+      ()
+      values
+      ()
+      returning id;
+    """
+    insertReturningId
+      connection
+      sql
+      []
+    |> ignore
+
+    Seq.tryHead trialStatePairs
+    |> Option.iter
+      (fun (firstTrial, firstStrategyState) ->
+        let strategyRow = findOrCreateStrategy strategyName
+        let trialSetRow = insertTrialSet strategyRow.id firstTrial
+
+        trialStatePairs.grouped(500).foreach { pairs =>
+          verbose "Building group of records."
+          val trialRows = pairs.map(pair => buildTrialsRow(trialSetRow.id, pair._1, pair._2)).toSeq
+          verbose "Inserting group of records."
+          try {
+            Trials ++= trialRows
+          } catch {
+            case e: java.sql.BatchUpdateException =>
+              println("*" * 80)
+              e.getNextException.printStackTrace()
+          }
+        }
+      )
+
+
 
   def buildTrialsRow[StateT <: State[StateT]](trialSetId: Int, trial: Trial, state: StateT): TrialsRow = {
     val startTime = timestamp(trial.startTime)

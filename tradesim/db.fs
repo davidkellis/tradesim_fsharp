@@ -746,6 +746,7 @@ module Postgres =
 
 
   // trialset insertion functions
+
   type TrialSetRecord = {
     id: int
     principal: decimal
@@ -753,9 +754,10 @@ module Postgres =
     commissionPerShare: decimal
     duration: string
     strategyId: int
+    securityIds: seq<int>
   }
 
-  let toTrialSetRecord (reader: NpgsqlDataReader): TrialSetRecord =
+  let toTrialSetRecord securityIds (reader: NpgsqlDataReader): TrialSetRecord =
     {
       id = dbGetInt reader "id"
       principal = dbGetDecimal reader "principal"
@@ -763,107 +765,128 @@ module Postgres =
       commissionPerShare = dbGetDecimal reader "commission_per_share"
       duration = dbGetStr reader "duration"
       strategyId = dbGetInt reader "strategy_id"
+      securityIds = securityIds
     }
 
-  let findTrialSet connection (principal: decimal) (commissionPerTrade: decimal) (commissionPerShare: decimal) (duration: string) (strategyId: int): Option<TrialSetRecord> =
+  let toTrialSetIdSecurityIdPair (reader: NpgsqlDataReader): int * int =
+    (dbGetInt reader "trial_set_id", dbGetInt reader "security_id")
+
+  let findTrialSet connection (principal: decimal) (commissionPerTrade: decimal) (commissionPerShare: decimal) (duration: string) (strategyId: int) (securityIds: seq<SecurityId>): Option<TrialSetRecord> =
     let sql = """
-      select * from trial_sets
+      select
+        ts.id as trial_set_id,
+        s.id as security_id
+      from trial_sets ts
+      inner join securities_trial_sets sts on sts.trial_set_id = ts.id
+      inner join securities s on sts.security_id = s.id
       where
-        principal = @principal
-        and commission_per_trade = @commissionPerTrade
-        and commission_per_share = @commissionPerShare
-        and duration = @duration
-        and strategy_id = @strategyId
+        s.id in (@securityIds)
+        and ts.principal = @principal
+        and ts.commission_per_trade = @commissionPerTrade
+        and ts.commission_per_share = @commissionPerShare
+        and ts.duration = @duration
+        and ts.strategy_id = @strategyId
       limit 1
     """
-    query
-      connection
-      sql
-      [
-        decimalParam "principal" principal
-        decimalParam "commissionPerTrade" commissionPerTrade
-        decimalParam "commissionPerShare" commissionPerShare
-        stringParam "duration" duration
-        intParam "strategyId" strategyId
-      ]
-      toTrialSetRecord
-    |> Seq.firstOption
-
-  let findOrCreateTrialSet connection (principal: decimal) (commissionPerTrade: decimal) (commissionPerShare: decimal) (duration: string) (strategyId: int): Option<TrialSetRecord> =
-    let insertRecord = fun unit ->
-      let sql = """
-        insert into trial_sets
-        (principal, commission_per_trade, commission_per_share, duration, strategy_id)
-        values
-        (@principal, @commissionPerTrade, @commissionPerShare, @duration, @strategyId)
-        returning id;
-      """
-      insertReturningId
+    let trialSetIdSecurityIdPairs = 
+      query
         connection
         sql
         [
+          intListParam "securityIds" securityIds
           decimalParam "principal" principal
           decimalParam "commissionPerTrade" commissionPerTrade
           decimalParam "commissionPerShare" commissionPerShare
           stringParam "duration" duration
           intParam "strategyId" strategyId
         ]
-      |> Option.map (fun id ->
-           {
-             id = id
-             principal = principal
-             commissionPerTrade = commissionPerTrade
-             commissionPerShare = commissionPerShare
-             duration = duration
-             strategyId = strategyId
-           }
-         )
+        toTrialSetIdSecurityIdPair
 
-    findTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId
-    |> Option.orElseF insertRecord
+    let securityIdsGroupedByTrialSetId = 
+      Seq.fold 
+        (fun m (trialSetId, securityId) -> 
+          let setOfSecurityIds = 
+            Map.tryFind trialSetId m
+            |> Option.getOrElse Set.empty
+            |> Set.add securityId
+          Map.add trialSetId setOfSecurityIds m
+        ) 
+        Map.empty
+        trialSetIdSecurityIdPairs
 
-  def insertTrialSet(strategyId: Int, trial: Trial): TrialSetsRow = {
-    val insertRow = () => {
-      val row = TrialSetsRow(0, Some(trial.principal), Some(trial.commissionPerTrade), Some(trial.commissionPerShare), Some(trial.duration.toString), strategyId)
-      val trialSetId = (TrialSets returning TrialSets.map(_.id)) += row
-      joinTrialSetToSecurities(trialSetId, trial.securityIds)
-      row.copy(id = trialSetId)
-    }
+    let desiredSecurityIdSet = Set.ofSeq securityIds
 
-    val tsId_sId_pairs = (for {
-      ts <- TrialSets if ts.strategyId === strategyId
-      sToTs <- SecuritiesTrialSets if sToTs.trialSetId === ts.id
-      s <- Securities if sToTs.securityId === s.id
-      if s.id inSetBind trial.securityIds
-      if ts.principal === trial.principal
-      if ts.commissionPerTrade === trial.commissionPerTrade
-      if ts.commissionPerShare === trial.commissionPerShare
-    } yield (ts.id, s.id)).list
+    let trialSetIdReferencingAllSecurities = Map.tryFindKey (fun trialSetId setOfSecurityIds -> setOfSecurityIds = desiredSecurityIdSet) securityIdsGroupedByTrialSetId
 
-//      val tsId_sId_pairs = (for {
-//        ((ts, joinTable), s) <- (TrialSets innerJoin SecuritiesTrialSets) innerJoin Securities
-//        if ts.strategyId === strategyId
-//        if s.id inSetBind trial.securityIds
-//        if ts.principal === trial.principal
-//        if ts.commissionPerTrade === trial.commissionPerTrade
-//        if ts.commissionPerShare === trial.commissionPerShare
-//      } yield (ts.id, s.id)).list
+    trialSetIdReferencingAllSecurities
+    |> Option.flatMap
+      (fun trialSetId ->
+        query connection "select * from trial_sets where id = @trialSetId" [intParam "trialSetId" trialSetId] (toTrialSetRecord securityIds) |> Seq.firstOption
+      )
 
-    val groupedIdPairs = tsId_sId_pairs.groupBy(_._1)     // group (tsId, sId) pairs by tsId yielding a Map[tsId, Seq[sId]]
+  let joinTrialSetToSecurities connection (securityIds: seq<SecurityId>) (trialSetId: int): unit =
+    let sql = """
+      insert into securities_trial_sets
+      (trial_set_id, security_id)
+      values
+      (@trialSetId, @securityId);
+    """
+    Seq.iter
+      (fun securityId ->
+        insert
+          connection
+          sql
+          [
+            intParam "trialSetId" trialSetId
+            intParam "securityId" securityId
+          ]
+      )
+      securityIds
 
-    val groupedIdPairReferencingAllSecurities = groupedIdPairs.find(_._2.length == trial.securityIds.length)
+  let insertTrialSet connection (principal: decimal) (commissionPerTrade: decimal) (commissionPerShare: decimal) (duration: string) (strategyId: int) (securityIds: seq<SecurityId>): Option<TrialSetRecord> =
+    let sql = """
+      insert into trial_sets
+      (principal, commission_per_trade, commission_per_share, duration, strategy_id)
+      values
+      (@principal, @commissionPerTrade, @commissionPerShare, @duration, @strategyId)
+      returning id;
+    """
+    let trialSetId = insertReturningId
+                       connection
+                       sql
+                       [
+                         decimalParam "principal" principal
+                         decimalParam "commissionPerTrade" commissionPerTrade
+                         decimalParam "commissionPerShare" commissionPerShare
+                         stringParam "duration" duration
+                         intParam "strategyId" strategyId
+                       ]
 
-    val trialSetId = groupedIdPairReferencingAllSecurities.map(_._1)
+    trialSetId |> Option.iter (joinTrialSetToSecurities connection securityIds)
 
-    trialSetId.flatMap { trialSetId =>
-      TrialSets.filter(_.id === trialSetId).take(1).firstOption
-    }.getOrElse(insertRow())
-  }
+    Option.map
+      (fun id ->
+        {
+          id = id
+          principal = principal
+          commissionPerTrade = commissionPerTrade
+          commissionPerShare = commissionPerShare
+          duration = duration
+          strategyId = strategyId
+          securityIds = securityIds
+        }
+      )
+      trialSetId
+  
+  let findOrCreateTrialSet connection (strategyId: int) (trial: Trial): Option<TrialSetRecord> =
+    let principal = trial.principal
+    let commissionPerTrade = trial.commissionPerTrade
+    let commissionPerShare = trial.commissionPerShare
+    let duration = formatPeriod trial.duration
+    let securityIds = trial.securityIds
 
-  def joinTrialSetToSecurities(trialSetId: Int, securityIds: Seq[SecurityId]): Unit = {
-    val rows = securityIds.map(securityId => SecuritiesTrialSetsRow(securityId, trialSetId))
-    SecuritiesTrialSets ++= rows
-  }
+    findTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId securityIds
+    |> Option.orElseF (fun unit -> insertTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId securityIds)
 
 
   // trial insertion functions

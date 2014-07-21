@@ -18,6 +18,9 @@ Install:
 Build:
 ??
 
+To generate profobuf classes:
+./gen_proto
+
 Run REPL:
 ./repl
 open dke.tradesim.SpecialDates;;

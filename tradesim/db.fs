@@ -12,7 +12,6 @@ open Stdlib
 open Time
 open Core
 open Logging
-open dke.tradesim.protobuf
 
 
 type DatabaseAdapter<'dbConnection> = {
@@ -317,6 +316,20 @@ module Postgres =
     parameterizeSqlCommand cmd parameters |> ignore
 
     unboxedOpt (cmd.ExecuteScalar())
+
+  // assumes the field name returned is "id"
+  let insertReturningIds connection (sql: string) (parameters: list<SqlParam>): seq<int> =
+    seq {
+      let cmd = new NpgsqlCommand(sql, connection)
+      cmd.CommandType <- CommandType.Text
+
+      parameterizeSqlCommand cmd parameters |> ignore
+
+      let reader = cmd.ExecuteReader()
+      while reader.Read() do
+        yield (dbGetInt reader "id")
+    }
+
 
   let insert connection (sql: string) (parameters: list<SqlParam>): unit =
     let cmd = new NpgsqlCommand(sql, connection)
@@ -891,54 +904,89 @@ module Postgres =
 
   // trial insertion functions
 
-  let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
-    let sql = """
-      insert into trials s
-      ()
-      values
-      ()
-      returning id;
-    """
-    insertReturningId
-      connection
-      sql
-      []
-    |> ignore
+  type TrialRecord = {
+    id: int
+    startTime: int64
+    endTime: int64
+    transactionLog: protobuf.TransactionLog
+    portfolioValueLog: protobuf.PortfolioValueLog
+    trialYield: decimal
+    mfe: decimal
+    dae: decimal
+    dailyStdDev: decimal
+    trialSetId: int
+  }
 
+  let buildTrialRecord (trialId: int) (trialSetId: int) (trial: Trial) (state: BaseStrategyState): TrialRecord =
+    {
+      id = trialId
+      startTime = trial.startTime
+      endTime = trial.endTime
+      transactionLog = state.transactions
+      portfolioValueLog = state.portfolioValueHistory
+      trialYield = computeTrialYield trial state
+      mfe = computeTrialMfe trial state
+      mae = computeTrialMae trial state
+      dailyStdDev = computeTrialStdDev state
+      trialSetId = trialSetId
+    }
+
+  let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
     Seq.tryHead trialStatePairs
     |> Option.iter
       (fun (firstTrial, firstStrategyState) ->
-        let strategyRow = findOrCreateStrategy strategyName
-        let trialSetRow = insertTrialSet strategyRow.id firstTrial
+        let strategyRow = findOrCreateStrategy connection strategyName
+        let trialSetRow = Option.flatMap (fun (strategyRow: StrategyRecord) -> findOrCreateTrialSet connection strategyRow.id firstTrial) strategyRow
 
-        trialStatePairs.grouped(500).foreach { pairs =>
-          verbose "Building group of records."
-          val trialRows = pairs.map(pair => buildTrialsRow(trialSetRow.id, pair._1, pair._2)).toSeq
-          verbose "Inserting group of records."
-          try {
-            Trials ++= trialRows
-          } catch {
-            case e: java.sql.BatchUpdateException =>
-              println("*" * 80)
-              e.getNextException.printStackTrace()
-          }
-        }
+        trialSetRow
+        |> Option.iter
+          (fun trialSetRow ->
+            Seq.grouped 500 trialStatePairs
+            |> Seq.iter
+              (fun pairs ->
+                let trialRecords = Seq.map (fun (trial, state) -> buildTrialRecord 0 trialSetRow.id trial state)
+                Seq.iter 
+                  (fun (trial, state) ->
+                    verbose "Building group of records."
+
+                    let startTime = dateTimeToTimestamp trial.startTime
+                    let endTime = dateTimeToTimestamp trial.endTime
+                    let transactionLog = convertTransactionsToProtobuf(state.transactions).toByteArray
+                    let portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory).toByteArray
+                    let trialYield = computeTrialYield(trial, state)
+                    let mfe = computeTrialMfe(trial, state)
+                    let mae = computeTrialMae(trial, state)
+                    let dailyStdDev = computeTrialStdDev(state)
+
+                    let sql = """
+                      insert into trials s
+                      (start_time, end_time, transaction_log, portfolio_value_log, yield, mfe, mae, daily_std_dev, trial_set_id)
+                      values
+                      (@startTime, @endTime, @transactionLog, @portfolioValueLog, @trialYield, @mfe, @mae, @dailyStdDev, @trialSetId)
+                      returning id;
+                    """
+                    insert
+                      connection
+                      sql
+                      [
+                        longParam "startTime" startTime
+                        longParam "endTime" endTime
+                        byteArrayParam "transactionLog" transactionLog
+                        byteArrayParam "portfolioValueLog" portfolioValueLog
+                        decimalParam "trialYield" trialYield
+                        decimalParam "mfe" mfe
+                        decimalParam "mae" mae
+                        decimalParam "dailyStdDev" dailyStdDev
+                        intParam "trialSetId" trialSetId
+                      ]
+                    |> ignore
+                  )
+                  pairs
+              )
+          )
       )
 
 
-
-  def buildTrialsRow[StateT <: State[StateT]](trialSetId: Int, trial: Trial, state: StateT): TrialsRow = {
-    val startTime = timestamp(trial.startTime)
-    val endTime = timestamp(trial.endTime)
-    val transactionLog = convertTransactionsToProtobuf(state.transactions).toByteArray
-    val portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory).toByteArray
-    val trialYield = computeTrialYield(trial, state)
-    val mfe = computeTrialMfe(trial, state)
-    val mae = computeTrialMae(trial, state)
-    val dailyStdDev = computeTrialStdDev(state)
-
-    TrialsRow(0, startTime, endTime, transactionLog, portfolioValueLog, trialYield, mfe, mae, dailyStdDev, trialSetId)
-  }
 
   let Adapter: DatabaseAdapter<NpgsqlConnection> = {
     findExchanges = findExchanges

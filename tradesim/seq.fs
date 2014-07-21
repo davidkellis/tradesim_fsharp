@@ -40,6 +40,14 @@ let mapIEnumerator (fn: 'x -> 'y) (xs: System.Collections.Generic.IEnumerator<'x
       yield fn xs.Current
   }
 
+let fromIEnumerator (xs: System.Collections.Generic.IEnumerator<'x>): seq<'x> =
+  seq { 
+    while xs.MoveNext() do
+      yield xs.Current
+  }
+
+let fromIEnumerable (xs: System.Collections.Generic.IEnumerable<'x>): seq<'x> = fromIEnumerator (xs.GetEnumerator())
+
 let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, seq<'t>> = Seq.groupBy fn ts |> Map.ofSeq
 
 // Seq.apply [ (+) 1; (*) 2 ] 10 => [ 11; 20 ]
@@ -54,3 +62,17 @@ let reduceOption (reducerFn: 't -> 't -> 't) (xs: seq<'t>): Option<'t> =
     None
   else
     Some <| Seq.reduce reducerFn xs
+
+let grouped n (xs: seq<'t>): seq<seq<'t>> = 
+  seq {
+    let lst = ref <| new System.Collections.Generic.LinkedList<'t>()
+    for x in xs do
+      (!lst).AddLast(x) |> ignore
+
+      if (!lst).Count % n = 0 then
+        yield (!lst |> fromIEnumerable)
+        lst := new System.Collections.Generic.LinkedList<'t>()
+
+    if (!lst).Count % n <> 0 then
+      yield ((!lst).GetEnumerator() |> fromIEnumerator)
+  }

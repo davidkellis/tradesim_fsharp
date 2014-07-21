@@ -235,28 +235,6 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
   verbose <| sprintf "Time: ${datetimeUtils.formatPeriod(datetimeUtils.periodBetween(t1, t2))}"
   result
 
-let computeTrialYield (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
-  stateInterface.portfolioValueHistory state
-  |> Vector.tryLast
-  |> Option.map (fun pv -> pv.value / trial.principal)
-
-let computeTrialMfe (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
-  (stateInterface.portfolioValueHistory state)
-  |> Seq.reduceOption (maxBy (fun pv -> pv.value))
-  |> Option.map (fun pv -> pv.value / trial.principal)
-
-let computeTrialMae (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
-  (stateInterface.portfolioValueHistory state)
-  |> Seq.reduceOption (minBy (fun pv -> pv.value))
-  |> Option.map (fun pv -> pv.value / trial.principal)
-
-let computeTrialStdDev (stateInterface: StrategyState<'StateT>) (state: 'StateT): Option<decimal> =
-  let portfolioValueHistory = stateInterface.portfolioValueHistory state
-  if Seq.isEmpty portfolioValueHistory then
-    None
-  else
-    Some <| Sample.stdDev (Seq.map (fun pv -> pv.value) portfolioValueHistory)
-
 let buildAllTrialIntervals (securityIds: Vector<SecurityId>) (intervalLength: Period) (separationLength: Period) dao: seq<Interval> =
   commonTrialPeriodStartDates securityIds intervalLength dao
   |> Option.map (fun startDateRange -> interspersedIntervals startDateRange intervalLength separationLength)

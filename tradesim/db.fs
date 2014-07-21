@@ -166,7 +166,8 @@ type Dao<'dbConnection> = {
 // query builder types and functions
 
 type SqlValue =
-  SqlInt of int
+  SqlNull
+  | SqlInt of int
   | SqlLong of int64
   | SqlFloat of double
   | SqlString of string
@@ -180,6 +181,7 @@ type SqlParam =
 let escapeString (s: string): string = s.Replace("'", "''")
 
 let sqlValueToSQL = function
+  | SqlNull -> "null"
   | SqlInt i -> sprintf "%i" i
   | SqlLong l -> sprintf "%i" l
   | SqlFloat f -> sprintf "%f" f
@@ -193,6 +195,13 @@ let floatParam name f = SqlPrimitive (name, SqlFloat f)
 let stringParam name s = SqlPrimitive (name, SqlString s)
 let decimalParam name d = SqlPrimitive (name, SqlDecimal d)
 let byteArrayParam name ba = SqlPrimitive (name, SqlByteArray ba)
+
+let optIntParam name i = i |> Option.map (fun i -> SqlPrimitive (name, SqlInt i)) |> Option.getOrElse (SqlPrimitive (name, SqlNull))
+let optLongParam name i = i |> Option.map (fun i -> SqlPrimitive (name, SqlLong i)) |> Option.getOrElse (SqlPrimitive (name, SqlNull))
+let optFloatParam name f = f |> Option.map (fun f -> SqlPrimitive (name, SqlFloat f)) |> Option.getOrElse (SqlPrimitive (name, SqlNull))
+let optStringParam name s = s |> Option.map (fun s -> SqlPrimitive (name, SqlString s)) |> Option.getOrElse (SqlPrimitive (name, SqlNull))
+let optDecimalParam name d = d |> Option.map (fun d -> SqlPrimitive (name, SqlDecimal d)) |> Option.getOrElse (SqlPrimitive (name, SqlNull))
+let optByteArrayParam name ba = ba |> Option.map (fun ba -> SqlPrimitive (name, SqlByteArray ba)) |> Option.getOrElse (SqlPrimitive (name, SqlNull))
 
 let intListParam name values = SqlList (name, Seq.map SqlInt values)
 let longListParam name values = SqlList (name, Seq.map SqlLong values)
@@ -910,20 +919,20 @@ module Postgres =
     endTime: int64
     transactionLog: protobuf.TransactionLog
     portfolioValueLog: protobuf.PortfolioValueLog
-    trialYield: decimal
-    mfe: decimal
-    dae: decimal
-    dailyStdDev: decimal
+    trialYield: Option<decimal>
+    mfe: Option<decimal>
+    mae: Option<decimal>
+    dailyStdDev: Option<decimal>
     trialSetId: int
   }
 
   let buildTrialRecord (trialId: int) (trialSetId: int) (trial: Trial) (state: BaseStrategyState): TrialRecord =
     {
       id = trialId
-      startTime = trial.startTime
-      endTime = trial.endTime
-      transactionLog = state.transactions
-      portfolioValueLog = state.portfolioValueHistory
+      startTime = dateTimeToTimestamp trial.startTime
+      endTime = dateTimeToTimestamp trial.endTime
+      transactionLog = convertTransactionsToProtobuf(state.transactions).toByteArray
+      portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory).toByteArray
       trialYield = computeTrialYield trial state
       mfe = computeTrialMfe trial state
       mae = computeTrialMae trial state
@@ -931,12 +940,47 @@ module Postgres =
       trialSetId = trialSetId
     }
 
+  let insertTrialRecords connection (records: seq<TrialRecord>): unit =
+
+    let valuesQueryFragment = 
+      Seq.mapi
+        (fun i trialRecord ->
+          sprintf "(@startTime, @endTime, @transactionLog, @portfolioValueLog, @trialYield, @mfe, @mae, @dailyStdDev, @trialSetId)"
+        )
+        records
+
+    let sql = sprintf
+                """
+                  insert into trials s
+                  (start_time, end_time, transaction_log, portfolio_value_log, yield, mfe, mae, daily_std_dev, trial_set_id)
+                  values
+                  %s
+                  returning id;
+                """
+                valuesQueryFragment
+
+    insert
+      connection
+      sql
+      [
+        longParam "startTime" startTime
+        longParam "endTime" endTime
+        byteArrayParam "transactionLog" transactionLog
+        byteArrayParam "portfolioValueLog" portfolioValueLog
+        optDecimalParam "trialYield" trialYield
+        optDecimalParam "mfe" mfe
+        optDecimalParam "mae" mae
+        optDecimalParam "dailyStdDev" dailyStdDev
+        intParam "trialSetId" trialSetId
+      ]
+    |> ignore
+
   let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
     Seq.tryHead trialStatePairs
     |> Option.iter
       (fun (firstTrial, firstStrategyState) ->
         let strategyRow = findOrCreateStrategy connection strategyName
-        let trialSetRow = Option.flatMap (fun (strategyRow: StrategyRecord) -> findOrCreateTrialSet connection strategyRow.id firstTrial) strategyRow
+        let trialSetRow = strategyRow |> Option.flatMap (fun (strategyRow: StrategyRecord) -> findOrCreateTrialSet connection strategyRow.id firstTrial)
 
         trialSetRow
         |> Option.iter
@@ -944,44 +988,11 @@ module Postgres =
             Seq.grouped 500 trialStatePairs
             |> Seq.iter
               (fun pairs ->
-                let trialRecords = Seq.map (fun (trial, state) -> buildTrialRecord 0 trialSetRow.id trial state)
-                Seq.iter 
-                  (fun (trial, state) ->
-                    verbose "Building group of records."
+                verbose "Building group of records."
 
-                    let startTime = dateTimeToTimestamp trial.startTime
-                    let endTime = dateTimeToTimestamp trial.endTime
-                    let transactionLog = convertTransactionsToProtobuf(state.transactions).toByteArray
-                    let portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory).toByteArray
-                    let trialYield = computeTrialYield(trial, state)
-                    let mfe = computeTrialMfe(trial, state)
-                    let mae = computeTrialMae(trial, state)
-                    let dailyStdDev = computeTrialStdDev(state)
-
-                    let sql = """
-                      insert into trials s
-                      (start_time, end_time, transaction_log, portfolio_value_log, yield, mfe, mae, daily_std_dev, trial_set_id)
-                      values
-                      (@startTime, @endTime, @transactionLog, @portfolioValueLog, @trialYield, @mfe, @mae, @dailyStdDev, @trialSetId)
-                      returning id;
-                    """
-                    insert
-                      connection
-                      sql
-                      [
-                        longParam "startTime" startTime
-                        longParam "endTime" endTime
-                        byteArrayParam "transactionLog" transactionLog
-                        byteArrayParam "portfolioValueLog" portfolioValueLog
-                        decimalParam "trialYield" trialYield
-                        decimalParam "mfe" mfe
-                        decimalParam "mae" mae
-                        decimalParam "dailyStdDev" dailyStdDev
-                        intParam "trialSetId" trialSetId
-                      ]
-                    |> ignore
-                  )
-                  pairs
+                pairs
+                |> Seq.map (fun (trial, state) -> buildTrialRecord 0 trialSetRow.id trial state)
+                |> insertTrialRecords connection
               )
           )
       )

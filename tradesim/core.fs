@@ -4,7 +4,9 @@ open System.Collections.Immutable
 open FSharpx.Collections
 open NodaTime
 
+open Stdlib
 open Time
+open Stats
 
 type SecurityId = int
 type SecurityIds = seq<SecurityId>
@@ -255,3 +257,26 @@ type TradingStrategy<'StrategyT, 'StateT> = {
   buildNextState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> 'StateT)
   isFinalState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> bool)
 }
+
+
+let computeTrialYield (trial: Trial) (state: BaseStrategyState): Option<decimal> =
+  state.portfolioValueHistory
+  |> Vector.tryLast
+  |> Option.map (fun pv -> pv.value / trial.principal)
+
+let computeTrialMfe (trial: Trial) (state: BaseStrategyState): Option<decimal> =
+  state.portfolioValueHistory
+  |> Seq.reduceOption (maxBy (fun pv -> pv.value))
+  |> Option.map (fun pv -> pv.value / trial.principal)
+
+let computeTrialMae (trial: Trial) (state: BaseStrategyState): Option<decimal> =
+  state.portfolioValueHistory
+  |> Seq.reduceOption (minBy (fun pv -> pv.value))
+  |> Option.map (fun pv -> pv.value / trial.principal)
+
+let computeTrialStdDev (state: BaseStrategyState): Option<decimal> =
+  let portfolioValueHistory = state.portfolioValueHistory
+  if Seq.isEmpty portfolioValueHistory then
+    None
+  else
+    Some <| Sample.stdDev (Seq.map (fun pv -> pv.value) portfolioValueHistory)

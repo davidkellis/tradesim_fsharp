@@ -12,6 +12,7 @@ open Stdlib
 open Time
 open Core
 open Logging
+open Protobuf.FSharp
 
 
 type DatabaseAdapter<'dbConnection> = {
@@ -913,26 +914,27 @@ module Postgres =
 
   // trial insertion functions
 
-  type TrialRecord = {
-    id: int
-    startTime: int64
-    endTime: int64
-    transactionLog: protobuf.TransactionLog
-    portfolioValueLog: protobuf.PortfolioValueLog
-    trialYield: Option<decimal>
-    mfe: Option<decimal>
-    mae: Option<decimal>
-    dailyStdDev: Option<decimal>
-    trialSetId: int
-  }
+  type TrialRecord = 
+    {
+      id: int
+      startTime: int64
+      endTime: int64
+      transactionLog: protobuf.TransactionLog
+      portfolioValueLog: protobuf.PortfolioValueLog
+      trialYield: Option<decimal>
+      mfe: Option<decimal>
+      mae: Option<decimal>
+      dailyStdDev: Option<decimal>
+      trialSetId: int
+    }
 
   let buildTrialRecord (trialId: int) (trialSetId: int) (trial: Trial) (state: BaseStrategyState): TrialRecord =
     {
       id = trialId
       startTime = dateTimeToTimestamp trial.startTime
       endTime = dateTimeToTimestamp trial.endTime
-      transactionLog = convertTransactionsToProtobuf(state.transactions).toByteArray
-      portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory).toByteArray
+      transactionLog = convertTransactionsToProtobuf(state.transactions)
+      portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory)
       trialYield = computeTrialYield trial state
       mfe = computeTrialMfe trial state
       mae = computeTrialMae trial state

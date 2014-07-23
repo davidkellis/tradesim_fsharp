@@ -943,13 +943,27 @@ module Postgres =
     }
 
   let insertTrialRecords connection (records: seq<TrialRecord>): unit =
-
-    let valuesQueryFragment = 
+    let queryFragmentParameterListPairs = 
       Seq.mapi
         (fun i trialRecord ->
-          sprintf "(@startTime, @endTime, @transactionLog, @portfolioValueLog, @trialYield, @mfe, @mae, @dailyStdDev, @trialSetId)"
+          let queryFragment = sprintf "(@startTime%i, @endTime%i, @transactionLog%i, @portfolioValueLog%i, @trialYield%i, @mfe%i, @mae%i, @dailyStdDev%i, @trialSetId%i)" i i i i i i i i i
+          let parameters = [
+            longParam (sprintf "startTime%i" i) trialRecord.startTime
+            longParam (sprintf "endTime%i" i) trialRecord.endTime
+            byteArrayParam (sprintf "transactionLog%i" i) <| trialRecord.transactionLog.ToByteArray()
+            byteArrayParam (sprintf "portfolioValueLog%i" i) <| trialRecord.portfolioValueLog.ToByteArray()
+            optDecimalParam (sprintf "trialYield%i" i) trialRecord.trialYield
+            optDecimalParam (sprintf "mfe%i" i) trialRecord.mfe
+            optDecimalParam (sprintf "mae%i" i) trialRecord.mae
+            optDecimalParam (sprintf "dailyStdDev%i" i) trialRecord.dailyStdDev
+            intParam (sprintf "trialSetId%i" i) trialRecord.trialSetId
+          ]
+          (queryFragment, parameters)
         )
         records
+
+    let valuesQueryFragment = queryFragmentParameterListPairs |> Seq.map (fun (queryFragment, _) -> queryFragment) |> String.join ","
+    let allParameters = queryFragmentParameterListPairs |> Seq.map (fun (_, parameters) -> parameters) |> List.concat
 
     let sql = sprintf
                 """
@@ -961,21 +975,7 @@ module Postgres =
                 """
                 valuesQueryFragment
 
-    insert
-      connection
-      sql
-      [
-        longParam "startTime" startTime
-        longParam "endTime" endTime
-        byteArrayParam "transactionLog" transactionLog
-        byteArrayParam "portfolioValueLog" portfolioValueLog
-        optDecimalParam "trialYield" trialYield
-        optDecimalParam "mfe" mfe
-        optDecimalParam "mae" mae
-        optDecimalParam "dailyStdDev" dailyStdDev
-        intParam "trialSetId" trialSetId
-      ]
-    |> ignore
+    insert connection sql allParameters |> ignore
 
   let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
     Seq.tryHead trialStatePairs

@@ -10,42 +10,42 @@ open Time
 let convertOrderToProtobuf (order: Order): protobuf.Order =
   match order with
   | MarketBuy {time = time; securityId = securityId; qty = qty; fillPrice = fillPrice} ->
-    let mutable builder =
+    let builder =
       protobuf.Order.CreateBuilder()
         .SetType(protobuf.Order.Types.Type.MarketBuy)
         .SetTime(dateTimeToTimestamp time)
         .SetSecurityId(securityId |> int64)
         .SetQty(qty)
-    builder <- fillPrice |> Option.map (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice)) |> Option.getOrElse builder
+    fillPrice |> Option.iter (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice) |> ignore)
     builder.Build()
   | MarketSell {time = time; securityId = securityId; qty = qty; fillPrice = fillPrice} ->
-    let mutable builder =
+    let builder =
       protobuf.Order.CreateBuilder()
         .SetType(protobuf.Order.Types.Type.MarketSell)
         .SetTime(dateTimeToTimestamp time)
         .SetSecurityId(securityId |> int64)
         .SetQty(qty)
-    builder <- fillPrice |> Option.map (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice)) |> Option.getOrElse builder
+    fillPrice |> Option.iter (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice) |> ignore)
     builder.Build()
   | LimitBuy {time = time; securityId = securityId; qty = qty; fillPrice = fillPrice; limitPrice = limitPrice} ->
-    let mutable builder =
+    let builder =
       protobuf.Order.CreateBuilder()
         .SetType(protobuf.Order.Types.Type.LimitBuy)
         .SetTime(dateTimeToTimestamp time)
         .SetSecurityId(securityId |> int64)
         .SetQty(qty)
         .SetLimitPrice(sprintf "%M" limitPrice)
-    builder <- fillPrice |> Option.map (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice)) |> Option.getOrElse builder
+    fillPrice |> Option.iter (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice) |> ignore)
     builder.Build()
   | LimitSell {time = time; securityId = securityId; qty = qty; fillPrice = fillPrice; limitPrice = limitPrice} ->
-    let mutable builder =
+    let builder =
       protobuf.Order.CreateBuilder()
         .SetType(protobuf.Order.Types.Type.LimitSell)
         .SetTime(dateTimeToTimestamp time)
         .SetSecurityId(securityId |> int64)
         .SetQty(qty)
         .SetLimitPrice(sprintf "%M" limitPrice)
-    builder <- fillPrice |> Option.map (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice)) |> Option.getOrElse builder
+    fillPrice |> Option.iter (fun fillPrice -> builder.SetFillPrice(sprintf "%M" fillPrice) |> ignore)
     builder.Build()
 
 let convertSplitAdjustmentToProtobuf (splitAdjustment: SplitAdjustment): protobuf.SplitAdjustment =
@@ -59,7 +59,7 @@ let convertSplitAdjustmentToProtobuf (splitAdjustment: SplitAdjustment): protobu
     .Build()
 
 let convertCashDividendPaymentToProtobuf (cashDividendPayment: CashDividendPayment): protobuf.CashDividendPayment =
-  let mutable builder = 
+  let builder = 
     protobuf.CashDividendPayment.CreateBuilder()
       .SetSecurityId(cashDividendPayment.securityId |> int64)
       .SetExDate(localDateToDatestamp cashDividendPayment.exDate |> int64)
@@ -67,7 +67,7 @@ let convertCashDividendPaymentToProtobuf (cashDividendPayment: CashDividendPayme
       .SetAdjustmentTime(dateTimeToTimestamp cashDividendPayment.adjustmentTime)
       .SetShareQty(cashDividendPayment.shareQty)
       .SetTotal(sprintf "%M" cashDividendPayment.total)
-  builder <- cashDividendPayment.payableDate |> Option.map (fun payableDate -> builder.SetPayableDate(localDateToDatestamp payableDate |> int64)) |> Option.getOrElse builder
+  cashDividendPayment.payableDate |> Option.iter (fun payableDate -> builder.SetPayableDate(localDateToDatestamp payableDate |> int64) |> ignore)
   builder.Build()
 
 let convertTransactionToProtobuf(transaction: Transaction): protobuf.Transaction =
@@ -89,7 +89,6 @@ let convertTransactionsToProtobuf (transactions: TransactionLog): protobuf.Trans
   protobuf.TransactionLog.CreateBuilder()
     .AddRangeTransactions(Seq.map convertTransactionToProtobuf transactions)
     .Build()
-  protobuf.TransactionLog(transactions.map(convertTransactionToProtobuf _).to[collection.immutable.Seq])
 
 let convertPortfolioValueToProtobuf (portfolioValue: PortfolioValue): protobuf.PortfolioValue =
   protobuf.PortfolioValue.CreateBuilder()

@@ -1,6 +1,7 @@
 ﻿module dke.tradesim.strategies.BuyAndHold
 
 open System.Collections.Immutable
+open FSharpx
 open FSharpx.Collections
 open NodaTime
 
@@ -24,6 +25,13 @@ type BuyAndHoldState = {
   portfolioValueHistory: Vector<PortfolioValue>
 
   hasEnteredPosition: bool
+}
+
+type BuyAndHoldStrategy = {
+  name: string
+  buildInitialState: BuyAndHoldStrategy -> Trial -> BuyAndHoldState
+  buildNextState: BuyAndHoldStrategy -> Trial -> BuyAndHoldState -> BuyAndHoldState
+  isFinalState: BuyAndHoldStrategy -> Trial -> BuyAndHoldState -> bool
 }
 
 let StrategyStateImpl = {
@@ -65,32 +73,68 @@ let StrategyStateImpl = {
       <| state.hasEnteredPosition
 }
 
-let TradingStrategyImpl = {
+let initialState (strategy: TradingStrategy<BuyAndHoldStrategy, BuyAndHoldState>) (trial: Trial): BuyAndHoldState = StrategyStateImpl.initialize trial.startTime trial.principal
+
+let nextState (strategy: TradingStrategy<BuyAndHoldStrategy, BuyAndHoldState>) (trial: Trial) (state: BuyAndHoldState) dao: BuyAndHoldState =
+  let time = state.time
+  let endTime = trial.endTime
+  let securityId = trial.securityIds.head
+  let portfolio = state.portfolio
+
+  if not state.hasEnteredPosition then
+    let qty = maxSharesPurchasable trial portfolio.cash time securityId (adjEodSimQuote dao) |> Option.getOrElse 0M |> Decimal.floor |> int64
+    let qtyToBuy = if qty > 1 then qty - 1 else qty      // we're conservative with how many shares we purchase so we don't have to buy on margin if the price unexpectedly goes up
+    let newState = buy StrategyStateImpl state time securityId qty
+    {newState with hasEnteredPosition = true}
+  elif time = endTime then
+//      info(s"sell all shares")
+    sell StrategyStateImpl state time securityId <| sharesOnHand portfolio securityId
+  else
+    state
+
+//type TradingStrategy<'StrategyT, 'StateT> = {
+//  name: 'StrategyT -> string
+//  buildInitialState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT)
+//  buildNextState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> 'StateT)
+//  isFinalState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> bool)
+//}
+let TradingStrategyImpl: TradingStrategy<BuyAndHoldStrategy, BuyAndHoldState> = {
+  name = fun strategy -> strategy.name
+  buildInitialState = fun strategy -> strategy.buildInitialState
+  buildNextState = fun strategy -> strategy.buildNextState
+  isFinalState = fun strategy -> strategy.isFinalState
+}
+
+let buildStrategy unit: BuyAndHoldStrategy = {
   name = "Buy And Hold"
   buildInitialState = initialState
   buildNextState = nextState
   isFinalState = fixedTradingPeriodIsFinalState StrategyStateImpl
 }
 
-let initialState (strategy: TradingStrategy<_, BuyAndHoldState>) (trial: Trial): BuyAndHoldState = StrategyStateImpl.initialize trial.startTime trial.principal
-
-let nextState (strategy: TradingStrategy<_, BuyAndHoldState>) (trial: Trial) (state: BuyAndHoldState): BuyAndHoldState = {
-  let time = state.time
-  let endTime = trial.endTime
-  let securityId = trial.securityIds.head
-  let portfolio = state.portfolio
-
-  if (!state.hasEnteredPosition) {
-    let qty = floor(maxSharesPurchasable(trial, portfolio, time, securityId, adjEodSimQuote _).getOrElse(0)).toLong
-    let qtyToBuy = if (qty > 1) qty - 1 else qty      // we're conservative with how many shares we purchase so we don't have to buy on margin if the price unexpectedly goes up
-    let newState = buy(state, time, securityId, qty).withHasEnteredPosition(true)
-    newState
-  } else if (time == endTime) {
-//      info(s"sell all shares")
-    sell(state, time, securityId, sharesOnHand(portfolio, securityId))
-  } else {
-    state
-  }
-}
-
-let buildStrategy (): TradingStrategy<_, BuyAndHoldState> = Strategy(StrategyName, initialState, nextState, fixedTradingPeriodIsFinalState)
+module Scenarios =
+  let runSingleTrial1 dao: unit =
+    let trialDuration = years 1L
+    let startTime = datetime 2003 2 15 12 0 0
+    let endTime = startTime + trialDuration.ToDuration()
+    let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
+    let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12) (days 1) tradingSchedule
+//      let timeIncrementerFn = buildInitialJumpTimeIncrementer(new LocalTime(12, 0, 0), periodBetween(startTime, endTime), days(1), tradingSchedule)
+    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage findEodBar barSimQuote barHigh 0.3 dao
+    let saleFillPriceFn = tradingBloxFillPriceWithSlippage findEodBar barSimQuote barLow 0.3 dao
+    let strategy = buildStrategy ()
+    let securityIds = findSecurities (PrimaryUsExchanges dao) ["AAPL"] dao |> Seq.flatMap (fun security -> security.id) Vector.ofSeq
+    let trial: Trial = {
+      securityIds = securityIds
+      principal = 10000
+      commissionPerTrade = 7M
+      commissionPerShare = 0M
+      startTime = startTime
+      endTime = endTime
+      duration = trialDuration
+      incrementTime = timeIncrementerFn
+      purchaseFillPrice = purchaseFillPriceFn
+      saleFillPrice = saleFillPriceFn
+    }
+    info "Running 1 trial"
+    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl strategy [trial] dao |> ignore

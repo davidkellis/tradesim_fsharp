@@ -6,7 +6,7 @@ open Core
 open Quotes
 open CorporateActions
 
-let adjEodQuote (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn) dao: Option<decimal> =
+let adjEodQuote dao (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn): Option<decimal> =
   let bar = findEodBar time securityId dao
   Option.map 
     (fun bar ->
@@ -16,14 +16,14 @@ let adjEodQuote (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuot
     )
     bar
 
-let adjEodClose (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decimal> = adjEodQuote time securityId (fun bar -> bar.c) dao
+let adjEodClose dao (time: ZonedDateTime) (securityId: SecurityId): Option<decimal> = adjEodQuote dao time securityId (fun bar -> bar.c)
 
-let adjEodOpen (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decimal> = adjEodQuote time securityId (fun bar -> bar.o) dao
+let adjEodOpen dao (time: ZonedDateTime) (securityId: SecurityId): Option<decimal> = adjEodQuote dao time securityId (fun bar -> bar.o)
 
-let adjEodSimQuote (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decimal> = adjEodQuote time securityId barSimQuote dao
+let adjEodSimQuote dao (time: ZonedDateTime) (securityId: SecurityId): Option<decimal> = adjEodQuote dao time securityId barSimQuote
 
 
-let adjEodQuotePriorTo (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn) dao: Option<decimal> =
+let adjEodQuotePriorTo dao (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn): Option<decimal> =
   let bar = findEodBarPriorTo time securityId dao
   Option.map
     (fun bar ->
@@ -33,8 +33,8 @@ let adjEodQuotePriorTo (time: ZonedDateTime) (securityId: SecurityId) (priceFn: 
     )
     bar
 
-let adjEodClosePriorTo (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decimal> = adjEodQuotePriorTo time securityId (fun bar -> bar.c) dao
+let adjEodClosePriorTo dao (time: ZonedDateTime) (securityId: SecurityId): Option<decimal> = adjEodQuotePriorTo dao time securityId (fun bar -> bar.c)
 
-let adjEodOpenPriorTo (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decimal> = adjEodQuotePriorTo time securityId (fun bar -> bar.o) dao
+let adjEodOpenPriorTo dao (time: ZonedDateTime) (securityId: SecurityId): Option<decimal> = adjEodQuotePriorTo dao time securityId (fun bar -> bar.o)
 
-let adjEodSimQuotePriorTo (time: ZonedDateTime) (securityId: SecurityId) dao: Option<decimal> = adjEodQuotePriorTo time securityId barSimQuote dao
+let adjEodSimQuotePriorTo dao (time: ZonedDateTime) (securityId: SecurityId): Option<decimal> = adjEodQuotePriorTo dao time securityId barSimQuote

@@ -45,6 +45,8 @@ type Portfolio = {
   stocks: StockHoldings
 }
 
+let createPortfolio principal = {cash = principal; stocks = ImmutableDictionary.empty}
+
 type PortfolioValue = {
   time: ZonedDateTime
   value: decimal
@@ -207,7 +209,6 @@ type TransactionLog = Vector<Transaction>
 
 // trading strategy and state typeclasses
  
-// StrategyState typeclass
 type BaseStrategyState = {
   previousTime: ZonedDateTime
   time: ZonedDateTime
@@ -217,6 +218,7 @@ type BaseStrategyState = {
   portfolioValueHistory: Vector<PortfolioValue>
 }
 
+// StrategyState typeclass
 type StrategyState<'StateT> = {
   previousTime: 'StateT -> ZonedDateTime
   time: 'StateT -> ZonedDateTime

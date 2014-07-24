@@ -20,7 +20,7 @@ open Stats
 open Logging
 
 
-let fixedTradingPeriodIsFinalState (strategy: TradingStrategy<'StrategyT, 'StateT>) (trial: Trial) (stateInterface: StrategyState<'StateT>) (state: 'StateT): bool = 
+let fixedTradingPeriodIsFinalState (stateInterface: StrategyState<'StateT>) (strategy: TradingStrategy<'StrategyT, 'StateT>) (trial: Trial) (state: 'StateT): bool = 
   stateInterface.time state >= trial.endTime
 
 (*

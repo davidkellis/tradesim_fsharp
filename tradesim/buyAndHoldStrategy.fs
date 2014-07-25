@@ -94,12 +94,6 @@ let nextState dao (strategy: Strategy) (trial: Trial) (state: State): State =
   else
     state
 
-//type TradingStrategy<'StrategyT, 'StateT> = {
-//  name: 'StrategyT -> string
-//  buildInitialState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT)
-//  buildNextState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> 'StateT)
-//  isFinalState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> bool)
-//}
 let TradingStrategyImpl: TradingStrategy<Strategy, State> = {
   name = fun strategy -> strategy.name
   buildInitialState = fun strategy -> strategy.buildInitialState
@@ -118,7 +112,7 @@ module Scenarios =
   let runSingleTrial1 dao: unit =
     let trialDuration = years 1L
     let startTime = datetime 2003 2 15 12 0 0
-    let endTime = startTime + trialDuration.ToDuration()
+    let endTime = (startTime.LocalDateTime + trialDuration).InZoneLeniently(EasternTimeZone)
     let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
     let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
 //    let timeIncrementerFn = buildInitialJumpTimeIncrementer (hours 12L) (periodBetween startTime endTime) (days 1L) tradingSchedule

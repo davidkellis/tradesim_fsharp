@@ -60,21 +60,26 @@ let main argv =
     if options.BuildTrialSamples then
       info "build trial samples"
     elif options.Scenario <> null then
-      info <| sprintf "run scenario %A" options.Scenario
+      info <| sprintf "run scenario %s" options.Scenario
       let connection = Postgres.connect "localhost" 5432 "david" "" "tradesim"
       let dao = Postgres.createDao connection
 
-      connection 
-      |> Postgres.allExchanges 
-      |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
+      match options.Scenario with
+      | "bah1" -> strategies.BuyAndHold.Scenarios.runSingleTrial1 dao
+      | _ -> printfn "Unknown scenario"
+      |> ignore
 
-      info "********************************************************************"
-      dao.findExchanges <| Seq.ofList ["UQ"; "UA"]
-      |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
-
-      info "********************************************************************"
-      dao.findSecurities <| Postgres.allExchanges connection <| Seq.ofList ["AAPL"; "MSFT"]
-      |> Seq.iter (fun e -> info <| sprintf "security: %A" e)
+//      connection 
+//      |> Postgres.allExchanges 
+//      |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
+//
+//      info "********************************************************************"
+//      dao.findExchanges <| Seq.ofList ["UQ"; "UA"]
+//      |> Seq.iter (fun e -> info <| sprintf "exchange: %A" e) 
+//
+//      info "********************************************************************"
+//      dao.findSecurities <| Postgres.allExchanges connection <| Seq.ofList ["AAPL"; "MSFT"]
+//      |> Seq.iter (fun e -> info <| sprintf "security: %A" e)
     )
   |> ignore
 

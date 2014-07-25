@@ -24,9 +24,9 @@ let isEnoughPriceHistory dao (securityId: SecurityId) (tradingPeriodLength: Peri
   let interval = priceHistoryInterval dao securityId
   match interval with
   | Some interval -> 
-    let (iStart, iEnd) = (interval.Start, interval.End)
-    let tradingStart = (iEnd - tradingPeriodLength.ToDuration())
-    iStart <= tradingStart
+    let (tStart, tEnd) = (interval.Start.InZone(EasternTimeZone), interval.End.InZone(EasternTimeZone))
+    let tradingStart = (tEnd.LocalDateTime - tradingPeriodLength).InZoneLeniently(EasternTimeZone)
+    tStart <= tradingStart
   | None -> false
 
 let securitiesWithEnoughPriceHistory dao (securityIds: seq<int>, tradingPeriodLength: Period): seq<int> =
@@ -46,12 +46,12 @@ let tradingPeriodStartDates dao (securityId: SecurityId) (tradingPeriodLength: P
   priceHistoryInterval dao securityId
   |> Option.flatMap
     (fun interval ->
-      let (iStart, iEnd) = (interval.Start, interval.End)
-      let adjustedEnd = iEnd - tradingPeriodLength.ToDuration()
-      if adjustedEnd < iStart then
+      let (tStart, tEnd) = (interval.Start.InZone(EasternTimeZone), interval.End.InZone(EasternTimeZone))
+      let adjustedEnd = (tEnd.LocalDateTime - tradingPeriodLength).InZoneLeniently(EasternTimeZone)
+      if adjustedEnd < tStart then
         None
       else
-        Some (iStart.InZone(EasternTimeZone), adjustedEnd.InZone(EasternTimeZone))
+        Some (tStart, adjustedEnd)
     )
 
 (*
@@ -117,11 +117,13 @@ let commonTrialPeriodStartDates dao (securityIds: seq<int>) (trialPeriodLength: 
                (Option.map (fun interval -> interval.End))
              |> Seq.reduce
                minInstant     // get the earliest (min) end date
-  let adjustedEnd = iEnd - trialPeriodLength.ToDuration()
-  if adjustedEnd < iStart then
+  let tStart = iStart.InZone(EasternTimeZone)
+  let tEnd = iEnd.InZone(EasternTimeZone)
+  let adjustedEnd = (tEnd.LocalDateTime - trialPeriodLength).InZoneLeniently(EasternTimeZone)
+  if adjustedEnd < tStart then
     None
   else
-    Some <| intervalBetweenInstants iStart adjustedEnd
+    Some <| intervalBetween tStart adjustedEnd
 
 let commonTrialPeriodStartDatesWithOffsets
     dao
@@ -146,8 +148,10 @@ let commonTrialPeriodStartDatesWithOffsets
                (Option.map (fun interval -> interval.End))
              |> Seq.reduce
                minInstant     // get the earliest (min) end date
-  let adjustedEnd = iEnd - trialPeriodLength.ToDuration()
-  if adjustedEnd < iStart then
+  let tStart = iStart.InZone(EasternTimeZone)
+  let tEnd = iEnd.InZone(EasternTimeZone)
+  let adjustedEnd = (tEnd.LocalDateTime - trialPeriodLength).InZoneLeniently(EasternTimeZone)
+  if adjustedEnd < tStart then
     None
   else
-    Some <| intervalBetweenInstants iStart adjustedEnd
+    Some <| intervalBetween tStart adjustedEnd

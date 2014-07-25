@@ -150,8 +150,8 @@ let minDatetime (t1: ZonedDateTime) (t2: ZonedDateTime): ZonedDateTime = if (t1 
 type Direction = Before | After
 let offsetDateTime (t: ZonedDateTime) (direction: Direction) (magnitude: Period): ZonedDateTime = 
   match direction with
-  | Before -> t - magnitude.ToDuration()
-  | After -> t + magnitude.ToDuration()
+  | Before -> (t.LocalDateTime - magnitude).InZoneLeniently(t.Zone)
+  | After -> (t.LocalDateTime + magnitude).InZoneLeniently(t.Zone)
 
 let offsetInterval (interval: Interval)
                    (startOffsetDirection: Direction)
@@ -169,7 +169,7 @@ let timeSeries (startTime: ZonedDateTime) (nextTimeFn: ZonedDateTime -> ZonedDat
 let dateSeries (startDate: LocalDate) (nextDateFn: LocalDate -> LocalDate): seq<LocalDate> = Seq.iterate nextDateFn startDate
 
 // returns an infinite seq of [t t+p t+2p t+3p ...]
-let infPeriodicalTimeSeries (startTime: ZonedDateTime) (period: Period): seq<ZonedDateTime> = timeSeries startTime (fun t -> t + period.ToDuration())
+let infPeriodicalTimeSeries (startTime: ZonedDateTime) (period: Period): seq<ZonedDateTime> = timeSeries startTime (fun t -> (t.LocalDateTime - period).InZoneLeniently(t.Zone))
 
 // returns an infinite seq of [d d+p d+2p d+3p ...]
 let infPeriodicalDateSeries (startDate: LocalDate) (period: Period): seq<LocalDate> = dateSeries startDate (fun d -> d + period)
@@ -186,15 +186,13 @@ let periodicalDateSeries (startDate: LocalDate) (endDate: LocalDate) (period: Pe
 // by a given Period, <separationLength> and each interval spans an amount of time given by <intervalLength>
 let infInterspersedIntervals (startTime: ZonedDateTime) (intervalLength: Period) (separationLength: Period): seq<Interval> =
   let startTimes = infPeriodicalTimeSeries startTime separationLength
-  let duration = intervalLength.ToDuration()
-  Seq.map (fun t -> intervalBetween t (t + duration)) startTimes
+  Seq.map (fun t -> intervalBetween t ((t.LocalDateTime - intervalLength).InZoneLeniently(t.Zone))) startTimes
 
 let interspersedIntervals (startTimeInterval: Interval) (intervalLength: Period) (separationLength: Period): seq<Interval> =
   let startTime = startTimeInterval.Start.InZone(EasternTimeZone)
   let endTime = startTimeInterval.End.InZone(EasternTimeZone)
   let startTimes = infPeriodicalTimeSeries startTime separationLength |> Seq.takeWhile (fun t -> t <= endTime)
-  let duration = intervalLength.ToDuration()
-  Seq.map (fun t -> intervalBetween t (t + duration)) startTimes
+  Seq.map (fun t -> intervalBetween t ((t.LocalDateTime - intervalLength).InZoneLeniently(t.Zone))) startTimes
 
 let daysInMonth (year: int) (month: int): int = DateTime.DaysInMonth(year, month)
 

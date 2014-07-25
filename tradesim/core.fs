@@ -45,7 +45,7 @@ type Portfolio = {
   stocks: StockHoldings
 }
 
-let createPortfolio principal = {cash = principal; stocks = ImmutableDictionary.empty}
+let createPortfolio principal = {cash = principal; stocks = ImmutableDictionary.Empty}
 
 type PortfolioValue = {
   time: ZonedDateTime

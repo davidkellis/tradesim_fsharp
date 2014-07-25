@@ -45,7 +45,7 @@ let barSimQuote (bar: Bar): decimal =
  *   ],
  *   unique: true)
  *)
-let queryEodBar (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>) =
+let queryEodBar dao (time: ZonedDateTime) (securityId: SecurityId) =
   Logging.info <| sprintf "queryEodBar %s %i" (time.ToString()) securityId
   dao.queryEodBar time securityId
 
@@ -64,15 +64,15 @@ let queryEodBar (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>) =
  *   ],
  *   unique: true)
  *)
-let queryEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>) =
+let queryEodBarPriorTo dao (time: ZonedDateTime) (securityId: SecurityId) =
   Logging.info <| sprintf "queryEodBarPriorTo %s %i" (time.ToString()) securityId
   dao.queryEodBarPriorTo time securityId
 
-let queryEodBars (securityId: SecurityId) (dao: Dao<_>) =
+let queryEodBars dao (securityId: SecurityId) =
   Logging.info <| sprintf "queryEodBars %i" securityId
   dao.queryEodBars securityId
 
-let queryEodBarsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) (dao: Dao<_>): seq<Bar> =
+let queryEodBarsBetween dao (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime): seq<Bar> =
   Logging.info <| sprintf "queryEodBarsBetween %i %s %s" securityId (earliestTime.ToString()) (latestTime.ToString())
   let t1 = currentTime None
   let result = dao.queryEodBarsBetween securityId earliestTime latestTime
@@ -80,13 +80,13 @@ let queryEodBarsBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (
   Logging.verbose <| sprintf "Time: %s" (formatPeriod <| periodBetween t1 t2)
   result
 
-let findOldestEodBar (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
+let findOldestEodBar dao (securityId: SecurityId): Option<Bar> =
   info <| sprintf "findOldestEodBar(%i)" securityId
   dao.findOldestEodBar securityId
 
-let findMostRecentEodBar (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
+let findMostRecentEodBar dao (securityId: SecurityId): Option<Bar> =
   info <| sprintf "findMostRecentEodBar(%i)" securityId
-  (dao: Dao<_>).findMostRecentEodBar securityId
+  dao.findMostRecentEodBar securityId
 
 
 type PriceHistory = TreeDictionary<timestamp, Bar>   // a price history is a collection of (timestamp -> Bar) pairs
@@ -97,11 +97,11 @@ let loadPriceHistoryFromBars (bars: seq<Bar>): PriceHistory =
   priceHistory
 
 // note: compare this definition to the definition of loadPriceHistoryBetween. Which is preferable?
-let loadPriceHistory (securityId: SecurityId) (dao: Dao<_>): PriceHistory = queryEodBars securityId dao |> loadPriceHistoryFromBars
+let loadPriceHistory dao (securityId: SecurityId): PriceHistory = queryEodBars dao securityId |> loadPriceHistoryFromBars
 
 // note: compare this definition to the definition of loadPriceHistory. Which is preferable?
-let loadPriceHistoryBetween (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime) (dao: Dao<_>): PriceHistory = 
-  queryEodBarsBetween securityId earliestTime latestTime dao |> loadPriceHistoryFromBars
+let loadPriceHistoryBetween dao (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime): PriceHistory = 
+  queryEodBarsBetween dao securityId earliestTime latestTime |> loadPriceHistoryFromBars
 
 
 let mostRecentBar (priceHistory: PriceHistory) (timestamp: int64): Option<Bar> =
@@ -113,7 +113,7 @@ let getPriceHistory = get priceHistoryCache
 let putPriceHistory = put priceHistoryCache
 
 // loads up 5 years of price history
-let findPriceHistory (year: int) (securityId: SecurityId) (dao: Dao<_>): PriceHistory =
+let findPriceHistory dao (year: int) (securityId: SecurityId): PriceHistory =
   let startYear = year - year % 5
   let priceHistoryId = sprintf "%i:%i" securityId startYear
   let cachedPriceHistory = getPriceHistory priceHistoryId
@@ -122,27 +122,27 @@ let findPriceHistory (year: int) (securityId: SecurityId) (dao: Dao<_>): PriceHi
   | None ->
     let endYear = startYear + 4
     // load 5 calendar years of price history into a TreeDictionary
-    let newPriceHistory = loadPriceHistoryBetween securityId <| datetime startYear 1 1 0 0 0 <| datetime endYear 12 31 23 59 59 <| dao
+    let newPriceHistory = loadPriceHistoryBetween dao securityId <| datetime startYear 1 1 0 0 0 <| datetime endYear 12 31 23 59 59
     putPriceHistory priceHistoryId newPriceHistory
     newPriceHistory
 
-let mostRecentBarFromYear (time: ZonedDateTime) (securityId: SecurityId) (year: int) (dao: Dao<_>) =
-  let priceHistory = findPriceHistory year securityId dao
+let mostRecentBarFromYear dao (time: ZonedDateTime) (securityId: SecurityId) (year: int) =
+  let priceHistory = findPriceHistory dao year securityId
   mostRecentBar priceHistory <| dateTimeToTimestamp time
 
-let findEodBar (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
+let findEodBar dao (time: ZonedDateTime) (securityId: SecurityId): Option<Bar> =
   let year = time.Year
-  mostRecentBarFromYear time securityId year dao
-  |> Option.orElseLazy (lazy (mostRecentBarFromYear time securityId (year - 1) dao))
-  |> Option.orElseLazy (lazy (queryEodBar time securityId dao))
+  mostRecentBarFromYear dao time securityId year
+  |> Option.orElseLazy (lazy (mostRecentBarFromYear dao time securityId (year - 1)))
+  |> Option.orElseLazy (lazy (queryEodBar dao time securityId))
 
-let findEodBarPriorTo (time: ZonedDateTime) (securityId: SecurityId) (dao: Dao<_>): Option<Bar> =
-  findEodBar time securityId dao
+let findEodBarPriorTo dao (time: ZonedDateTime) (securityId: SecurityId): Option<Bar> =
+  findEodBar dao time securityId
   |> Option.flatMap 
     (fun bar ->
       if isInstantBetween time bar.startTime bar.endTime then
         let minimallyEarlierTime = bar.startTime - Duration.FromMilliseconds(1L)
-        findEodBar minimallyEarlierTime securityId dao
+        findEodBar dao minimallyEarlierTime securityId
       else
         Some bar
     )

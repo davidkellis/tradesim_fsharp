@@ -7,12 +7,12 @@ open Quotes
 open CorporateActions
 
 let adjEodQuote dao (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn): Option<decimal> =
-  let bar = findEodBar time securityId dao
+  let bar = findEodBar dao time securityId
   Option.map 
     (fun bar ->
       let price = priceFn bar
       let priceObservationTime = bar.endTime
-      adjustPriceForCorporateActions price securityId priceObservationTime time dao
+      adjustPriceForCorporateActions dao price securityId priceObservationTime time
     )
     bar
 
@@ -24,12 +24,12 @@ let adjEodSimQuote dao (time: ZonedDateTime) (securityId: SecurityId): Option<de
 
 
 let adjEodQuotePriorTo dao (time: ZonedDateTime) (securityId: SecurityId) (priceFn: BarQuoteFn): Option<decimal> =
-  let bar = findEodBarPriorTo time securityId dao
+  let bar = findEodBarPriorTo dao time securityId
   Option.map
     (fun bar ->
       let price = priceFn bar
       let priceObservationTime = bar.endTime
-      adjustPriceForCorporateActions price securityId priceObservationTime time dao
+      adjustPriceForCorporateActions dao price securityId priceObservationTime time
     )
     bar
 

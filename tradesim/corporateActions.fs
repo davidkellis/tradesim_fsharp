@@ -26,18 +26,18 @@ let corporateActionExDate = function
   | SplitCA split -> split.exDate
   | CashDividendCA dividend -> dividend.exDate
 
-let queryCorporateActions (securityIds: seq<SecurityId>) (dao: Dao<_>): array<CorporateAction> =
+let queryCorporateActions dao (securityIds: seq<SecurityId>): array<CorporateAction> =
   infoL <| lazy (sprintf "queryCorporateActions %s" (String.joinInts "," securityIds))
   dao.queryCorporateActions securityIds |> Seq.toArray
 
-let queryCorporateActionsBetween (securityIds: seq<int>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) (dao: Dao<_>): array<CorporateAction> =
+let queryCorporateActionsBetween dao (securityIds: seq<int>) (startTime: ZonedDateTime) (endTime: ZonedDateTime): array<CorporateAction> =
   infoL <| lazy (sprintf "queryCorporateActionsBetween %s %s %s" (String.joinInts "," securityIds) (dateTimeToTimestampStr startTime) (dateTimeToTimestampStr endTime))
   dao.queryCorporateActionsBetween securityIds startTime endTime |> Seq.toArray
 
 type CorporateActionHistory = TreeDictionary<datestamp, CorporateAction>
 
-let loadCorporateActionHistory (securityId: SecurityId) (dao: Dao<_>): CorporateActionHistory =
-  let corporateActions = queryCorporateActions [securityId] dao
+let loadCorporateActionHistory dao (securityId: SecurityId): CorporateActionHistory =
+  let corporateActions = queryCorporateActions dao [securityId]
   let corporateActionHistory = new CorporateActionHistory()
   Seq.iter 
     (fun ca -> corporateActionHistory.Add(localDateToDatestamp <| corporateActionExDate ca, ca) )
@@ -50,12 +50,12 @@ let getCorporateActionHistory = get corporateActionCache
 let putCorporateActionHistory = put corporateActionCache
 
 
-let findCorporateActionHistory(securityId: SecurityId) (dao: Dao<_>): CorporateActionHistory =
+let findCorporateActionHistory dao (securityId: SecurityId): CorporateActionHistory =
   let cachedCorporateActionHistory = getCorporateActionHistory securityId
   match cachedCorporateActionHistory with
   | Some corporateActionHistory -> corporateActionHistory
   | None ->
-      let newCorporateActionHistory = loadCorporateActionHistory securityId dao
+      let newCorporateActionHistory = loadCorporateActionHistory dao securityId
       putCorporateActionHistory securityId newCorporateActionHistory
       newCorporateActionHistory
 
@@ -67,15 +67,15 @@ let findCorporateActionsFromHistory (history: CorporateActionHistory) (startTime
   Vector.mapIEnumerator (fun (pair: KeyValuePair<datestamp, CorporateAction>) -> pair.Value) (subHistory.GetEnumerator())
 //    println(s"findCorporateActionsFromHistory(history, $startTime, $endTime) -> ${corporateActions.toVector}")
 
-let findCorporateActionsForSecurity (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: Vector<CorporateAction> =
-  let history = findCorporateActionHistory securityId dao
+let findCorporateActionsForSecurity dao (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime): Vector<CorporateAction> =
+  let history = findCorporateActionHistory dao securityId
   findCorporateActionsFromHistory history startTime endTime
 
-let findCorporateActions (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: Vector<CorporateAction> =
-  Vector.flatMapSeq (fun securityId -> findCorporateActionsForSecurity securityId startTime endTime dao) securityIds
+let findCorporateActions dao (securityIds: seq<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime): Vector<CorporateAction> =
+  Vector.flatMapSeq (fun securityId -> findCorporateActionsForSecurity dao securityId startTime endTime) securityIds
 
-let findEodBarPriorToCorporateAction (corporateAction: CorporateAction) dao: Option<Bar> =
-  findEodBarPriorTo <| midnightOnDate (corporateActionExDate corporateAction) <| corporateActionSecurityId corporateAction <| dao
+let findEodBarPriorToCorporateAction dao (corporateAction: CorporateAction): Option<Bar> =
+  findEodBarPriorTo dao <| midnightOnDate (corporateActionExDate corporateAction) <| corporateActionSecurityId corporateAction
 
 (*
  * See http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html for implementation notes.
@@ -130,10 +130,10 @@ let computeAdjustmentFactor (corporateAction: CorporateAction) (priorEodBar: Opt
  *   The definition of the adjustment-factor is taken from http://www.crsp.com/documentation/product/stkind/definitions/factor_to_adjust_price_in_period.html:
  *   "Factor from a base date used to adjust prices after distributions so that equivalent comparisons can be made between prices before and after the distribution."
  *)
-let priceAdjustmentFactors (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: Vector<AdjustmentFactor> =
+let priceAdjustmentFactors dao (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime): Vector<AdjustmentFactor> =
   if startTime < endTime then
-    let corporateActions = findCorporateActionsForSecurity securityId startTime endTime dao     // corporate actions ordered from oldest to newest
-    let corporateActionEodBarPairs = Vector.map (fun corporateAction -> (corporateAction, findEodBarPriorToCorporateAction corporateAction dao) ) corporateActions
+    let corporateActions = findCorporateActionsForSecurity dao securityId startTime endTime     // corporate actions ordered from oldest to newest
+    let corporateActionEodBarPairs = Vector.map (fun corporateAction -> (corporateAction, findEodBarPriorToCorporateAction dao corporateAction) ) corporateActions
     Vector.fold
       (fun adjustmentFactors (corporateAction, priorEodBar) -> 
          let adjustmentFactor = {corporateAction = corporateAction; 
@@ -147,8 +147,8 @@ let priceAdjustmentFactors (securityId: SecurityId) (startTime: ZonedDateTime) (
     Vector.empty<AdjustmentFactor>
 
 // computes a cumulative price adjustment factor
-let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime) dao: decimal =
-  priceAdjustmentFactors securityId startTime endTime dao
+let cumulativePriceAdjustmentFactor dao (securityId: SecurityId) (startTime: ZonedDateTime) (endTime: ZonedDateTime): decimal =
+  priceAdjustmentFactors dao securityId startTime endTime
   |> Vector.map (fun adjFactor -> adjFactor.adjustmentFactor)
   |> Vector.fold (*) 1M
 
@@ -170,15 +170,15 @@ let cumulativePriceAdjustmentFactor (securityId: SecurityId) (startTime: ZonedDa
  *   http://help.yahoo.com/kb/index?locale=en_US&page=content&y=PROD_FIN&id=SLN2311&actp=lorax&pir=wMsp3EFibUlGxLjgTY.StSPNcMXGv318Io7yMwp2vXYNYOLFM2Y-
  *   for instructions on how to adjust a price for cash dividends.
  *)
-let adjustPriceForCorporateActions (price: decimal) (securityId: SecurityId) (priceObservationTime: ZonedDateTime) (adjustmentTime: ZonedDateTime) dao: decimal =
-  price * cumulativePriceAdjustmentFactor securityId priceObservationTime adjustmentTime dao
+let adjustPriceForCorporateActions dao (price: decimal) (securityId: SecurityId) (priceObservationTime: ZonedDateTime) (adjustmentTime: ZonedDateTime): decimal =
+  price * cumulativePriceAdjustmentFactor dao securityId priceObservationTime adjustmentTime
 
 (*
  * Given a portfolio and split, this function applies the split to the portfolio and returns a split-adjusted portfolio.
  * Note:
  *   new holdings = old holdings * split ratio
  *)
-let adjustPortfolioForSplit (split: Split) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
+let adjustPortfolioForSplit dao (split: Split) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
   let portfolio = stateInterface.portfolio currentState
   let securityId = split.securityId
   let exDate = split.exDate
@@ -188,12 +188,12 @@ let adjustPortfolioForSplit (split: Split) (stateInterface: StrategyState<'State
   let adjSharesOnHandDecimal = floor adjQty
   let adjSharesOnHand = int64 adjSharesOnHandDecimal
   let fractionalShareQty = adjQty - adjSharesOnHandDecimal
-  let eodBar = findEodBarPriorTo (midnightOnDate exDate) securityId dao
+  let eodBar = findEodBarPriorTo dao (midnightOnDate exDate) securityId
   eodBar
   |> Option.map
     (fun eodBar ->
       let closingPrice = eodBar.c
-      let splitAdjustedSharePrice = adjustPriceForCorporateActions closingPrice securityId eodBar.endTime (midnightOnDate exDate) dao
+      let splitAdjustedSharePrice = adjustPriceForCorporateActions dao closingPrice securityId eodBar.endTime (midnightOnDate exDate)
       let fractionalShareCashValue = fractionalShareQty * splitAdjustedSharePrice
       let adjustedPortfolio = portfolio |> setSharesOnHand securityId adjSharesOnHand |> addCash fractionalShareCashValue
       let updatedTransactionLog = Vector.conj
@@ -216,18 +216,18 @@ let adjustPortfolioForCashDividend (dividend: CashDividend) (stateInterface: Str
                                 (stateInterface.transactions currentState)
   currentState |> stateInterface.withPortfolio adjustedPortfolio |> stateInterface.withTransactions updatedTransactionLog
 
-let adjustPortfolio (corporateAction: CorporateAction) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
+let adjustPortfolio dao (corporateAction: CorporateAction) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
   match corporateAction with
-  | SplitCA split -> adjustPortfolioForSplit split stateInterface currentState dao
+  | SplitCA split -> adjustPortfolioForSplit dao split stateInterface currentState
   | CashDividendCA dividend -> adjustPortfolioForCashDividend dividend stateInterface currentState
 
-let adjustPortfolioForCorporateActions (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: 'StateT =
+let adjustPortfolioForCorporateActions dao (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime): 'StateT =
   let portfolio = stateInterface.portfolio currentState
   let securityIds = portfolio.stocks.Keys
-  let corporateActions = findCorporateActions securityIds earlierObservationTime laterObservationTime dao
+  let corporateActions = findCorporateActions dao securityIds earlierObservationTime laterObservationTime
 //    println(s"********* Corporate Actions (for portfolio): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
   Vector.fold
-    (fun updatedState corporateAction -> adjustPortfolio corporateAction stateInterface updatedState dao)
+    (fun updatedState corporateAction -> adjustPortfolio dao corporateAction stateInterface updatedState)
     currentState
     corporateActions
 
@@ -250,12 +250,12 @@ let adjustOpenOrder (corporateAction: CorporateAction) (openOrder: Order): Order
   | SplitCA split -> adjustOpenOrderForSplit split openOrder
   | CashDividendCA dividend -> adjustOpenOrderForCashDividend dividend openOrder
 
-let adjustOpenOrdersForCorporateActions (openOrders: Vector<Order>) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: Vector<Order> =
+let adjustOpenOrdersForCorporateActions dao (openOrders: Vector<Order>) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime): Vector<Order> =
   if (Vector.isEmpty openOrders) then
     Vector.empty<Order>
   else
     let securityIds = Vector.map orderSecurityId openOrders
-    let corporateActions = findCorporateActions securityIds earlierObservationTime laterObservationTime dao
+    let corporateActions = findCorporateActions dao securityIds earlierObservationTime laterObservationTime
     let corporateActionsPerSymbol = Vector.groupIntoMapBy corporateActionSecurityId corporateActions
 //      println(s"********* Corporate Actions (for open orders): $corporateActions for $symbols ; between $earlierObservationTime and $laterObservationTime")
     Vector.map
@@ -287,9 +287,9 @@ let computeShareQtyAdjustmentFactor(corporateAction: CorporateAction): decimal =
  *   "Factor from a base date used to adjust prices after distributions so that equivalent comparisons can be made between prices
  *   before and after the distribution."
  *)
-let shareQtyAdjustmentFactors (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: Vector<QtyAdjustmentFactor> = 
+let shareQtyAdjustmentFactors dao (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime): Vector<QtyAdjustmentFactor> = 
   if earlierObservationTime < laterObservationTime then
-    let corporateActions = findCorporateActionsForSecurity securityId earlierObservationTime laterObservationTime dao
+    let corporateActions = findCorporateActionsForSecurity dao securityId earlierObservationTime laterObservationTime
     Vector.fold
       (fun qtyAdjustmentFactors corporateAction -> Vector.conj {corporateAction = corporateAction; adjustmentFactor = computeShareQtyAdjustmentFactor corporateAction} qtyAdjustmentFactors )
       Vector.empty<QtyAdjustmentFactor>
@@ -298,12 +298,12 @@ let shareQtyAdjustmentFactors (securityId: SecurityId) (earlierObservationTime: 
     Vector.empty<QtyAdjustmentFactor>
 
 // computes a cumulative share quantity adjustment factor
-let cumulativeShareQtyAdjustmentFactor (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: decimal =
-  shareQtyAdjustmentFactors securityId earlierObservationTime laterObservationTime dao
+let cumulativeShareQtyAdjustmentFactor dao (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime): decimal =
+  shareQtyAdjustmentFactors dao securityId earlierObservationTime laterObservationTime
   |> Vector.map (fun qtyAdjFactor -> qtyAdjFactor.adjustmentFactor)
   |> Vector.fold (*) 1M
 
 // returns a split adjusted share quantity, given an unadjusted share quantity
-let adjustShareQtyForCorporateActions (unadjustedQty: decimal) (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime) dao: decimal =
-  unadjustedQty / cumulativeShareQtyAdjustmentFactor securityId earlierObservationTime laterObservationTime dao
+let adjustShareQtyForCorporateActions dao (unadjustedQty: decimal) (securityId: SecurityId) (earlierObservationTime: ZonedDateTime) (laterObservationTime: ZonedDateTime): decimal =
+  unadjustedQty / cumulativeShareQtyAdjustmentFactor dao securityId earlierObservationTime laterObservationTime
 

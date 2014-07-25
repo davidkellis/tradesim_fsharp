@@ -20,7 +20,7 @@ open Stats
 open Logging
 
 
-let fixedTradingPeriodIsFinalState (stateInterface: StrategyState<'StateT>) (strategy: TradingStrategy<'StrategyT, 'StateT>) (trial: Trial) (state: 'StateT): bool = 
+let fixedTradingPeriodIsFinalState (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) (strategy: 'StrategyT) (trial: Trial) (state: 'StateT): bool = 
   stateInterface.time state >= trial.endTime
 
 (*
@@ -62,9 +62,9 @@ let buildInitialJumpTimeIncrementer (timeComponent: Period)
  *   Example: if the slippage amount is a +3%, then slippage should be given as 0.03.
  *            if the slippage amount is a -4%, then slippage should be given as -0.04.
  *)
-let naiveFillPriceWithSlippage (priceBarFn: PriceBarFn)
+let naiveFillPriceWithSlippage dao
+                               (priceBarFn: PriceBarFn)
                                (slippage: decimal)
-                               dao
                                : PriceQuoteFn =
   (fun time securityId ->
     priceBarFn time securityId
@@ -72,7 +72,7 @@ let naiveFillPriceWithSlippage (priceBarFn: PriceBarFn)
       (fun bar ->
         let slippageMultiplier = 1m + slippage
         let fillPrice = barSimQuote bar * slippageMultiplier
-        adjustPriceForCorporateActions fillPrice securityId bar.endTime time dao
+        adjustPriceForCorporateActions dao fillPrice securityId bar.endTime time
       )
   )
 
@@ -88,11 +88,11 @@ let naiveFillPriceWithSlippage (priceBarFn: PriceBarFn)
  * The formula is:
  *   order-price + slippage-multiplier * ([high|low] - order-price)
  *)
-let tradingBloxFillPriceWithSlippage (priceBarFn: PriceBarFn)
+let tradingBloxFillPriceWithSlippage dao
+                                     (priceBarFn: PriceBarFn)
                                      (orderPriceFn: BarQuoteFn)
                                      (priceBarExtremumFn: BarQuoteFn)
                                      (slippage: decimal)
-                                     dao
                                      : PriceQuoteFn =
   (fun time securityId ->
     priceBarFn time securityId
@@ -100,7 +100,7 @@ let tradingBloxFillPriceWithSlippage (priceBarFn: PriceBarFn)
       (fun bar ->
         let orderPrice = orderPriceFn bar
         let fillPrice = orderPrice + slippage * (priceBarExtremumFn bar - orderPrice)
-        adjustPriceForCorporateActions fillPrice securityId bar.endTime time dao
+        adjustPriceForCorporateActions dao fillPrice securityId bar.endTime time
       )
   )
 
@@ -144,23 +144,23 @@ let executeOrders (trial: Trial) (stateInterface: StrategyState<'StateT>) (curre
  * Returns a new State that has been adjusted for stock splits and dividend payouts that have gone into effect at some point within the
  * interlet [current-state.previous-time, current-state.time].
  *)
-let adjustStrategyStateForRecentSplitsAndDividends (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
+let adjustStrategyStateForRecentSplitsAndDividends dao (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
   let openOrders = stateInterface.orders currentState
   let previousTime = stateInterface.previousTime currentState
   let currentTime = stateInterface.time currentState
-  let currentStateWithAdjustedPortfolio = adjustPortfolioForCorporateActions stateInterface currentState previousTime currentTime dao
-  let adjustedOpenOrders = adjustOpenOrdersForCorporateActions openOrders previousTime currentTime dao
+  let currentStateWithAdjustedPortfolio = adjustPortfolioForCorporateActions dao stateInterface currentState previousTime currentTime
+  let adjustedOpenOrders = adjustOpenOrdersForCorporateActions dao openOrders previousTime currentTime
   stateInterface.withOrders adjustedOpenOrders currentStateWithAdjustedPortfolio
 
 let incrementStateTime (nextTime: ZonedDateTime) (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT = 
   stateInterface.withTime nextTime (stateInterface.time currentState) currentState
 
 // todo, finish this once I decide what data structure to use for the StrategyState<'StateT>'s portfolioValueHistory
-let logCurrentPortfolioValue (stateInterface: StrategyState<'StateT>) (currentState: 'StateT) dao: 'StateT =
+let logCurrentPortfolioValue dao (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
   let currentPortfolio = stateInterface.portfolio currentState
   let currentTime = stateInterface.time currentState
   let currentPortfolioValueHistory = stateInterface.portfolioValueHistory currentState
-  let currentPortfolioValue = portfolioValue currentPortfolio currentTime barClose barSimQuote dao
+  let currentPortfolioValue = portfolioValue dao currentPortfolio currentTime barClose barSimQuote
   let newPortfolioValueHistory = Vector.conj {time = currentTime; value = currentPortfolioValue} currentPortfolioValueHistory
   stateInterface.withPortfolioValueHistory newPortfolioValueHistory currentState
 
@@ -195,7 +195,7 @@ let printAndReturnState (stateInterface: StrategyState<'StateT>) (currentState: 
  *   been adjusted for corporate actions that took place between Jan 1, 2010 and June 1, 2010, but the user
  *   might only expect the final state to have been adjusted for corporate actions before Jan 1, 2010.
  *)
-let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) (strategy: 'StrategyT) (trial: Trial) dao: 'StateT =
+let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trial: Trial): 'StateT =
   let buildInitStrategyState = strategyInterface.buildInitialState strategy
   let buildNextStrategyState = strategyInterface.buildNextState strategy
   let isFinalState = strategyInterface.isFinalState strategy
@@ -212,7 +212,7 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
     if isFinalState strategy trial currentState then
       currentState
       |> closeAllOpenPositions trial stateInterface
-      |> fun state -> logCurrentPortfolioValue stateInterface state dao
+      |> fun state -> logCurrentPortfolioValue dao stateInterface state
 //      |> printAndReturnState
     else
       let currentTime = stateInterface.time currentState
@@ -220,12 +220,12 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
 
       let nextState = 
         currentState
-        |> fun state -> logCurrentPortfolioValue stateInterface state dao
+        |> fun state -> logCurrentPortfolioValue dao stateInterface state
         |> buildNextStrategyState strategy trial
         //todo: should we increment state.time by 100 milliseconds here to represent the time between order entry and order execution?
         |> executeOrders trial stateInterface   // for now, simulate immediate order fulfillment
         |> incrementStateTime nextTime stateInterface
-        |> fun state -> adjustStrategyStateForRecentSplitsAndDividends stateInterface state dao
+        |> fun state -> adjustStrategyStateForRecentSplitsAndDividends dao stateInterface state
 
       runTrialR nextState
 
@@ -235,8 +235,8 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
   verbose <| sprintf "Time: ${datetimeUtils.formatPeriod(datetimeUtils.periodBetween(t1, t2))}"
   result
 
-let buildAllTrialIntervals (securityIds: Vector<SecurityId>) (intervalLength: Period) (separationLength: Period) dao: seq<Interval> =
-  commonTrialPeriodStartDates securityIds intervalLength dao
+let buildAllTrialIntervals dao (securityIds: Vector<SecurityId>) (intervalLength: Period) (separationLength: Period): seq<Interval> =
+  commonTrialPeriodStartDates dao securityIds intervalLength
   |> Option.map (fun startDateRange -> interspersedIntervals startDateRange intervalLength separationLength)
   |> Option.getOrElse Seq.empty
 
@@ -274,38 +274,38 @@ let buildTrials (trialIntervalGeneratorFn: Vector<SecurityId> -> Period -> seq<I
   |> Seq.map
     (fun interval -> trialGeneratorFn securityIds (interval.Start |> instantToEasternTime) (interval.End |> instantToEasternTime) trialDuration)
 
-let runTrials strategyInterface stateInterface (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> = 
-  Seq.map (fun trial -> runTrial strategyInterface stateInterface strategy trial dao) trials
+let runTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
+  Seq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial) trials
 
-let runTrialsInParallel strategyInterface stateInterface (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> = 
+let runTrialsInParallel strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
   trials
-  |> PSeq.map (fun trial -> runTrial strategyInterface stateInterface strategy trial dao)
+  |> PSeq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial)
   |> PSeq.toArray
   |> Array.toSeq
 
-let logTrials strategyInterface stateInterface (strategy: 'StrategyT) (trials: seq<Trial>) (finalStates: seq<'StateT>) dao: unit =
+let logTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>) (finalStates: seq<'StateT>): unit =
   infoL <| lazy ( sprintf "logTrials -> strategy=%s, %i trials, %i final states" (strategyInterface.name strategy) (Seq.length trials) (Seq.length finalStates))
   let baseStrategyStates = Seq.map <| toBaseStrategyState stateInterface <| finalStates
   dao.insertTrials <| strategyInterface.name strategy <| Seq.zip trials baseStrategyStates
 
-let runAndLogTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> =
+let runAndLogTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> =
   let t1 = currentTime <| Some EasternTimeZone
-  let finalStates = runTrials strategyInterface stateInterface strategy trials dao
+  let finalStates = runTrials strategyInterface stateInterface dao strategy trials
   let t2 = currentTime <| Some EasternTimeZone
   info <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
   let t3 = currentTime <| Some EasternTimeZone
-  logTrials strategyInterface stateInterface strategy trials finalStates dao
+  logTrials strategyInterface stateInterface dao strategy trials finalStates
   let t4 = currentTime <| Some EasternTimeZone
   info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
   finalStates
 
-let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) (strategy: 'StrategyT) (trials: seq<Trial>) dao: seq<'StateT> =
+let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> =
   let t1 = currentTime <| Some EasternTimeZone
-  let finalStates = runTrialsInParallel strategyInterface stateInterface strategy trials dao
+  let finalStates = runTrialsInParallel strategyInterface stateInterface dao strategy trials
   let t2 = currentTime <| Some EasternTimeZone
   info <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
   let t3 = currentTime <| Some EasternTimeZone
-  logTrials strategyInterface stateInterface strategy trials finalStates dao
+  logTrials strategyInterface stateInterface dao strategy trials finalStates
   let t4 = currentTime <| Some EasternTimeZone
   info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
   finalStates

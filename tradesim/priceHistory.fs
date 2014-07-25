@@ -8,20 +8,20 @@ open Time
 open Quotes
 
 // Returns the interval of time that spans the full price history of a particular symbol
-let priceHistoryInterval (securityId: SecurityId) dao: Option<Interval> =
-  let startTime = findOldestEodBar securityId dao |> Option.map (fun bar -> bar.startTime)
-  let endTime = findMostRecentEodBar securityId dao |> Option.map (fun bar -> bar.endTime)
+let priceHistoryInterval dao (securityId: SecurityId): Option<Interval> =
+  let startTime = findOldestEodBar dao securityId |> Option.map (fun bar -> bar.startTime)
+  let endTime = findMostRecentEodBar dao securityId |> Option.map (fun bar -> bar.endTime)
   match (startTime, endTime) with
   | (Some startTime, Some endTime) -> Some <| intervalBetween startTime endTime
   | _ -> None
 
-let priceHistoryContains (securityId: SecurityId) (interval: Interval) dao: bool =
-  priceHistoryInterval securityId dao
+let priceHistoryContains dao (securityId: SecurityId) (interval: Interval): bool =
+  priceHistoryInterval dao securityId
   |> Option.map (intervalsOverlap interval)
   |> Option.getOrElse false
 
-let isEnoughPriceHistory (securityId: SecurityId) (tradingPeriodLength: Period) dao: bool =
-  let interval = priceHistoryInterval securityId dao
+let isEnoughPriceHistory dao (securityId: SecurityId) (tradingPeriodLength: Period): bool =
+  let interval = priceHistoryInterval dao securityId
   match interval with
   | Some interval -> 
     let (iStart, iEnd) = (interval.Start, interval.End)
@@ -29,9 +29,9 @@ let isEnoughPriceHistory (securityId: SecurityId) (tradingPeriodLength: Period) 
     iStart <= tradingStart
   | None -> false
 
-let securitiesWithEnoughPriceHistory(securityIds: seq<int>, tradingPeriodLength: Period) dao: seq<int> =
+let securitiesWithEnoughPriceHistory dao (securityIds: seq<int>, tradingPeriodLength: Period): seq<int> =
   Seq.filter
-    (fun securityId -> isEnoughPriceHistory securityId tradingPeriodLength dao)
+    (fun securityId -> isEnoughPriceHistory dao securityId tradingPeriodLength)
     securityIds
 
 (*
@@ -42,8 +42,8 @@ let securitiesWithEnoughPriceHistory(securityIds: seq<int>, tradingPeriodLength:
  * For Reference: (price-history-start-end "intraday_data/AAPL.csv")
  *                -> <#<ZonedDateTime 1999-04-01T08:32:00.000-06:00> #<ZonedDateTime 2009-04-01T13:42:00.000-05:00>>
  *)
-let tradingPeriodStartDates (securityId: SecurityId) (tradingPeriodLength: Period) dao: Option<ZonedDateTime * ZonedDateTime> =
-  priceHistoryInterval securityId dao
+let tradingPeriodStartDates dao (securityId: SecurityId) (tradingPeriodLength: Period): Option<ZonedDateTime * ZonedDateTime> =
+  priceHistoryInterval dao securityId
   |> Option.flatMap
     (fun interval ->
       let (iStart, iEnd) = (interval.Start, interval.End)
@@ -68,8 +68,8 @@ let tradingPeriodStartDates (securityId: SecurityId) (tradingPeriodLength: Perio
  * Example: (common-price-history-date-range <"AAPL", "F", "VFINX">)
  *          -> <#<ZonedDateTime 1987-03-27T09:30:00.000Z> #<ZonedDateTime 2012-10-10T16:00:00.000Z>>
  *)
-let commonPriceHistoryDateRange (securityIds: seq<int>) dao: Option<Interval> =
-  let intervals = securityIds |> Seq.map (fun securityId -> priceHistoryInterval securityId dao)
+let commonPriceHistoryDateRange dao (securityIds: seq<int>): Option<Interval> =
+  let intervals = securityIds |> Seq.map (fun securityId -> priceHistoryInterval dao securityId)
   let iStart = intervals
                |> Seq.flatMapO
                  (Option.map (fun interval -> interval.Start))
@@ -105,8 +105,8 @@ let commonPriceHistoryDateRange (securityIds: seq<int>) dao: Option<Interval> =
  * Usage: (common-trial-period-start-dates <"AAPL" "F"> (years 1))
  *        -> <#<ZonedDateTime 1984-09-07T09:30:00.000Z> #<ZonedDateTime 2011-10-10T16:00:00.000Z>>
  *)
-let commonTrialPeriodStartDates (securityIds: seq<int>) (trialPeriodLength: Period) dao: Option<Interval> =
-  let intervals = securityIds |> Seq.map (fun securityId -> priceHistoryInterval securityId dao)
+let commonTrialPeriodStartDates dao (securityIds: seq<int>) (trialPeriodLength: Period): Option<Interval> =
+  let intervals = securityIds |> Seq.map (fun securityId -> priceHistoryInterval dao securityId)
   let iStart = intervals
                |> Seq.flatMapO
                  (Option.map (fun interval -> interval.Start))
@@ -124,16 +124,16 @@ let commonTrialPeriodStartDates (securityIds: seq<int>) (trialPeriodLength: Peri
     Some <| intervalBetweenInstants iStart adjustedEnd
 
 let commonTrialPeriodStartDatesWithOffsets
+    dao
     (securityIds: seq<int>)
     (trialPeriodLength: Period)
     (startOffsetDirection: Direction)
     (startOffset: Period)
     (endOffsetDirection: Direction)
     (endOffset: Period)
-    dao
     : Option<Interval> =
   let getPriceHistoryInterval =
-    (fun securityId -> priceHistoryInterval securityId dao) 
+    (fun securityId -> priceHistoryInterval dao securityId) 
     >> Option.map (fun interval -> offsetInterval interval startOffsetDirection startOffset endOffsetDirection endOffset)
   let intervals = securityIds |> Seq.map getPriceHistoryInterval
   let iStart = intervals

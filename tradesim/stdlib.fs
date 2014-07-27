@@ -13,8 +13,6 @@ let outParamToOpt (outParamGiven: bool, outParam: 'v): Option<'v> = if outParamG
 
 let unboxedOpt<'t> (item: obj): Option<'t> = if item = null then None else Some (unbox item)
 
-let replaceStr (searchString: String) (replacementStr: string) (origString: string): string = origString.Replace(searchString, replacementStr)
-
 let str2 (a: string) (b: string): string =
   let builder = new System.Text.StringBuilder()
   builder.Append(a).Append(b).ToString()
@@ -38,3 +36,5 @@ let toComparer<'t, 'k when 'k :> IComparable> (cmpFn: 't -> 'k): System.Collecti
     new System.Collections.Generic.IComparer<'t> 
     with member this.Compare(x: 't, y: 't) = (cmpFn x).CompareTo(cmpFn y)
   }
+
+let idWithSideEffect (fn: 't -> unit) (value: 't): 't = fn value; value

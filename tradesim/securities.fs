@@ -11,7 +11,7 @@ let findExchanges dao (exchangeLabels: seq<string>): seq<Exchange> =
 let Amex dao = findExchanges dao ["UA"]
 let Nasdaq dao = findExchanges dao ["UW"; "UQ"; "UR"]
 let Nyse dao = findExchanges dao ["UN"]
-let PrimaryUsExchanges dao = Seq.apply [Amex; Nasdaq; Nyse] dao |> Seq.concat
+let PrimaryUsExchanges dao = Seq.apply [Amex; Nasdaq; Nyse] dao |> Seq.concat |> Seq.cache
 let OTC_BB dao = findExchanges dao ["UU"]
 let OTC dao = findExchanges dao ["UV"]
 

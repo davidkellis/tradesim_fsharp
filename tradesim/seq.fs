@@ -29,6 +29,7 @@ let flatMap (f: 't -> seq<'u>) (ts: seq<'t>): seq<'u> =
 
 let firstOption (xs: seq<'t>): Option<'t> = Seq.tryPick Some xs
 
+// assumes that the keys produced by running <entities> through <keyExtractorFn> are distinct
 let treeMap<'k, 'v when 'k : comparison> (entities: seq<'v>) (keyExtractorFn: 'v -> 'k): TreeDictionary<'k, 'v> =
   let tree = new TreeDictionary<'k, 'v>()
   Seq.iter (fun value -> tree.Add(keyExtractorFn value, value)) entities
@@ -45,6 +46,8 @@ let fromIEnumerator (xs: System.Collections.Generic.IEnumerator<'x>): seq<'x> =
     while xs.MoveNext() do
       yield xs.Current
   }
+
+let fromIEnumerableOfUnknownType<'x> (xs: System.Collections.IEnumerable): seq<'x> = Seq.cast xs
 
 let fromIEnumerable (xs: System.Collections.Generic.IEnumerable<'x>): seq<'x> = fromIEnumerator (xs.GetEnumerator())
 

@@ -74,10 +74,10 @@ let queryEodBars dao (securityId: SecurityId) =
 
 let queryEodBarsBetween dao (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime): seq<Bar> =
   Logging.info <| sprintf "queryEodBarsBetween %i %s %s" securityId (earliestTime.ToString()) (latestTime.ToString())
-  let t1 = currentTime None
+//  let t1 = currentTime None
   let result = dao.queryEodBarsBetween securityId earliestTime latestTime
-  let t2 = currentTime None
-  Logging.verbose <| sprintf "Time: %s" (formatPeriod <| periodBetween t1 t2)
+//  let t2 = currentTime None
+//  Logging.verbose <| sprintf "Time: %s" (formatPeriod <| periodBetween t1 t2)
   result
 
 let findOldestEodBar dao (securityId: SecurityId): Option<Bar> =

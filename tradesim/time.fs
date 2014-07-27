@@ -61,19 +61,19 @@ let datetime (year: int) (month: int) (day: int) (hour: int) (minute: int) (seco
 
 let timestampToDatetime (timestamp: timestamp): ZonedDateTime = 
   let ts = timestamp.ToString()
-  let year = System.Convert.ToInt32(ts.Substring(0, 4))
-  let month = System.Convert.ToInt32(ts.Substring(4, 6))
-  let day = System.Convert.ToInt32(ts.Substring(6, 8))
-  let hour = System.Convert.ToInt32(ts.Substring(8, 10))
-  let minute = System.Convert.ToInt32(ts.Substring(10, 12))
-  let second = System.Convert.ToInt32(ts.Substring(12, 14))
+  let year = System.Convert.ToInt32(String.substring ts 0 4)
+  let month = System.Convert.ToInt32(String.substring ts 4 2)
+  let day = System.Convert.ToInt32(String.substring ts 6 2)
+  let hour = System.Convert.ToInt32(String.substring ts 8 2)
+  let minute = System.Convert.ToInt32(String.substring ts 10 2)
+  let second = System.Convert.ToInt32(String.substring ts 12 2)
   datetime year month day hour minute second
 
 let datestampToDatetime (datestamp: datestamp): ZonedDateTime =
   let ds = datestamp.ToString()
-  let year = System.Convert.ToInt32(ds.Substring(0, 4))
-  let month = System.Convert.ToInt32(ds.Substring(4, 6))
-  let day = System.Convert.ToInt32(ds.Substring(6, 8))
+  let year = System.Convert.ToInt32(String.substring ds 0 4)
+  let month = System.Convert.ToInt32(String.substring ds 4 2)
+  let day = System.Convert.ToInt32(String.substring ds 6 2)
   datetime year month day 0 0 0
 
 let localDateToDateTime (date: LocalDate) (hour: int) (minute: int) (second: int): ZonedDateTime =
@@ -92,9 +92,9 @@ let timestampToDate (timestamp: timestamp): LocalDate = (timestamp |> timestampT
 
 let datestampToDate (datestamp: datestamp): LocalDate =
   let ds = datestamp.ToString()
-  let year = System.Convert.ToInt32(ds.Substring(0, 4))
-  let month = System.Convert.ToInt32(ds.Substring(4, 6))
-  let day = System.Convert.ToInt32(ds.Substring(6, 8))
+  let year = System.Convert.ToInt32(String.substring ds 0 4)
+  let month = System.Convert.ToInt32(String.substring ds 4 2)
+  let day = System.Convert.ToInt32(String.substring ds 6 2)
   date year month day
 
 let datestampPattern = LocalDatePattern.CreateWithInvariantCulture("yyyyMMdd")

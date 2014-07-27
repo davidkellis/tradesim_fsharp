@@ -13,4 +13,4 @@ let get (cache: LurchTable<'k, 'v>) (key: 'k): Option<'v> =
   | (true, value) -> Some value
   | _ -> None
 
-let put (cache: LurchTable<'k, 'v>) (key: 'k) (value: 'v): unit = cache.Add(key, value)
+let put (cache: LurchTable<'k, 'v>) (key: 'k) (value: 'v): unit = cache.AddOrUpdate(key, value, (fun k v -> value)) |> ignore

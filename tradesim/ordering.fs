@@ -48,7 +48,7 @@ let sharesOnHand (portfolio: Portfolio) (securityId: SecurityId): int64 = portfo
 let addCash (amount: decimal) (portfolio: Portfolio): Portfolio = { portfolio with cash = portfolio.cash + amount }
 
 let setSharesOnHand (securityId: SecurityId) (qty: int64) (portfolio: Portfolio) : Portfolio =
-  { portfolio with stocks = portfolio.stocks.Add(securityId, qty) }
+  { portfolio with stocks = portfolio.stocks.SetItem(securityId, qty) }
 
 let cashOnHand (stateInterface: StrategyState<'StateT>) (state: 'StateT): decimal = (stateInterface.portfolio state).cash
 
@@ -82,10 +82,10 @@ let adjustPortfolioFromFilledOrder (trial: Trial) (portfolio: Portfolio) (order:
   let sharesHeld = sharesOnHand portfolio securityId
   match order with
   | MarketBuy _ | LimitBuy _ ->   // adjust the portfolio for a purchase
-    { portfolio with stocks = portfolio.stocks.Add(securityId, sharesHeld + orderQty)
+    { portfolio with stocks = portfolio.stocks.SetItem(securityId, sharesHeld + orderQty)
                      cash = cashOnHand - purchaseCost commissionPerTrade commissionPerShare orderQty fillPrice }
   | MarketSell _ | LimitSell _ ->  // adjust the portfolio for a sale
-    { portfolio with stocks = portfolio.stocks.Add(securityId, sharesHeld - orderQty)
+    { portfolio with stocks = portfolio.stocks.SetItem(securityId, sharesHeld - orderQty)
                      cash = cashOnHand + saleProceeds commissionPerTrade commissionPerShare orderQty fillPrice }
 
 let maxSharesPurchasable (trial: Trial)

@@ -75,14 +75,17 @@ let convertTransactionToProtobuf(transaction: Transaction): protobuf.Transaction
   | OrderTx order ->
     protobuf.Transaction.CreateBuilder()
       .SetOrder(convertOrderToProtobuf order)
+      .SetType(protobuf.Transaction.Types.Type.Order)
       .Build()
   | SplitAdjustmentTx splitAdjustment ->
     protobuf.Transaction.CreateBuilder()
       .SetSplitAdjustment(convertSplitAdjustmentToProtobuf splitAdjustment)
+      .SetType(protobuf.Transaction.Types.Type.SplitAdjustment)
       .Build()
   | CashDividendPaymentTx cashDividendPayment ->
     protobuf.Transaction.CreateBuilder()
       .SetCashDividendPayment(convertCashDividendPaymentToProtobuf cashDividendPayment)
+      .SetType(protobuf.Transaction.Types.Type.CashDividendPayment)
       .Build()
 
 let convertTransactionsToProtobuf (transactions: TransactionLog): protobuf.TransactionLog =

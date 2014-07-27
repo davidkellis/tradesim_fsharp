@@ -229,10 +229,10 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
 
       runTrialR nextState
 
-  let t1 = currentTime <| Some EasternTimeZone
+//  let t1 = currentTime <| Some EasternTimeZone
   let result = runTrialR <| buildInitStrategyState strategy trial
-  let t2 = currentTime <| Some EasternTimeZone
-  verbose <| sprintf "Time: ${datetimeUtils.formatPeriod(datetimeUtils.periodBetween(t1, t2))}"
+//  let t2 = currentTime <| Some EasternTimeZone
+//  verbose <| sprintf "runTrial time: %s" (formatPeriod <| periodBetween t1 t2)
   result
 
 let buildAllTrialIntervals dao (securityIds: Vector<SecurityId>) (intervalLength: Period) (separationLength: Period): seq<Interval> =

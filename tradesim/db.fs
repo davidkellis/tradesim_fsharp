@@ -274,17 +274,18 @@ module Postgres =
       parameters
 
   let query connection (sql: string) (parameters: list<SqlParam>) (toType: NpgsqlDataReader -> 't): seq<'t> = 
+    let deparameterizedSql = deparameterizeSql sql parameters
+    let cmd = new NpgsqlCommand(deparameterizedSql, connection)
+    cmd.CommandType <- CommandType.Text
+
+    verboseL <| lazy (str2 "SQL: " deparameterizedSql)
+
     seq {
-      let deparameterizedSql = deparameterizeSql sql parameters
-      let cmd = new NpgsqlCommand(deparameterizedSql, connection)
-      cmd.CommandType <- CommandType.Text
-
-      verboseL <| lazy (str2 "SQL: " deparameterizedSql)
-
       let reader = cmd.ExecuteReader()
       while reader.Read() do
         yield reader |> toType
     }
+    |> Seq.toList |> Seq.ofList   // we do this instead of Seq.cache because only one DataReader can be open at a time, so this forces the resultset to be fully read so that the DataReader can close quickly
 
 
   // data insertion functions
@@ -319,26 +320,38 @@ module Postgres =
       parameters
     sqlCmd
 
+  let getDeparameterizedSql (cmd: NpgsqlCommand): string =
+    Seq.fold
+      (fun (sql: string) (p: NpgsqlParameter) -> String.replace p.ParameterName (string p.Value) sql)
+      cmd.CommandText
+      (cmd.Parameters |> Seq.cast<NpgsqlParameter>)
+
+
   let insertReturningId connection (sql: string) (parameters: list<SqlParam>): Option<int> =
     let cmd = new NpgsqlCommand(sql, connection)
     cmd.CommandType <- CommandType.Text
 
     parameterizeSqlCommand cmd parameters |> ignore
 
+    verboseL <| lazy (str2 "SQL: " <| getDeparameterizedSql cmd)
+
     unboxedOpt (cmd.ExecuteScalar())
 
   // assumes the field name returned is "id"
   let insertReturningIds connection (sql: string) (parameters: list<SqlParam>): seq<int> =
+    let cmd = new NpgsqlCommand(sql, connection)
+    cmd.CommandType <- CommandType.Text
+
+    parameterizeSqlCommand cmd parameters |> ignore
+
+    verboseL <| lazy (str2 "SQL: " <| getDeparameterizedSql cmd)
+
     seq {
-      let cmd = new NpgsqlCommand(sql, connection)
-      cmd.CommandType <- CommandType.Text
-
-      parameterizeSqlCommand cmd parameters |> ignore
-
       let reader = cmd.ExecuteReader()
       while reader.Read() do
         yield (dbGetInt reader "id")
     }
+    |> Seq.toList |> Seq.ofList     // we do this instead of Seq.cache because only one DataReader can be open at a time, so this forces the resultset to be fully read so that the DataReader can close quickly
 
 
   let insert connection (sql: string) (parameters: list<SqlParam>): unit =
@@ -347,7 +360,10 @@ module Postgres =
 
     parameterizeSqlCommand cmd parameters |> ignore
 
+    verboseL <| lazy (str2 "SQL: " <| getDeparameterizedSql cmd)
+
     cmd.ExecuteNonQuery() |> ignore
+
 
   // exchange queries
 
@@ -398,7 +414,7 @@ module Postgres =
     query
       connection
       sql 
-      [stringListParam "symbols" symbols; 
+      [stringListParam "symbols" symbols
        intListParam "exchangeIds" <| Seq.flatMapO (fun (e: Exchange) -> e.id) exchanges]
       toSecurity
 
@@ -739,7 +755,7 @@ module Postgres =
 
   let findStrategy connection (strategyName: string): Option<StrategyRecord> =
     let sql = """
-      select * from securities
+      select * from strategies
       where name = @name
       limit 1
     """
@@ -961,13 +977,13 @@ module Postgres =
           (queryFragment, parameters)
         )
         records
+      |> Seq.cache
 
     let valuesQueryFragment = queryFragmentParameterListPairs |> Seq.map (fun (queryFragment, _) -> queryFragment) |> String.join ","
     let allParameters = queryFragmentParameterListPairs |> Seq.map (fun (_, parameters) -> parameters) |> List.concat
-
     let sql = sprintf
                 """
-                  insert into trials s
+                  insert into trials
                   (start_time, end_time, transaction_log, portfolio_value_log, yield, mfe, mae, daily_std_dev, trial_set_id)
                   values
                   %s

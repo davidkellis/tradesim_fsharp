@@ -61,8 +61,8 @@ let main argv =
       info "build trial samples"
     elif options.Scenario <> null then
       info <| sprintf "run scenario %s" options.Scenario
-      let connection = Postgres.connect "localhost" 5432 "david" "" "tradesim"
-      let dao = Postgres.createDao connection
+      let connectionString = Postgres.buildConnectionString "localhost" 5432 "david" "" "tradesim"
+      let dao = Postgres.createDao connectionString
 
       match options.Scenario with
       | "bah1" -> strategies.BuyAndHold.Scenarios.runSingleTrial1 dao

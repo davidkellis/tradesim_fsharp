@@ -14,65 +14,66 @@ open Core
 open Logging
 open Protobuf.FSharp
 
+type ConnectionString = string
 
-type DatabaseAdapter<'dbConnection> = {
+type DatabaseAdapter = {
   // (exchangeLabels: seq<string>): seq<Exchange>
-  findExchanges: 'dbConnection -> seq<string> -> seq<Exchange>
+  findExchanges: ConnectionString -> seq<string> -> seq<Exchange>
 
   // (exchanges: seq<Exchange>, symbols: seq<string>): seq<Security>
-  findSecurities: 'dbConnection -> seq<Exchange> -> seq<string> -> seq<Security>
+  findSecurities: ConnectionString -> seq<Exchange> -> seq<string> -> seq<Security>
 
 
   // (time: DateTime, securityId: SecurityId): Option<Bar>
-  queryEodBar: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<Bar>
+  queryEodBar: ConnectionString -> ZonedDateTime -> SecurityId -> Option<Bar>
 
   // (time: DateTime, securityId: SecurityId): Option<Bar>
-  queryEodBarPriorTo: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<Bar>
+  queryEodBarPriorTo: ConnectionString -> ZonedDateTime -> SecurityId -> Option<Bar>
 
   // (securityId: SecurityId): seq<Bar>
-  queryEodBars: 'dbConnection -> SecurityId -> seq<Bar>
+  queryEodBars: ConnectionString -> SecurityId -> seq<Bar>
 
   // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<Bar>
-  queryEodBarsBetween: 'dbConnection -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<Bar>
+  queryEodBarsBetween: ConnectionString -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<Bar>
 
   // (securityId: SecurityId): Option<Bar>
-  findOldestEodBar: 'dbConnection -> SecurityId -> Option<Bar>
+  findOldestEodBar: ConnectionString -> SecurityId -> Option<Bar>
 
   // (securityId: SecurityId): Option<Bar>
-  findMostRecentEodBar: 'dbConnection -> SecurityId -> Option<Bar>
+  findMostRecentEodBar: ConnectionString -> SecurityId -> Option<Bar>
 
 
   // (securityIds: IndexedSeq<int>): IndexedSeq<CorporateAction>
-  queryCorporateActions: 'dbConnection -> seq<int> -> seq<CorporateAction>
+  queryCorporateActions: ConnectionString -> seq<int> -> seq<CorporateAction>
 
   // (securityIds: IndexedSeq<int>, startTime: DateTime, endTime: DateTime): IndexedSeq<CorporateAction>
-  queryCorporateActionsBetween: 'dbConnection -> seq<int> -> ZonedDateTime -> ZonedDateTime -> seq<CorporateAction>
+  queryCorporateActionsBetween: ConnectionString -> seq<int> -> ZonedDateTime -> ZonedDateTime -> seq<CorporateAction>
 
 
   // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
-  queryQuarterlyReport: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
+  queryQuarterlyReport: ConnectionString -> ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
 
   // (time: DateTime, securityId: SecurityId): Option<QuarterlyReport>
-  queryQuarterlyReportPriorTo: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
+  queryQuarterlyReportPriorTo: ConnectionString -> ZonedDateTime -> SecurityId -> Option<QuarterlyReport>
 
   // (securityId: SecurityId): seq<QuarterlyReport>
-  queryQuarterlyReports: 'dbConnection -> SecurityId -> seq<QuarterlyReport>
+  queryQuarterlyReports: ConnectionString -> SecurityId -> seq<QuarterlyReport>
 
   // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<QuarterlyReport>
-  queryQuarterlyReportsBetween: 'dbConnection -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<QuarterlyReport>
+  queryQuarterlyReportsBetween: ConnectionString -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<QuarterlyReport>
 
 
   // (time: DateTime, securityId: SecurityId): Option<AnnualReport>
-  queryAnnualReport: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<AnnualReport>
+  queryAnnualReport: ConnectionString -> ZonedDateTime -> SecurityId -> Option<AnnualReport>
 
   // (time: DateTime, securityId: SecurityId): Option<AnnualReport>
-  queryAnnualReportPriorTo: 'dbConnection -> ZonedDateTime -> SecurityId -> Option<AnnualReport>
+  queryAnnualReportPriorTo: ConnectionString -> ZonedDateTime -> SecurityId -> Option<AnnualReport>
 
   // (securityId: SecurityId): seq<AnnualReport>
-  queryAnnualReports: 'dbConnection -> SecurityId -> seq<AnnualReport>
+  queryAnnualReports: ConnectionString -> SecurityId -> seq<AnnualReport>
 
   // (securityId: SecurityId, earliestTime: DateTime, latestTime: DateTime): seq<AnnualReport>
-  queryAnnualReportsBetween: 'dbConnection -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<AnnualReport>
+  queryAnnualReportsBetween: ConnectionString -> SecurityId -> ZonedDateTime -> ZonedDateTime -> seq<AnnualReport>
 
 
   // (strategyName: string)
@@ -83,13 +84,13 @@ type DatabaseAdapter<'dbConnection> = {
   // (commissionPerTrade: BigDecimal)
   // (commissionPerShare: BigDecimal)
   // : Option<Trial>
-  queryForTrial: 'dbConnection -> string -> SecurityId -> Period -> LocalDate -> decimal -> decimal -> decimal -> Option<Trial>
+  queryForTrial: ConnectionString -> string -> SecurityId -> Period -> LocalDate -> decimal -> decimal -> decimal -> Option<Trial>
 
   // (strategyName: string) (trialStatePairs: seq<(Trial, BaseStrategyState)>): unit
-  insertTrials: 'dbConnection -> string -> seq<Trial * BaseStrategyState> -> unit
+  insertTrials: ConnectionString -> string -> seq<Trial * BaseStrategyState> -> unit
 }
 
-type Dao<'dbConnection> = {
+type Dao = {
   // (exchangeLabels: seq<string>): seq<Exchange>
   findExchanges: seq<string> -> seq<Exchange>
 
@@ -241,12 +242,13 @@ module Postgres =
 
   // connection manipulation functions
 
-  let buildConnection host port username password database: NpgsqlConnection =
-    let connectionString = sprintf "Server=%s;Port=%i;User Id=%s;Database=%s;" host port username database
-    new NpgsqlConnection(connectionString)
+  let buildConnectionString host port username password database: ConnectionString =
+    sprintf "Server=%s;Port=%i;User Id=%s;Password=%s;Database=%s;" host port username password database
 
-  let connect host port username password database: NpgsqlConnection =
-    let connection = buildConnection host port username password database
+  let buildConnection (connectionString: string): NpgsqlConnection = new NpgsqlConnection(connectionString)
+
+  let connect connectionString: NpgsqlConnection =
+    let connection = buildConnection connectionString
     connection.Open()
     connection
 
@@ -273,7 +275,9 @@ module Postgres =
       sql
       parameters
 
-  let query connection (sql: string) (parameters: list<SqlParam>) (toType: NpgsqlDataReader -> 't): seq<'t> = 
+  let query connectionString (sql: string) (parameters: list<SqlParam>) (toType: NpgsqlDataReader -> 't): seq<'t> = 
+    use connection = connect connectionString
+
     let deparameterizedSql = deparameterizeSql sql parameters
     let cmd = new NpgsqlCommand(deparameterizedSql, connection)
     cmd.CommandType <- CommandType.Text
@@ -327,7 +331,9 @@ module Postgres =
       (cmd.Parameters |> Seq.cast<NpgsqlParameter>)
 
 
-  let insertReturningId connection (sql: string) (parameters: list<SqlParam>): Option<int> =
+  let insertReturningId connectionString (sql: string) (parameters: list<SqlParam>): Option<int> =
+    use connection = connect connectionString
+
     let cmd = new NpgsqlCommand(sql, connection)
     cmd.CommandType <- CommandType.Text
 
@@ -338,7 +344,9 @@ module Postgres =
     unboxedOpt (cmd.ExecuteScalar())
 
   // assumes the field name returned is "id"
-  let insertReturningIds connection (sql: string) (parameters: list<SqlParam>): seq<int> =
+  let insertReturningIds connectionString (sql: string) (parameters: list<SqlParam>): seq<int> =
+    use connection = connect connectionString
+
     let cmd = new NpgsqlCommand(sql, connection)
     cmd.CommandType <- CommandType.Text
 
@@ -354,7 +362,9 @@ module Postgres =
     |> Seq.toList |> Seq.ofList     // we do this instead of Seq.cache because only one DataReader can be open at a time, so this forces the resultset to be fully read so that the DataReader can close quickly
 
 
-  let insert connection (sql: string) (parameters: list<SqlParam>): unit =
+  let insert connectionString (sql: string) (parameters: list<SqlParam>): unit =
+    use connection = connect connectionString
+
     let cmd = new NpgsqlCommand(sql, connection)
     cmd.CommandType <- CommandType.Text
 
@@ -1017,7 +1027,7 @@ module Postgres =
 
 
 
-  let Adapter: DatabaseAdapter<NpgsqlConnection> = {
+  let Adapter: DatabaseAdapter = {
     findExchanges = findExchanges
     findSecurities = findSecurities
 
@@ -1045,30 +1055,30 @@ module Postgres =
     insertTrials = insertTrials
   }
 
-  let createDao connection: Dao<NpgsqlConnection> = {
-    findExchanges = Adapter.findExchanges connection
-    findSecurities = Adapter.findSecurities connection
+  let createDao connectionString: Dao = {
+    findExchanges = Adapter.findExchanges connectionString
+    findSecurities = Adapter.findSecurities connectionString
 
-    queryEodBar = Adapter.queryEodBar connection
-    queryEodBarPriorTo = Adapter.queryEodBarPriorTo connection
-    queryEodBars = Adapter.queryEodBars connection
-    queryEodBarsBetween = Adapter.queryEodBarsBetween connection
-    findOldestEodBar = Adapter.findOldestEodBar connection
-    findMostRecentEodBar = Adapter.findMostRecentEodBar connection
+    queryEodBar = Adapter.queryEodBar connectionString
+    queryEodBarPriorTo = Adapter.queryEodBarPriorTo connectionString
+    queryEodBars = Adapter.queryEodBars connectionString
+    queryEodBarsBetween = Adapter.queryEodBarsBetween connectionString
+    findOldestEodBar = Adapter.findOldestEodBar connectionString
+    findMostRecentEodBar = Adapter.findMostRecentEodBar connectionString
 
-    queryCorporateActions = Adapter.queryCorporateActions connection
-    queryCorporateActionsBetween = Adapter.queryCorporateActionsBetween connection
+    queryCorporateActions = Adapter.queryCorporateActions connectionString
+    queryCorporateActionsBetween = Adapter.queryCorporateActionsBetween connectionString
 
-    queryQuarterlyReport = Adapter.queryQuarterlyReport connection
-    queryQuarterlyReportPriorTo = Adapter.queryQuarterlyReportPriorTo connection
-    queryQuarterlyReports = Adapter.queryQuarterlyReports connection
-    queryQuarterlyReportsBetween = Adapter.queryQuarterlyReportsBetween connection
+    queryQuarterlyReport = Adapter.queryQuarterlyReport connectionString
+    queryQuarterlyReportPriorTo = Adapter.queryQuarterlyReportPriorTo connectionString
+    queryQuarterlyReports = Adapter.queryQuarterlyReports connectionString
+    queryQuarterlyReportsBetween = Adapter.queryQuarterlyReportsBetween connectionString
 
-    queryAnnualReport = Adapter.queryAnnualReport connection
-    queryAnnualReportPriorTo = Adapter.queryAnnualReportPriorTo connection
-    queryAnnualReports = Adapter.queryAnnualReports connection
-    queryAnnualReportsBetween = Adapter.queryAnnualReportsBetween connection
+    queryAnnualReport = Adapter.queryAnnualReport connectionString
+    queryAnnualReportPriorTo = Adapter.queryAnnualReportPriorTo connectionString
+    queryAnnualReports = Adapter.queryAnnualReports connectionString
+    queryAnnualReportsBetween = Adapter.queryAnnualReportsBetween connectionString
 
-    queryForTrial = Adapter.queryForTrial connection
-    insertTrials = Adapter.insertTrials connection
+    queryForTrial = Adapter.queryForTrial connectionString
+    insertTrials = Adapter.insertTrials connectionString
   }

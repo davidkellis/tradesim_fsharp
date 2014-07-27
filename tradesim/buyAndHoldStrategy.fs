@@ -135,4 +135,4 @@ module Scenarios =
     }
     info "Running 1 trial"
 //    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
-    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy [trial; trial] |> ignore
+    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy [trial; trial; trial; trial; trial] |> ignore

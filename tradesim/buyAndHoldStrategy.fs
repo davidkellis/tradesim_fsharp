@@ -134,4 +134,5 @@ module Scenarios =
       saleFillPrice = saleFillPriceFn
     }
     info "Running 1 trial"
-    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
+//    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
+    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy [trial; trial] |> ignore

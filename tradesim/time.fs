@@ -88,6 +88,8 @@ let dateTimeToDatestamp (time: ZonedDateTime): datestamp = Int32.Parse(dateTimeT
 
 let date (year: int) (month: int) (day: int) = new LocalDate(year, month, day)
 
+let dateTimeToLocalDate (time: ZonedDateTime): LocalDate = date time.Year time.Month time.Day
+
 let timestampToDate (timestamp: timestamp): LocalDate = (timestamp |> timestampToDatetime).Date
 
 let datestampToDate (datestamp: datestamp): LocalDate =
@@ -186,13 +188,13 @@ let periodicalDateSeries (startDate: LocalDate) (endDate: LocalDate) (period: Pe
 // by a given Period, <separationLength> and each interval spans an amount of time given by <intervalLength>
 let infInterspersedIntervals (startTime: ZonedDateTime) (intervalLength: Period) (separationLength: Period): seq<Interval> =
   let startTimes = infPeriodicalTimeSeries startTime separationLength
-  Seq.map (fun t -> intervalBetween t ((t.LocalDateTime - intervalLength).InZoneLeniently(t.Zone))) startTimes
+  Seq.map (fun t -> intervalBetween t ((t.LocalDateTime + intervalLength).InZoneLeniently(t.Zone))) startTimes
 
 let interspersedIntervals (startTimeInterval: Interval) (intervalLength: Period) (separationLength: Period): seq<Interval> =
   let startTime = startTimeInterval.Start.InZone(EasternTimeZone)
   let endTime = startTimeInterval.End.InZone(EasternTimeZone)
   let startTimes = infPeriodicalTimeSeries startTime separationLength |> Seq.takeWhile (fun t -> t <= endTime)
-  Seq.map (fun t -> intervalBetween t ((t.LocalDateTime - intervalLength).InZoneLeniently(t.Zone))) startTimes
+  Seq.map (fun t -> intervalBetween t ((t.LocalDateTime + intervalLength).InZoneLeniently(t.Zone))) startTimes
 
 let daysInMonth (year: int) (month: int): int = DateTime.DaysInMonth(year, month)
 

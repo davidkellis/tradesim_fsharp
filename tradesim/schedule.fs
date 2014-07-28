@@ -41,7 +41,7 @@ let defaultTradingSchedule (date: LocalDate): MInterval =
 
 // returns an MInterval spanning the time of the holiday - this MInterval represents the time we take off for the holiday
 let defaultHolidaySchedule (date: LocalDate): MInterval =
-  if isAnyHoliday(date) then
+  if isAnyHoliday date then
     defaultTradingSchedule date
   else
     emptyMInterval

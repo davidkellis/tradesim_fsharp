@@ -235,7 +235,7 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
 //  verbose <| sprintf "runTrial time: %s" (formatPeriod <| periodBetween t1 t2)
   result
 
-let buildAllTrialIntervals dao (securityIds: Vector<SecurityId>) (intervalLength: Period) (separationLength: Period): seq<Interval> =
+let buildAllTrialIntervals dao (separationLength: Period) (securityIds: Vector<SecurityId>) (intervalLength: Period): seq<Interval> =
   commonTrialPeriodStartDates dao securityIds intervalLength
   |> Option.map (fun startDateRange -> interspersedIntervals startDateRange intervalLength separationLength)
   |> Option.getOrElse Seq.empty
@@ -268,20 +268,21 @@ let buildTrialGenerator (principal: decimal)
 let buildTrials (trialIntervalGeneratorFn: Vector<SecurityId> -> Period -> seq<Interval>)
                 (trialGeneratorFn: TrialGenerator)
                 (securityIds: Vector<SecurityId>)
-                (trialDuration: Period)
+                (trialPeriodLength: Period)
                 : seq<Trial> =
-  trialIntervalGeneratorFn securityIds trialDuration
+  trialIntervalGeneratorFn securityIds trialPeriodLength
   |> Seq.map
-    (fun interval -> trialGeneratorFn securityIds (interval.Start |> instantToEasternTime) (interval.End |> instantToEasternTime) trialDuration)
+    (fun interval -> trialGeneratorFn securityIds (interval.Start |> instantToEasternTime) (interval.End |> instantToEasternTime) trialPeriodLength)
 
 let runTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
   Seq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial) trials
 
 let runTrialsInParallel strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
   trials
+  |> PSeq.withDegreeOfParallelism System.Environment.ProcessorCount   // mono's uses ProcessorCount + 1 threads by default
   |> PSeq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial)
-  |> PSeq.toArray
-  |> Array.toSeq
+  |> PSeq.toList
+  |> List.toSeq
 
 let logTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>) (finalStates: seq<'StateT>): unit =
   infoL <| lazy ( sprintf "logTrials -> strategy=%s, %i trials, %i final states" (strategyInterface.name strategy) (Seq.length trials) (Seq.length finalStates))

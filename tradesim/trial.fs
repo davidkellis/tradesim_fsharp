@@ -30,7 +30,7 @@ let fixedTradingPeriodIsFinalState (strategyInterface: TradingStrategy<'Strategy
  *)
 let buildScheduledTimeIncrementer (timeComponent: Period) (periodIncrement: Period) (tradingSchedule: TradingSchedule): ZonedDateTime -> ZonedDateTime =
   (fun (time: ZonedDateTime) ->
-    nextTradingDay (time.LocalDateTime.Date) periodIncrement tradingSchedule 
+    nextTradingDay tradingSchedule (time.LocalDateTime.Date) periodIncrement 
     |> (fun date -> localDateToDateTime date (int timeComponent.Hours) (int timeComponent.Minutes) (int timeComponent.Seconds))
   )
 
@@ -46,9 +46,9 @@ let buildInitialJumpTimeIncrementer (timeComponent: Period)
   (fun time ->
     (if !currentState = 0 then
       currentState := 1
-      nextTradingDay time.LocalDateTime.Date initialPeriodIncrement tradingSchedule
+      nextTradingDay tradingSchedule time.LocalDateTime.Date initialPeriodIncrement
     else
-      nextTradingDay time.LocalDateTime.Date subsequentPeriodIncrement tradingSchedule
+      nextTradingDay tradingSchedule time.LocalDateTime.Date subsequentPeriodIncrement
     ) |> (fun date -> localDateToDateTime date (int timeComponent.Hours) (int timeComponent.Minutes) (int timeComponent.Seconds))
   )
 
@@ -56,7 +56,7 @@ let buildInitialJumpTimeIncrementer (timeComponent: Period)
  * Returns a function of <time> and <symbol>, that when invoked returns the price at which a trade of <symbol> would have been
  * filled in the market as of <time>.
  * The simulated fill-price is adjusted for splits/dividends.
- * slippage is a percentage expressed as a real number in the interlet (-1, 1) to skew the base quote
+ * slippage is a percentage expressed as a real number in the interval (-1, 1) to skew the base quote
  *   up or down depending on the sign of slippage. If slippage is positive, then the base quote is skewed higher (toward +infinity)
  *   and if the slippage is negative, then the base price is skewed lower (toward -infinity).
  *   Example: if the slippage amount is a +3%, then slippage should be given as 0.03.
@@ -82,7 +82,7 @@ let naiveFillPriceWithSlippage dao
  * Arguments:
  * order-price-fn is a function of an OHLC-bar (e.g. (bar-close OHLC-bar))
  * price-bar-extremum-fn is a function of an OHLC-bar and should be either bar-high or bar-low (i.e. high or low)
- * slippage is a percentage expressed as a real number in the interlet [0, 1). It is never negative.
+ * slippage is a percentage expressed as a real number in the interval [0, 1). It is never negative.
  * Found the formulas for this fill-price estimation technique from
  *   http://www.automated-trading-system.com/slippage-backtesting-realistic/
  * The formula is:
@@ -142,7 +142,7 @@ let executeOrders (trial: Trial) (stateInterface: StrategyState<'StateT>) (curre
 
 (*
  * Returns a new State that has been adjusted for stock splits and dividend payouts that have gone into effect at some point within the
- * interlet [current-state.previous-time, current-state.time].
+ * interval [current-state.previous-time, current-state.time].
  *)
 let adjustStrategyStateForRecentSplitsAndDividends dao (stateInterface: StrategyState<'StateT>) (currentState: 'StateT): 'StateT =
   let openOrders = stateInterface.orders currentState
@@ -279,7 +279,7 @@ let runTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trial
 
 let runTrialsInParallel strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
   trials
-  |> PSeq.withDegreeOfParallelism System.Environment.ProcessorCount   // mono's uses ProcessorCount + 1 threads by default
+  |> PSeq.withDegreeOfParallelism System.Environment.ProcessorCount   // mono uses ProcessorCount + 1 threads by default
   |> PSeq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial)
   |> PSeq.toList
   |> List.toSeq

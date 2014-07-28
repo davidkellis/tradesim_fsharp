@@ -58,11 +58,11 @@ let buildTradingSchedule (normalTradingSchedule: TradingSchedule) (holidaySchedu
 // returns true if the trading-schedule has any trading hours scheduled for that date; false otherwise.
 let isTradingDay (tradingSchedule: TradingSchedule) (date: LocalDate): bool = not <| Seq.isEmpty (tradingSchedule date)
 
-let tradingDays (startDate: LocalDate) (tradingSchedule: TradingSchedule): seq<LocalDate> =
+let tradingDays (tradingSchedule: TradingSchedule) (startDate: LocalDate): seq<LocalDate> =
   infPeriodicalDateSeries startDate (Period.FromDays(1L)) |> Seq.filter (isTradingDay tradingSchedule)
 
-let tradingDaysBetween (startDate: LocalDate) (endDate: LocalDate) (tradingSchedule: TradingSchedule): seq<LocalDate> =
-  tradingDays startDate tradingSchedule |> Seq.takeWhile (fun date -> date <= endDate)
+let tradingDaysBetween (tradingSchedule: TradingSchedule) (startDate: LocalDate) (endDate: LocalDate): seq<LocalDate> =
+  tradingDays tradingSchedule startDate |> Seq.takeWhile (fun date -> date <= endDate)
 
 
 let allTradingDaysCache = buildLruCache<TradingSchedule, TreeSet<LocalDate>> 2
@@ -76,16 +76,16 @@ let allTradingDays (tradingSchedule: TradingSchedule): TreeSet<LocalDate> =
   | Some cachedTradingDaysSetElement -> cachedTradingDaysSetElement
   | None ->
       let newTradingDaysSet = new TreeSet<LocalDate>()
-      newTradingDaysSet.AddAll(tradingDaysBetween firstTradingDay lastTradingDay tradingSchedule)
+      newTradingDaysSet.AddAll(tradingDaysBetween tradingSchedule firstTradingDay lastTradingDay)
 //      tradingDaysBetween firstTradingDay lastTradingDay tradingSchedule |> Seq.iter (fun tradingDay -> newTradingDaysSet.Add(tradingDay) |> ignore)
       putFullTradingSchedule tradingSchedule newTradingDaysSet
       newTradingDaysSet
 
-let nextTradingDay (date: LocalDate) (timeIncrement: Period) (tradingSchedule: TradingSchedule): LocalDate =
+let nextTradingDay (tradingSchedule: TradingSchedule) (date: LocalDate) (timeIncrement: Period): LocalDate =
   let tradingDaysTreeSet = allTradingDays tradingSchedule
   let nextDay = date + timeIncrement
   if tradingDaysTreeSet.Contains(nextDay) then nextDay
   else
     tradingDaysTreeSet.TrySuccessor(nextDay) 
     |> outParamToOpt 
-    |> Option.getOrElseLazy (lazy (tradingDays nextDay tradingSchedule |> Seq.head))
+    |> Option.getOrElseLazy (lazy (tradingDays tradingSchedule nextDay |> Seq.head))

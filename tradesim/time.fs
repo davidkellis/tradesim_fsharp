@@ -171,7 +171,7 @@ let timeSeries (startTime: ZonedDateTime) (nextTimeFn: ZonedDateTime -> ZonedDat
 let dateSeries (startDate: LocalDate) (nextDateFn: LocalDate -> LocalDate): seq<LocalDate> = Seq.iterate nextDateFn startDate
 
 // returns an infinite seq of [t t+p t+2p t+3p ...]
-let infPeriodicalTimeSeries (startTime: ZonedDateTime) (period: Period): seq<ZonedDateTime> = timeSeries startTime (fun t -> (t.LocalDateTime - period).InZoneLeniently(t.Zone))
+let infPeriodicalTimeSeries (startTime: ZonedDateTime) (period: Period): seq<ZonedDateTime> = timeSeries startTime (fun t -> (t.LocalDateTime + period).InZoneLeniently(t.Zone))
 
 // returns an infinite seq of [d d+p d+2p d+3p ...]
 let infPeriodicalDateSeries (startDate: LocalDate) (period: Period): seq<LocalDate> = dateSeries startDate (fun d -> d + period)

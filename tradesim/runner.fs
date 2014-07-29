@@ -12,8 +12,14 @@ open Logging
 type Opt = CommandLine.OptionAttribute
 type RuntimeConfig() =
   class
-    [<Opt('d', "db", HelpText = "Database connection string")>]
-    member val ConnectionString = "" with get, set
+    [<Opt('h', "host", HelpText = "Database host")>]
+    member val Host = "localhost" with get, set
+
+    [<Opt('p', "port", HelpText = "Database port")>]
+    member val Port = 5432 with get, set
+
+    [<Opt('d', "db", HelpText = "Database schema name")>]
+    member val Database = "tradesim" with get, set
 
     [<Opt('u', "username", HelpText = "Database username")>]
     member val Username = "" with get, set
@@ -34,7 +40,7 @@ type RuntimeConfig() =
         fun current -> HelpText.DefaultParsingErrorsHandler(this, current)
       ).ToString() +
       "Usage:\n\
-        tradesim [--db jdbc:postgresql://localhost[:port]/tradesim] [--username <username>] [--password <password>] [--build-trial-samples | --scenario <scenarioName>]\n\n\
+        tradesim [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--build-trial-samples | --scenario <scenarioName>]\n\n\
       Example:\n\
         tradesim --scenario buyandhold1\n"
   end
@@ -57,11 +63,12 @@ let main argv =
 
   parsedOptions
   |> Option.map (fun options ->
+    let connectionString = Postgres.buildConnectionString options.Host options.Port options.Username options.Password options.Database
+
     if options.BuildTrialSamples then
       info "build trial samples"
     elif options.Scenario <> null then
       info <| sprintf "run scenario %s" options.Scenario
-      let connectionString = Postgres.buildConnectionString "localhost" 5432 "david" "" "tradesim"
       let dao = Postgres.createDao connectionString
 
       match options.Scenario with

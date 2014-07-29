@@ -27,7 +27,7 @@ open dke.tradesim.SpecialDates;;
 easter 2014;;
 
 To run trials:
-mono tradesim/bin/Debug/tradesim.exe --scenario bah3
+./run -h localhost -p 5432 -u david -s bah2
 
 To build trial samples:
-mono tradesim/bin/Debug/tradesim.exe --build-trial-samples
+./run -h localhost -p 5432 -u david -s bah2 --build-trial-samples

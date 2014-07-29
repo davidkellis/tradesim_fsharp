@@ -203,7 +203,7 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
 
   // println("============================================")
   // println("strategy=" + strategy)
-  printfn "trial=%A" trial
+//  printfn "trial=%A" trial
 
   let rec runTrialR (currentState: 'StateT): 'StateT =
     // println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")

@@ -144,7 +144,7 @@ module Scenarios =
     let strategy = buildStrategy dao
     let exchanges = PrimaryUsExchanges dao
     let securityIds = findSecurities dao exchanges ["AAPL"] |> Seq.flatMapO (fun security -> security.id) |> Vector.ofSeq
-    let trialGenerator = buildTrialGenerator 10000M 0M 7M timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
+    let trialGenerator = buildTrialGenerator 10000M 7M 0M timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
     let trialIntervalBuilderFn = 
       fun securityIds trialPeriodLength -> 
         buildAllTrialIntervals dao (days 1L) securityIds trialPeriodLength 
@@ -152,4 +152,4 @@ module Scenarios =
     let trialPeriodLength = years 1L
     let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
     info <| sprintf "Running %i trials" (Seq.length trials)
-    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore
+    runAndLogTrials TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore

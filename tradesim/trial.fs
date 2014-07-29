@@ -203,7 +203,7 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
 
   // println("============================================")
   // println("strategy=" + strategy)
-  // println("trial=" + trial)
+  printfn "trial=%A" trial
 
   let rec runTrialR (currentState: 'StateT): 'StateT =
     // println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
@@ -275,7 +275,7 @@ let buildTrials (trialIntervalGeneratorFn: Vector<SecurityId> -> Period -> seq<I
     (fun interval -> trialGeneratorFn securityIds (interval.Start |> instantToEasternTime) (interval.End |> instantToEasternTime) trialPeriodLength)
 
 let runTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
-  Seq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial) trials
+  trials |> Seq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial) |> Seq.cache
 
 let runTrialsInParallel strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
   trials

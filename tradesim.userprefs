@@ -1,29 +1,22 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/time.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/buyAndHoldStrategy.fs">
     <Files>
       <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
       <File FileName="tradesim/seq.fs" Line="1" Column="1" />
       <File FileName="tradesim/vector.fs" Line="1" Column="1" />
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
-      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="1" Column="1" />
-      <File FileName="tradesim/trial.fs" Line="145" Column="12" />
-      <File FileName="tradesim/db.fs" Line="248" Column="108" />
-      <File FileName="tradesim/timeTests.fs" Line="52" Column="1" />
-      <File FileName="tradesim/time.fs" Line="145" Column="5" />
-      <File FileName="tradesim/specialDates.fs" Line="89" Column="5" />
+      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="138" Column="5" />
+      <File FileName="tradesim/trial.fs" Line="280" Column="1" />
+      <File FileName="tradesim/db.fs" Line="1" Column="1" />
+      <File FileName="tradesim/timeTests.fs" Line="1" Column="1" />
+      <File FileName="tradesim/time.fs" Line="204" Column="1" />
+      <File FileName="tradesim/specialDates.fs" Line="14" Column="1" />
+      <File FileName="tradesim/runner.fs" Line="76" Column="55" />
     </Files>
     <Pads>
       <Pad Id="MonoDevelop.NUnit.TestPad">
-        <State expanded="True">
-          <Node name="tradesim" expanded="True">
-            <Node name="Test" expanded="True">
-              <Node name="Time" expanded="True">
-                <Node name=" startTime = t1 and tN &lt;= endTime" selected="True" />
-              </Node>
-            </Node>
-          </Node>
-        </State>
+        <State expanded="True" selected="True" />
       </Pad>
     </Pads>
   </MonoDevelop.Ide.Workbench>

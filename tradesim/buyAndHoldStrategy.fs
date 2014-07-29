@@ -152,4 +152,4 @@ module Scenarios =
     let trialPeriodLength = years 1L
     let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
     info <| sprintf "Running %i trials" (Seq.length trials)
-    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore
+    runAndLogTrials TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore

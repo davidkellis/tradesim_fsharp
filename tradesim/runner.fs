@@ -62,7 +62,7 @@ let main argv =
   setLogLevel Verbose
 
   parsedOptions
-  |> Option.map (fun options ->
+  |> Option.iter (fun options ->
     let connectionString = Postgres.buildConnectionString options.Host options.Port options.Username options.Password options.Database
 
     if options.BuildTrialSamples then
@@ -89,6 +89,5 @@ let main argv =
 //      dao.findSecurities <| Postgres.allExchanges connection <| Seq.ofList ["AAPL"; "MSFT"]
 //      |> Seq.iter (fun e -> info <| sprintf "security: %A" e)
     )
-  |> ignore
 
   0

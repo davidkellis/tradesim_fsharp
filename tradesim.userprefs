@@ -7,18 +7,13 @@
       <File FileName="tradesim/vector.fs" Line="1" Column="1" />
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
       <File FileName="tradesim/buyAndHoldStrategy.fs" Line="138" Column="5" />
-      <File FileName="tradesim/trial.fs" Line="280" Column="1" />
+      <File FileName="tradesim/trial.fs" Line="1" Column="1" />
       <File FileName="tradesim/db.fs" Line="1" Column="1" />
       <File FileName="tradesim/timeTests.fs" Line="1" Column="1" />
-      <File FileName="tradesim/time.fs" Line="204" Column="1" />
-      <File FileName="tradesim/specialDates.fs" Line="14" Column="1" />
-      <File FileName="tradesim/runner.fs" Line="76" Column="55" />
+      <File FileName="tradesim/time.fs" Line="1" Column="1" />
+      <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
+      <File FileName="tradesim/runner.fs" Line="1" Column="1" />
     </Files>
-    <Pads>
-      <Pad Id="MonoDevelop.NUnit.TestPad">
-        <State expanded="True" selected="True" />
-      </Pad>
-    </Pads>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />

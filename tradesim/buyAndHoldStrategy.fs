@@ -116,8 +116,10 @@ module Scenarios =
     let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
     let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
 //    let timeIncrementerFn = buildInitialJumpTimeIncrementer (hours 12L) (periodBetween startTime endTime) (days 1L) tradingSchedule
-    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
-    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+//    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
+//    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+    let purchaseFillPriceFn = naiveFillPrice dao (findEodBar dao) barSimQuote
+    let saleFillPriceFn = naiveFillPrice dao (findEodBar dao) barSimQuote
     let strategy = buildStrategy dao
     let exchanges = PrimaryUsExchanges dao
     let securityIds = findSecurities dao exchanges ["AAPL"] |> Seq.flatMapO (fun security -> security.id) |> Vector.ofSeq
@@ -134,7 +136,7 @@ module Scenarios =
       saleFillPrice = saleFillPriceFn
     }
     info "Running 1 trial"
-    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
+    runAndLogTrials TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
 
   let runMultipleTrials1 dao: unit =
     let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
@@ -152,4 +154,4 @@ module Scenarios =
     let trialPeriodLength = years 1L
     let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
     info <| sprintf "Running %i trials" (Seq.length trials)
-    runAndLogTrials TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore
+    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore

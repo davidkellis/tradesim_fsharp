@@ -1,18 +1,22 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/buyAndHoldStrategy.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/math.fs">
     <Files>
       <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
       <File FileName="tradesim/seq.fs" Line="1" Column="1" />
       <File FileName="tradesim/vector.fs" Line="1" Column="1" />
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
-      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="138" Column="5" />
-      <File FileName="tradesim/trial.fs" Line="1" Column="1" />
+      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="87" Column="132" />
+      <File FileName="tradesim/trial.fs" Line="243" Column="3" />
       <File FileName="tradesim/db.fs" Line="1" Column="1" />
       <File FileName="tradesim/timeTests.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
       <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
       <File FileName="tradesim/runner.fs" Line="1" Column="1" />
+      <File FileName="tradesim/quotes.fs" Line="23" Column="28" />
+      <File FileName="tradesim/adjustedQuotes.fs" Line="23" Column="5" />
+      <File FileName="tradesim/ordering.fs" Line="91" Column="5" />
+      <File FileName="tradesim/math.fs" Line="18" Column="3" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

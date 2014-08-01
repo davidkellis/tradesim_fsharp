@@ -76,9 +76,19 @@ let naiveFillPriceWithSlippage dao
       )
   )
 
+let naiveFillPrice dao (priceBarFn: PriceBarFn) (fillPriceFn: BarQuoteFn): PriceQuoteFn =
+  (fun time securityId ->
+    priceBarFn time securityId
+    |> Option.map 
+      (fun bar ->
+        let fillPrice = fillPriceFn bar
+        adjustPriceForCorporateActions dao fillPrice securityId bar.endTime time
+      )
+  )
+
 (*
  * Returns a function of <time> and <symbol>, that when invoked returns the price at which a trade of <symbol> would have been
- * filled in the market as of <time>.The simulated fill-price is adjusted for splits/dividends.
+ * filled in the market as of <time>. The simulated fill-price is adjusted for splits/dividends.
  * Arguments:
  * order-price-fn is a function of an OHLC-bar (e.g. (bar-close OHLC-bar))
  * price-bar-extremum-fn is a function of an OHLC-bar and should be either bar-high or bar-low (i.e. high or low)
@@ -201,13 +211,13 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
   let isFinalState = strategyInterface.isFinalState strategy
   let incrementTime = trial.incrementTime
 
-  // println("============================================")
-  // println("strategy=" + strategy)
-//  printfn "trial=%A" trial
+  printfn "------------------------------------------------"
+  printfn "strategy=%A" strategy
+  printfn "trial=%A" trial
 
   let rec runTrialR (currentState: 'StateT): 'StateT =
-    // println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    // println("currentState=" + currentState)
+    printfn "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    printfn "currentState=%A" currentState
 
     if isFinalState strategy trial currentState then
       currentState
@@ -231,6 +241,7 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
 
 //  let t1 = currentTime <| Some EasternTimeZone
   let result = runTrialR <| buildInitStrategyState strategy trial
+  printfn "================================================"
 //  let t2 = currentTime <| Some EasternTimeZone
 //  verbose <| sprintf "runTrial time: %s" (formatPeriod <| periodBetween t1 t2)
   result

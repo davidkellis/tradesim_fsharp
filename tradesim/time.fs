@@ -203,7 +203,10 @@ let interspersedIntervals (startTimeInterval: Interval) (intervalLength: Period)
 
 let daysInMonth (year: int) (month: int): int = DateTime.DaysInMonth(year, month)
 
+// returns day of week where 1 = Monday, ..., 7 = Sunday
 let dayOfWeek (t: ZonedDateTime): int = t.DayOfWeek
+
+let dayOfWeekD (date: LocalDate): int = date.DayOfWeek
 
 (*
  * Returns the number of days that must be added to the first day of the given month to arrive at the first
@@ -255,3 +258,40 @@ let lastWeekday (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDat
   let days = daysInMonth year month'
   let dayOfMonth = days - ((datetime year month' days 0 0 0 |> dayOfWeek) - (int desiredWeekday) + 7) % 7
   date year month' dayOfMonth
+
+let previousBusinessDay (date: LocalDate) =
+  if dayOfWeekD date = (DayOfWeek.Monday |> dayOfWeekToInt) then date - (days 3L) else date - (days 1L)
+
+let nextBusinessDay (date: LocalDate) =
+  if dayOfWeekD date = (DayOfWeek.Friday |> dayOfWeekToInt) then date + (days 3L) else date + (days 1L)
+
+let isBusinessDay date = dayOfWeekD date < (DayOfWeek.Saturday |> dayOfWeekToInt)
+
+// returns [month, year] representing the month and year following the given month and year
+let nextMonth month year = 
+  if month = 12 then
+    (1, year + 1)
+  else
+    (month + 1, year)
+
+// returns [month, year] representing the month and year preceeding the given month and year
+let previousMonth month year = 
+  if month = 1 then
+    (12, year - 1)
+  else
+    (month - 1, year)
+
+let addMonths baseMonth baseYear monthOffset =
+  if monthOffset >= 0 then
+    seq { 1..monthOffset }
+    |> Seq.fold
+      (fun (month, year) i -> nextMonth month year)
+      (baseMonth, baseYear)
+  else
+    seq { 1..(-monthOffset) }
+    |> Seq.fold
+      (fun (month, year) i -> previousMonth month year)
+      (baseMonth, baseYear)
+
+let firstDayOfMonth year month = date year month 1
+

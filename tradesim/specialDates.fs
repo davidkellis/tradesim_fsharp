@@ -20,6 +20,9 @@ let independenceDay year = date year (int Month.July) 4
 // first Monday in September
 let laborDay = nthWeekday 1 DayOfWeek.Monday Month.September
 
+// second Monday in October
+let columbusDay = nthWeekday 2 DayOfWeek.Monday Month.October
+
 // fourth Thursday in November
 let thanksgiving = nthWeekday 4 DayOfWeek.Thursday Month.November
 
@@ -82,6 +85,7 @@ let HolidayLookupFunctions = [
     memorialDay;
     independenceDay;
     laborDay;
+    columbusDay;
     thanksgiving;
     christmas
   ]

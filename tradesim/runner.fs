@@ -74,6 +74,7 @@ let main argv =
       match options.Scenario with
       | "bah1" -> strategies.BuyAndHold.Scenarios.runSingleTrial1 dao
       | "bah2" -> strategies.BuyAndHold.Scenarios.runMultipleTrials1 dao
+      | "bah3" -> strategies.BuyAndHold.Scenarios.compareMutualFunds dao
       | _ -> printfn "Unknown scenario"
       |> ignore
 

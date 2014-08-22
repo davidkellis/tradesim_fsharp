@@ -155,3 +155,43 @@ module Scenarios =
     let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
     info <| sprintf "Running %i trials" (Seq.length trials)
     runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore
+
+  let compareMutualFunds dao: unit =
+    let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
+    let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
+    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+    let strategy = buildStrategy dao
+    let exchanges = PrimaryUsExchanges dao
+    let tickerSymbols = [
+      "MIDHX";
+      "RERCX";
+      "ODVNX";
+      "OIBNX";
+      "WMGRX";
+      "SAMVX";
+      "TRLGX";
+      "PSSMX";
+      "PLFMX";
+      "CMPIX";
+      "PRRRX";
+      "PTRRX";
+      "FSIAX"
+    ]
+    let securities = findSecurities dao exchanges tickerSymbols
+    let trialGenerator = buildTrialGenerator 10000M 7M 0M timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
+    let trialIntervalBuilderFn = 
+      fun securityIds trialPeriodLength -> 
+        buildAllTrialIntervals dao (days 1L) securityIds trialPeriodLength 
+        |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+    let trialPeriodLength = years 1L
+
+    securities
+    |> Seq.iter
+      (fun security ->
+        let securityIds = [security.id |> Option.get] |> Vector.ofSeq
+        info "Building trials"
+        let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
+        info <| sprintf "Running %i trials" (Seq.length trials)
+        runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore
+      )

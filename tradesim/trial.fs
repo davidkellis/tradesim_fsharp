@@ -295,29 +295,80 @@ let runTrialsInParallel strategyInterface stateInterface dao (strategy: 'Strateg
   |> PSeq.toList
   |> List.toSeq
 
-let logTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>) (finalStates: seq<'StateT>): unit =
-  infoL <| lazy ( sprintf "logTrials -> strategy=%s, %i trials, %i final states" (strategyInterface.name strategy) (Seq.length trials) (Seq.length finalStates))
-  let baseStrategyStates = Seq.map <| toBaseStrategyState stateInterface <| finalStates
-  dao.insertTrials <| strategyInterface.name strategy <| Seq.zip trials baseStrategyStates
+// Trial Result processing functions
+
+let buildTrialResult (trial: Trial) (state: BaseStrategyState): TrialResult =
+  {
+    startTime = trial.startTime
+    endTime = trial.endTime
+    transactionLog = state.transactions
+    portfolioValueLog = state.portfolioValueHistory
+    trialYield = computeTrialYield trial state
+    mfe = computeTrialMfe trial state
+    mae = computeTrialMae trial state
+    dailyStdDev = computeTrialStdDev state
+  }
+
+let buildTrialResults (stateInterface: StrategyState<'StateT>) trials (finalStates: seq<'StateT>): seq<TrialResult> = 
+  let baseStrategyStates = finalStates |> (toBaseStrategyStates stateInterface)
+  Seq.map2 buildTrialResult trials baseStrategyStates
+
+let logTrials strategyInterface stateInterface dao (strategy: 'StrategyT) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds (trialResults: seq<TrialResult>): unit =
+  infoL <| lazy ( sprintf "logTrials -> strategy=%s, %i trials" (strategyInterface.name strategy) (Seq.length trialResults))
+  dao.insertTrials (strategyInterface.name strategy) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds trialResults
 
 let runAndLogTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> =
-  let t1 = currentTime <| Some EasternTimeZone
-  let finalStates = runTrials strategyInterface stateInterface dao strategy trials
-  let t2 = currentTime <| Some EasternTimeZone
-  info <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
-  let t3 = currentTime <| Some EasternTimeZone
-  logTrials strategyInterface stateInterface dao strategy trials finalStates
-  let t4 = currentTime <| Some EasternTimeZone
-  info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
-  finalStates
+  if not (Seq.isEmpty trials) then
+    let t1 = currentTime <| Some EasternTimeZone
+    let finalStates = runTrials strategyInterface stateInterface dao strategy trials
+
+    let t2 = currentTime <| Some EasternTimeZone
+    info <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
+
+    let t3 = currentTime <| Some EasternTimeZone
+    let trialResults = buildTrialResults stateInterface trials finalStates
+    let firstTrial = Seq.head trials
+    logTrials strategyInterface 
+              stateInterface 
+              dao 
+              strategy 
+              firstTrial.principal
+              firstTrial.commissionPerTrade
+              firstTrial.commissionPerShare
+              firstTrial.duration
+              firstTrial.securityIds
+              trialResults
+
+    let t4 = currentTime <| Some EasternTimeZone
+    info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
+    finalStates
+  else
+    Seq.empty
 
 let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> =
-  let t1 = currentTime <| Some EasternTimeZone
-  let finalStates = runTrialsInParallel strategyInterface stateInterface dao strategy trials
-  let t2 = currentTime <| Some EasternTimeZone
-  info <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
-  let t3 = currentTime <| Some EasternTimeZone
-  logTrials strategyInterface stateInterface dao strategy trials finalStates
-  let t4 = currentTime <| Some EasternTimeZone
-  info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
-  finalStates
+  if not (Seq.isEmpty trials) then
+    let t1 = currentTime <| Some EasternTimeZone
+    let finalStates = runTrialsInParallel strategyInterface stateInterface dao strategy trials
+
+    let t2 = currentTime <| Some EasternTimeZone
+    info <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
+
+    let t3 = currentTime <| Some EasternTimeZone
+    let trialResults = buildTrialResults stateInterface trials finalStates
+    let firstTrial = Seq.head trials
+    logTrials strategyInterface 
+              stateInterface 
+              dao 
+              strategy 
+              firstTrial.principal
+              firstTrial.commissionPerTrade
+              firstTrial.commissionPerShare
+              firstTrial.duration
+              firstTrial.securityIds
+              trialResults
+
+    let t4 = currentTime <| Some EasternTimeZone
+    info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
+    finalStates
+  else
+    Seq.empty

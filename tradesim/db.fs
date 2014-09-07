@@ -86,8 +86,8 @@ type DatabaseAdapter = {
   // : Option<Trial>
   queryForTrial: ConnectionString -> string -> SecurityId -> Period -> LocalDate -> decimal -> decimal -> decimal -> Option<Trial>
 
-  // (strategyName: string) (trialStatePairs: seq<(Trial, BaseStrategyState)>): unit
-  insertTrials: ConnectionString -> string -> seq<Trial * BaseStrategyState> -> unit
+  // (connection: ConnectionString) (strategyName: string) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds (trialResults: seq<TrialResult>)
+  insertTrials: ConnectionString -> string -> decimal -> decimal -> decimal -> Period -> seq<SecurityId> -> seq<TrialResult> -> unit
 }
 
 type Dao = {
@@ -160,8 +160,8 @@ type Dao = {
   // : Option<TrialsRow>
   queryForTrial: string -> SecurityId -> Period -> LocalDate -> decimal -> decimal -> decimal -> Option<Trial>
 
-  // (strategyName: string) (trialStatePairs: seq<(Trial, BaseStrategyState)>): unit
-  insertTrials: string -> seq<Trial * BaseStrategyState> -> unit
+  // (strategyName: string) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds (trialResults: seq<TrialResult>)
+  insertTrials: string -> decimal -> decimal -> decimal -> Period -> seq<SecurityId> -> seq<TrialResult> -> unit
 }
 
 
@@ -927,15 +927,11 @@ module Postgres =
       )
       trialSetId
   
-  let findOrCreateTrialSet connection (strategyId: int) (trial: Trial): Option<TrialSetRecord> =
-    let principal = trial.principal
-    let commissionPerTrade = trial.commissionPerTrade
-    let commissionPerShare = trial.commissionPerShare
-    let duration = formatPeriod trial.duration
-    let securityIds = trial.securityIds
+  let findOrCreateTrialSet connection (strategyId: int) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds: Option<TrialSetRecord> =
+    let duration = formatPeriod trialDuration
 
-    findTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId securityIds
-    |> Option.orElseF (fun unit -> insertTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId securityIds)
+    findTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId trialSecurityIds
+    |> Option.orElseF (fun unit -> insertTrialSet connection principal commissionPerTrade commissionPerShare duration strategyId trialSecurityIds)
 
 
   // trial insertion functions
@@ -954,17 +950,17 @@ module Postgres =
       trialSetId: int
     }
 
-  let buildTrialRecord (trialId: int) (trialSetId: int) (trial: Trial) (state: BaseStrategyState): TrialRecord =
+  let buildTrialRecord (trialId: int) (trialSetId: int) (trialResult: TrialResult): TrialRecord =
     {
       id = trialId
-      startTime = dateTimeToTimestamp trial.startTime
-      endTime = dateTimeToTimestamp trial.endTime
-      transactionLog = convertTransactionsToProtobuf(state.transactions)
-      portfolioValueLog = convertPortfolioValuesToProtobuf(state.portfolioValueHistory)
-      trialYield = computeTrialYield trial state
-      mfe = computeTrialMfe trial state
-      mae = computeTrialMae trial state
-      dailyStdDev = computeTrialStdDev state
+      startTime = dateTimeToTimestamp trialResult.startTime
+      endTime = dateTimeToTimestamp trialResult.endTime
+      transactionLog = convertTransactionsToProtobuf(trialResult.transactionLog)
+      portfolioValueLog = convertPortfolioValuesToProtobuf(trialResult.portfolioValueLog)
+      trialYield = trialResult.trialYield
+      mfe = trialResult.mfe
+      mae = trialResult.mae
+      dailyStdDev = trialResult.dailyStdDev
       trialSetId = trialSetId
     }
 
@@ -1003,29 +999,87 @@ module Postgres =
 
     insert connection sql allParameters |> ignore
 
-  let insertTrials connection (strategyName: string) (trialStatePairs: seq<Trial * BaseStrategyState>): unit =
-    Seq.tryHead trialStatePairs
+  let insertTrials (connection: ConnectionString) (strategyName: string) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds (trialResults: seq<TrialResult>): unit =
+    let strategyRow = findOrCreateStrategy connection strategyName
+    let trialSetRow = 
+      strategyRow |> 
+      Option.flatMap 
+        (fun (strategyRow: StrategyRecord) -> 
+          findOrCreateTrialSet connection 
+                               strategyRow.id 
+                               principal 
+                               commissionPerTrade 
+                               commissionPerShare 
+                               trialDuration 
+                               trialSecurityIds
+        )
+
+    trialSetRow
     |> Option.iter
-      (fun (firstTrial, firstStrategyState) ->
-        let strategyRow = findOrCreateStrategy connection strategyName
-        let trialSetRow = strategyRow |> Option.flatMap (fun (strategyRow: StrategyRecord) -> findOrCreateTrialSet connection strategyRow.id firstTrial)
+      (fun trialSetRow ->
+        Seq.grouped 500 trialResults
+        |> Seq.iter
+          (fun trialResultGroup ->
+            verbose "Building group of records."
 
-        trialSetRow
-        |> Option.iter
-          (fun trialSetRow ->
-            Seq.grouped 500 trialStatePairs
-            |> Seq.iter
-              (fun pairs ->
-                verbose "Building group of records."
-
-                pairs
-                |> Seq.map (fun (trial, state) -> buildTrialRecord 0 trialSetRow.id trial state)
-                |> insertTrialRecords connection
-              )
+            trialResultGroup
+            |> Seq.map (buildTrialRecord 0 trialSetRow.id)
+            |> insertTrialRecords connection
           )
       )
 
+  
+  // trial set distribution insertion functions
 
+  type TrialSetDistributionRecord = 
+    {
+      id: int
+      trialSetId: int
+
+      attribute: TrialAttribute
+      startTime: ZonedDateTime
+      endTime: ZonedDateTime
+      allowOverlappingTrials: bool
+      distribution: array<decimal>
+      
+      n: int
+      average: decimal
+      min: decimal
+      max: decimal
+      percentile5: decimal
+      percentile10: decimal
+      percentile15: decimal
+      percentile20: decimal
+      percentile25: decimal
+      percentile30: decimal
+      percentile35: decimal
+      percentile40: decimal
+      percentile45: decimal
+      percentile50: decimal
+      percentile55: decimal
+      percentile60: decimal
+      percentile65: decimal
+      percentile70: decimal
+      percentile75: decimal
+      percentile80: decimal
+      percentile85: decimal
+      percentile90: decimal
+      percentile95: decimal
+    }
+
+//  let buildTrialSetDistributionRecord
+//        (id: int)
+//        (trialSetId: int)
+//        (startTime: ZonedDateTime)
+//        (endTime: ZonedDateTime)
+//        : TrialSetDistributionRecord =
+//    {
+//      id = id
+//      trialSetId = trialSetId
+//
+//      startTime = startTime
+//      endTime = endTime
+//    }
 
   let Adapter: DatabaseAdapter = {
     findExchanges = findExchanges

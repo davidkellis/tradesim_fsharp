@@ -108,6 +108,23 @@ let buildStrategy dao: Strategy = {
   isFinalState = fixedTradingPeriodIsFinalState TradingStrategyImpl StrategyStateImpl
 }
 
+let buildDefaultBuyAndHoldStrategyAndTrials dao tickerSymbols principal commissionPerTrade commissionPerShare trialPeriodLength: Strategy * seq<Trial> =
+  let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
+  let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+  let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
+  let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+  let strategy = buildStrategy dao
+  let exchanges = PrimaryUsExchanges dao
+  let securityIds = findSecurities dao exchanges tickerSymbols |> Seq.flatMapO (fun security -> security.id) |> Vector.ofSeq
+  let trialGenerator = buildTrialGenerator principal commissionPerTrade commissionPerShare timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
+  let trialIntervalBuilderFn = 
+    fun securityIds trialPeriodLength -> 
+      buildAllTrialIntervals dao (days 1L) securityIds trialPeriodLength 
+      |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+  let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
+  (strategy, trials)
+
+
 module Scenarios =
   let runSingleTrial1 dao: unit =
     let trialPeriodLength = years 1L
@@ -139,22 +156,25 @@ module Scenarios =
     runAndLogTrials TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
 
   let runMultipleTrials1 dao: unit =
-    let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
-    let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
-    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
-    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
-    let strategy = buildStrategy dao
-    let exchanges = PrimaryUsExchanges dao
-    let securityIds = findSecurities dao exchanges ["AAPL"] |> Seq.flatMapO (fun security -> security.id) |> Vector.ofSeq
-    let trialGenerator = buildTrialGenerator 10000M 7M 0M timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
-    let trialIntervalBuilderFn = 
-      fun securityIds trialPeriodLength -> 
-        buildAllTrialIntervals dao (days 1L) securityIds trialPeriodLength 
-        |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
-    let trialPeriodLength = years 1L
-    let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
+//    let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
+//    let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+//    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
+//    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+//    let strategy = buildStrategy dao
+//    let exchanges = PrimaryUsExchanges dao
+//    let securityIds = findSecurities dao exchanges ["AAPL"] |> Seq.flatMapO (fun security -> security.id) |> Vector.ofSeq
+//    let trialGenerator = buildTrialGenerator 10000M 7M 0M timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
+//    let trialIntervalBuilderFn = 
+//      fun securityIds trialPeriodLength -> 
+//        buildAllTrialIntervals dao (days 1L) securityIds trialPeriodLength 
+//        |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+//    let trialPeriodLength = years 1L
+//    let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
+    let (strategy, trials) = buildDefaultBuyAndHoldStrategyAndTrials dao ["AAPL"] 10000M 7M 0M <| years 1L
     info <| sprintf "Running %i trials" (Seq.length trials)
-    runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials |> ignore
+    let finalStates = runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials
+    let trialResults = buildTrialResults StrategyStateImpl trials finalStates
+    TrialSetStats.printReport trialResults
 
   let compareMutualFunds dao: unit =
     let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule

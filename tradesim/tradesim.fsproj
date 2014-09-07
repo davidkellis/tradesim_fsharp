@@ -114,9 +114,10 @@
     <Compile Include="corporateActions.fs" />
     <Compile Include="portfolio.fs" />
     <Compile Include="trial.fs" />
+    <Compile Include="trialSetStats.fs" />
     <Compile Include="adjustedQuotes.fs" />
-    <Compile Include="statsTests.fs" />
     <Compile Include="buyAndHoldStrategy.fs" />
+    <Compile Include="statsTests.fs" />
     <Compile Include="mintervalTests.fs" />
     <Compile Include="scheduleTests.fs" />
     <Compile Include="timeTests.fs" />

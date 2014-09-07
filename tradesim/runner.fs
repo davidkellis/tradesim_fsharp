@@ -67,6 +67,7 @@ let main argv =
 
     if options.BuildTrialSamples then
       info "build trial samples"
+      TrialSetStats.buildMissingTrialSetDistributions connectionString Core.TrialYield
     elif options.Scenario <> null then
       info <| sprintf "run scenario %s" options.Scenario
       let dao = Postgres.createDao connectionString

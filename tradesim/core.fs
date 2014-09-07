@@ -68,6 +68,8 @@ type Trial = {
   saleFillPrice: PriceQuoteFn
 }
 
+type TrialAttribute = TrialYield | Mfe | Mae | StdDev
+
 
 // core domain concepts - exchange, industry, sector, security, bar
 
@@ -252,6 +254,9 @@ let toBaseStrategyState stateInterface state: BaseStrategyState =
     portfolioValueHistory = stateInterface.portfolioValueHistory state
   }
 
+let toBaseStrategyStates stateInterface states: seq<BaseStrategyState> =
+  states |> Seq.map (toBaseStrategyState stateInterface)
+
 // TradingStrategy typeclass
 type TradingStrategy<'StrategyT, 'StateT> = {
   name: 'StrategyT -> string
@@ -260,6 +265,19 @@ type TradingStrategy<'StrategyT, 'StateT> = {
   isFinalState: 'StrategyT -> ('StrategyT -> Trial -> 'StateT -> bool)
 }
 
+
+// trial result calculations
+
+type TrialResult = {
+  startTime: ZonedDateTime
+  endTime: ZonedDateTime
+  transactionLog: TransactionLog
+  portfolioValueLog: PortfolioValues
+  trialYield: Option<decimal>
+  mfe: Option<decimal>
+  mae: Option<decimal>
+  dailyStdDev: Option<decimal>
+}
 
 let computeTrialYield (trial: Trial) (state: BaseStrategyState): Option<decimal> =
   state.portfolioValueHistory

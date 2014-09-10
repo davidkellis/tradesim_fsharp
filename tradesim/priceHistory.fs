@@ -125,22 +125,5 @@ let commonTrialPeriodStartDatesWithOffsets
     (endOffsetDirection: Direction)
     (endOffset: Period)
     : Option<Interval> =
-  let getPriceHistoryInterval =
-    (fun securityId -> priceHistoryInterval dao securityId) 
-    >> Option.map (fun interval -> offsetInterval interval startOffsetDirection startOffset endOffsetDirection endOffset)
-  let intervals = securityIds |> Seq.map getPriceHistoryInterval
-
-  if Seq.isEmpty intervals || Seq.exists Option.isNone intervals then 
-    failwith "Some of the given securities have no price history."
-
-  let intervalStartInstants = intervals |> Seq.flatMapO (Option.map (fun interval -> interval.Start))
-  let intervalEndInstants = intervals |> Seq.flatMapO (Option.map (fun interval -> interval.End))
-  let iStart = intervalStartInstants |> Seq.reduce maxInstant   // get the latest (max) start date
-  let iEnd = intervalEndInstants |> Seq.reduce minInstant     // get the earliest (min) end date
-  let tStart = iStart.InZone(EasternTimeZone)
-  let tEnd = iEnd.InZone(EasternTimeZone)
-  let adjustedEnd = (tEnd.LocalDateTime - trialPeriodLength).InZoneLeniently(EasternTimeZone)
-  if adjustedEnd < tStart then
-    None
-  else
-    Some <| intervalBetween tStart adjustedEnd
+  commonTrialPeriodStartDates dao securityIds trialPeriodLength
+  |> Option.map (offsetInterval startOffsetDirection startOffset endOffsetDirection endOffset)

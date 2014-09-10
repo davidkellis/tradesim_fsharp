@@ -160,11 +160,12 @@ let offsetDateTime (t: ZonedDateTime) (direction: Direction) (magnitude: Period)
   | Before -> t |> Period.subtract magnitude
   | After -> t |> Period.add magnitude
 
-let offsetInterval (interval: Interval)
-                   (startOffsetDirection: Direction)
+let offsetInterval (startOffsetDirection: Direction)
                    (startOffsetMagnitude: Period)
                    (endOffsetDirection: Direction)
-                   (endOffsetMagnitude: Period): Interval =
+                   (endOffsetMagnitude: Period)
+                   (interval: Interval)
+                   : Interval =
   let adjustedStart = offsetDateTime (interval.Start |> instantToZonedTime EasternTimeZone) startOffsetDirection startOffsetMagnitude
   let adjustedEnd = offsetDateTime (interval.End |> instantToZonedTime EasternTimeZone) endOffsetDirection endOffsetMagnitude
   intervalBetween adjustedStart adjustedEnd

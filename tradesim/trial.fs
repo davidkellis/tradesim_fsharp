@@ -317,7 +317,7 @@ let logTrials strategyInterface stateInterface dao (strategy: 'StrategyT) princi
   infoL <| lazy ( sprintf "logTrials -> strategy=%s, %i trials" (strategyInterface.name strategy) (Seq.length trialResults))
   dao.insertTrials (strategyInterface.name strategy) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds trialResults
 
-let runAndLogTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> =
+let runAndLogTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> * seq<TrialResult> =
   if not (Seq.isEmpty trials) then
     let t1 = currentTime <| Some EasternTimeZone
     let finalStates = runTrials strategyInterface stateInterface dao strategy trials
@@ -341,11 +341,12 @@ let runAndLogTrials (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (s
 
     let t4 = currentTime <| Some EasternTimeZone
     info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
-    finalStates
-  else
-    Seq.empty
 
-let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> =
+    (finalStates, trialResults)
+  else
+    (Seq.empty, Seq.empty)
+
+let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInterface: StrategyState<'StateT>) dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> * seq<TrialResult> =
   if not (Seq.isEmpty trials) then
     let t1 = currentTime <| Some EasternTimeZone
     let finalStates = runTrialsInParallel strategyInterface stateInterface dao strategy trials
@@ -369,6 +370,7 @@ let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'S
 
     let t4 = currentTime <| Some EasternTimeZone
     info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
-    finalStates
+
+    (finalStates, trialResults)
   else
-    Seq.empty
+    (Seq.empty, Seq.empty)

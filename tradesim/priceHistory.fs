@@ -65,21 +65,19 @@ let tradingPeriodStartDates dao (securityId: SecurityId) (tradingPeriodLength: P
  * Returns an interval representing the start and end of the CDR.
  * If there is no common overlap among the companies, then the function returns nil.
  *
- * Example: (common-price-history-date-range <"AAPL", "F", "VFINX">)
+ * Example: commonPriceHistoryInterval dao ["AAPL"; "F"; "VFINX"]
  *          -> <#<ZonedDateTime 1987-03-27T09:30:00.000Z> #<ZonedDateTime 2012-10-10T16:00:00.000Z>>
  *)
-let commonPriceHistoryDateRange dao (securityIds: seq<int>): Option<Interval> =
-  let intervals = securityIds |> Seq.map (fun securityId -> priceHistoryInterval dao securityId)
-  let iStart = intervals
-               |> Seq.flatMapO
-                 (Option.map (fun interval -> interval.Start))
-               |> Seq.reduce
-                 maxInstant   // get the latest (max) start date
-  let iEnd = intervals
-             |> Seq.flatMapO
-               (Option.map (fun interval -> interval.End))
-             |> Seq.reduce
-               minInstant     // get the earliest (min) end date
+let commonPriceHistoryInterval dao (securityIds: seq<int>): Option<Interval> =
+  let intervals = securityIds |> Seq.map (priceHistoryInterval dao)
+
+  if Seq.isEmpty intervals || Seq.exists Option.isNone intervals then 
+    failwith "Some of the given securities have no price history."
+
+  let intervalStartInstants = intervals |> Seq.flatMapO (Option.map (fun interval -> interval.Start))
+  let intervalEndInstants = intervals |> Seq.flatMapO (Option.map (fun interval -> interval.End))
+  let iStart = intervalStartInstants |> Seq.reduce maxInstant   // get the latest (max) start date
+  let iEnd = intervalEndInstants |> Seq.reduce minInstant     // get the earliest (min) end date
   if iEnd < iStart then
     None
   else
@@ -106,24 +104,17 @@ let commonPriceHistoryDateRange dao (securityIds: seq<int>): Option<Interval> =
  *        -> <#<ZonedDateTime 1984-09-07T09:30:00.000Z> #<ZonedDateTime 2011-10-10T16:00:00.000Z>>
  *)
 let commonTrialPeriodStartDates dao (securityIds: seq<int>) (trialPeriodLength: Period): Option<Interval> =
-  let intervals = securityIds |> Seq.map (fun securityId -> priceHistoryInterval dao securityId)
-  let iStart = intervals
-               |> Seq.flatMapO
-                 (Option.map (fun interval -> interval.Start))
-               |> Seq.reduce
-                 maxInstant   // get the latest (max) start date
-  let iEnd = intervals
-             |> Seq.flatMapO
-               (Option.map (fun interval -> interval.End))
-             |> Seq.reduce
-               minInstant     // get the earliest (min) end date
-  let tStart = iStart.InZone(EasternTimeZone)
-  let tEnd = iEnd.InZone(EasternTimeZone)
-  let adjustedEnd = (tEnd.LocalDateTime - trialPeriodLength).InZoneLeniently(EasternTimeZone)
-  if adjustedEnd < tStart then
-    None
-  else
-    Some <| intervalBetween tStart adjustedEnd
+  commonPriceHistoryInterval dao securityIds
+  |> Option.flatMap
+    (fun commonPriceHistoryInterval ->
+      let tStart = commonPriceHistoryInterval.Start |> instantToEasternTime
+      let tEnd = commonPriceHistoryInterval.End |> instantToEasternTime
+      let adjustedEnd = (tEnd.LocalDateTime - trialPeriodLength).InZoneLeniently(EasternTimeZone)
+      if adjustedEnd < tStart then
+        None
+      else
+        Some <| intervalBetween tStart adjustedEnd
+    )
 
 let commonTrialPeriodStartDatesWithOffsets
     dao
@@ -138,16 +129,14 @@ let commonTrialPeriodStartDatesWithOffsets
     (fun securityId -> priceHistoryInterval dao securityId) 
     >> Option.map (fun interval -> offsetInterval interval startOffsetDirection startOffset endOffsetDirection endOffset)
   let intervals = securityIds |> Seq.map getPriceHistoryInterval
-  let iStart = intervals
-               |> Seq.flatMapO
-                 (Option.map (fun interval -> interval.Start))
-               |> Seq.reduce
-                 maxInstant   // get the latest (max) start date
-  let iEnd = intervals
-             |> Seq.flatMapO
-               (Option.map (fun interval -> interval.End))
-             |> Seq.reduce
-               minInstant     // get the earliest (min) end date
+
+  if Seq.isEmpty intervals || Seq.exists Option.isNone intervals then 
+    failwith "Some of the given securities have no price history."
+
+  let intervalStartInstants = intervals |> Seq.flatMapO (Option.map (fun interval -> interval.Start))
+  let intervalEndInstants = intervals |> Seq.flatMapO (Option.map (fun interval -> interval.End))
+  let iStart = intervalStartInstants |> Seq.reduce maxInstant   // get the latest (max) start date
+  let iEnd = intervalEndInstants |> Seq.reduce minInstant     // get the earliest (min) end date
   let tStart = iStart.InZone(EasternTimeZone)
   let tEnd = iEnd.InZone(EasternTimeZone)
   let adjustedEnd = (tEnd.LocalDateTime - trialPeriodLength).InZoneLeniently(EasternTimeZone)

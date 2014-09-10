@@ -70,6 +70,28 @@ let buildDistribution (valueExtractorFn: TrialResult -> Option<decimal>) (trialR
 let printDistribution distribution: unit =
   printfn "n = %i" distribution.n
   printfn "mean = %M" distribution.average
+  printfn "%s%%" <| String.joinInts "\t" [ 0 .. 5 .. 100 ]
+  printf "%M\t" <| distribution.min
+  printf "%M\t" <| distribution.percentile5
+  printf "%M\t" <| distribution.percentile10
+  printf "%M\t" <| distribution.percentile15
+  printf "%M\t" <| distribution.percentile20
+  printf "%M\t" <| distribution.percentile25
+  printf "%M\t" <| distribution.percentile30
+  printf "%M\t" <| distribution.percentile35
+  printf "%M\t" <| distribution.percentile40
+  printf "%M\t" <| distribution.percentile45
+  printf "%M\t" <| distribution.percentile50
+  printf "%M\t" <| distribution.percentile55
+  printf "%M\t" <| distribution.percentile60
+  printf "%M\t" <| distribution.percentile65
+  printf "%M\t" <| distribution.percentile70
+  printf "%M\t" <| distribution.percentile75
+  printf "%M\t" <| distribution.percentile80
+  printf "%M\t" <| distribution.percentile85
+  printf "%M\t" <| distribution.percentile90
+  printf "%M\t" <| distribution.percentile95
+  printfn "%M" <| distribution.max
 
 let printReport (trialResults: seq<TrialResult>): unit =
   let yieldDistribution = buildDistribution YieldExtractor trialResults

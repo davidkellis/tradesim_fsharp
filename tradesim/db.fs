@@ -1000,30 +1000,26 @@ module Postgres =
     insert connection sql allParameters |> ignore
 
   let insertTrials (connection: ConnectionString) (strategyName: string) principal commissionPerTrade commissionPerShare trialDuration trialSecurityIds (trialResults: seq<TrialResult>): unit =
-    let strategyRow = findOrCreateStrategy connection strategyName
-    let trialSetRow = 
-      strategyRow |> 
-      Option.flatMap 
-        (fun (strategyRow: StrategyRecord) -> 
-          findOrCreateTrialSet connection 
-                               strategyRow.id 
-                               principal 
-                               commissionPerTrade 
-                               commissionPerShare 
-                               trialDuration 
-                               trialSecurityIds
-        )
-
-    trialSetRow
+    findOrCreateStrategy connection strategyName
+    |> Option.flatMap 
+      (fun strategyRow -> 
+        findOrCreateTrialSet connection 
+                             strategyRow.id 
+                             principal 
+                             commissionPerTrade 
+                             commissionPerShare 
+                             trialDuration 
+                             trialSecurityIds
+      )
     |> Option.iter
-      (fun trialSetRow ->
+      (fun trialSetRecord ->
         Seq.grouped 500 trialResults
         |> Seq.iter
           (fun trialResultGroup ->
             verbose "Building group of records."
 
             trialResultGroup
-            |> Seq.map (buildTrialRecord 0 trialSetRow.id)
+            |> Seq.map (buildTrialRecord 0 trialSetRecord.id)
             |> insertTrialRecords connection
           )
       )

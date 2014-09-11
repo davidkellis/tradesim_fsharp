@@ -1,6 +1,6 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/priceHistory.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/trialSetStats.fs">
     <Files>
       <File FileName="tradesim/stdlib.fs" Line="1" Column="1" />
       <File FileName="tradesim/seq.fs" Line="1" Column="1" />
@@ -14,8 +14,10 @@
       <File FileName="tradesim/securities.fs" Line="1" Column="1" />
       <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
-      <File FileName="tradesim/trialSetStats.fs" Line="1" Column="1" />
-      <File FileName="tradesim/string.fs" Line="1" Column="1" />
+      <File FileName="tradesim/math.fs" Line="1" Column="1" />
+      <File FileName="tradesim/array.fs" Line="1" Column="1" />
+      <File FileName="tradesim/stats.fs" Line="5" Column="5" />
+      <File FileName="tradesim/trialSetStats.fs" Line="103" Column="103" />
       <File FileName="tradesim/priceHistory.fs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>

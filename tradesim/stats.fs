@@ -2,12 +2,37 @@
 
 open System.Collections.Generic
 
+open FSharp.Collections
+open FSharp.Collections.ParallelSeq
+
 open MathNet.Numerics
 open MathNet.Numerics.LinearAlgebra
 open MathNet.Numerics.LinearRegression
 
 open Math
 open dke.tradesim.Seq
+
+let buildSampleWithReplacement = Array.getRandomElements
+let buildSampleWithoutReplacement = Array.getRandomElements     // todo, implement this
+
+// n is the number of samples to generate
+// size is the number of elements that should be placed into each sample
+// returns an array of samples, where each sample is an array of elements from the original array <xs>
+let sample (xs: array<'T>) n size withReplacement: array<array<'T>> =
+  if not withReplacement && size > xs.Length then
+    failwith "When sampling from a set of observations without replacement, the desired sample size cannot be greater than the number of observations"
+
+  let samplesToBuild = [1 .. n] |> PSeq.withDegreeOfParallelism System.Environment.ProcessorCount   // mono uses ProcessorCount + 1 threads by default
+
+  let mappingFn = 
+    if withReplacement then
+      (fun _ -> buildSampleWithReplacement size xs)
+    else
+      (fun _ -> buildSampleWithoutReplacement size xs)
+
+  samplesToBuild
+  |> PSeq.map mappingFn
+  |> PSeq.toArray
 
 module Sample =
   let mean (xs: seq<decimal>): decimal =

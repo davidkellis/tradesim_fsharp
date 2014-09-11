@@ -1,5 +1,18 @@
 ﻿module dke.tradesim.Math
 
+open System
+
+module Random =
+  let ThreadLocalRandom = new Threading.ThreadLocal<Random>(fun () -> new Random(Threading.Thread.CurrentThread.ManagedThreadId))
+
+  let randomInt upperBoundExclusive: int =
+    let rnd = ThreadLocalRandom.Value
+    rnd.Next(upperBoundExclusive)
+
+  let randomInts upperBoundExclusive n: array<int> =
+    let rnd = ThreadLocalRandom.Value
+    Array.init n (fun _ -> rnd.Next(upperBoundExclusive))
+
 module Double =
   let roundTo (fractionalDigits: int) (d: double): double = System.Math.Round(d, fractionalDigits)
 

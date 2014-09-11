@@ -3,6 +3,7 @@
 open FSharpx
 
 open Core
+open Stats
 open Database
 
 type Distribution = {
@@ -36,11 +37,10 @@ let MfeExtractor trialResult: Option<decimal> = trialResult.mfe
 let MaeExtractor trialResult: Option<decimal> = trialResult.mae
 let DailyStdDevExtractor trialResult: Option<decimal> = trialResult.dailyStdDev
 
-let buildDistribution (valueExtractorFn: TrialResult -> Option<decimal>) (trialResults: seq<TrialResult>): Distribution =
-  let values = trialResults |> Seq.flatMapO valueExtractorFn |> Seq.toArray
+let buildDistribution sampleValues: Distribution =
   let onlineVariance = new Stats.Sample.OnlineVariance()
-  onlineVariance.pushAll values
-  let percentiles = Stats.Sample.percentiles [5m; 10m; 15m; 20m; 25m; 30m; 35m; 40m; 45m; 50m; 55m; 60m; 65m; 70m; 75m; 80m; 85m; 90m; 95m] values |> Seq.toArray
+  onlineVariance.pushAll sampleValues
+  let percentiles = Stats.Sample.percentiles [5m; 10m; 15m; 20m; 25m; 30m; 35m; 40m; 45m; 50m; 55m; 60m; 65m; 70m; 75m; 80m; 85m; 90m; 95m] sampleValues |> Seq.toArray
   {
     n = onlineVariance.n |> int
     average = onlineVariance.mean
@@ -66,6 +66,36 @@ let buildDistribution (valueExtractorFn: TrialResult -> Option<decimal>) (trialR
     percentile90 = percentiles.[17]
     percentile95 = percentiles.[18]
   }
+
+let buildDistributionFromTrialResults (valueExtractorFn: TrialResult -> Option<decimal>) (trialResults: seq<TrialResult>): Distribution =
+  trialResults |> Seq.flatMapO valueExtractorFn |> buildDistribution
+
+let SamplingDistributionType = 
+  Mean
+  | Min
+  | Max
+
+// implements the bootstrap method to build a sampling distribution of the <some statistic; e.g. mean, max, min, etc.)
+// given a single sample of values
+let buildSamplingDistribution samplingDistributionType originalSample: Distribution = 
+  let bootstrapSamples = sample 1000 (Array.length originalSample) originalSample
+  let newSample = 
+    Array.map
+      (fun sample -> 
+        let onlineVariance = new Stats.Sample.OnlineVariance()
+        onlineVariance.pushAll sample
+
+        match samplingDistributionType with
+        | Mean -> onlineVariance.mean
+        | Min -> onlineVariance.min
+        | Max -> onlineVariance.max
+      )
+      bootstrapSamples
+  buildDistribution newSample
+
+let buildSamplingDistributionFromTrialResults samplingDistributionType (valueExtractorFn: TrialResult -> Option<decimal>) (sample: seq<TrialResult>): Distribution =
+  trialResults |> Seq.flatMapO valueExtractorFn |> (buildSamplingDistribution samplingDistributionType)
+
 
 let printDistribution distribution: unit =
   printfn "n = %i" distribution.n

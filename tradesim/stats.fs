@@ -15,24 +15,27 @@ open dke.tradesim.Seq
 let buildSampleWithReplacement = Array.getRandomElements
 let buildSampleWithoutReplacement = Array.getRandomElements     // todo, implement this
 
-// n is the number of samples to generate
-// size is the number of elements that should be placed into each sample
+// numberOfSamples is the number of samples to generate
+// sampleSize is the number of elements that should be placed into each sample
 // returns an array of samples, where each sample is an array of elements from the original array <xs>
-let sample (xs: array<'T>) n size withReplacement: array<array<'T>> =
-  if not withReplacement && size > xs.Length then
+let sample numberOfSamples sampleSize withReplacement (xs: array<'T>): array<array<'T>> =
+  if not withReplacement && sampleSize > xs.Length then
     failwith "When sampling from a set of observations without replacement, the desired sample size cannot be greater than the number of observations"
 
-  let samplesToBuild = [1 .. n] |> PSeq.withDegreeOfParallelism System.Environment.ProcessorCount   // mono uses ProcessorCount + 1 threads by default
+  let samplesToBuild = [1 .. numberOfSamples] |> PSeq.withDegreeOfParallelism System.Environment.ProcessorCount   // mono uses ProcessorCount + 1 threads by default
 
   let mappingFn = 
     if withReplacement then
-      (fun _ -> buildSampleWithReplacement size xs)
+      (fun _ -> buildSampleWithReplacement sampleSize xs)
     else
-      (fun _ -> buildSampleWithoutReplacement size xs)
+      (fun _ -> buildSampleWithoutReplacement sampleSize xs)
 
   samplesToBuild
   |> PSeq.map mappingFn
   |> PSeq.toArray
+
+let buildBootstrapSamples numberOfSamples (originalSample: array<'T>): array<array<'T>> = 
+  sample numberOfSamples (Array.length originalSample) true originalSample
 
 module Sample =
   let mean (xs: seq<decimal>): decimal =

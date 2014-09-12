@@ -70,31 +70,35 @@ let buildDistribution sampleValues: Distribution =
 let buildDistributionFromTrialResults (valueExtractorFn: TrialResult -> Option<decimal>) (trialResults: seq<TrialResult>): Distribution =
   trialResults |> Seq.flatMapO valueExtractorFn |> buildDistribution
 
-let SamplingDistributionType = 
-  Mean
-  | Min
-  | Max
+type SamplingDistributionType = Mean | StdDev | Min | Max | Percentile of int
 
-// implements the bootstrap method to build a sampling distribution of the <some statistic; e.g. mean, max, min, etc.)
+// implements the bootstrap method to build a sampling distribution of the <some statistic; e.g. mean, standard deviation, max, min, percentile, etc.)
 // given a single sample of values
 let buildSamplingDistribution samplingDistributionType originalSample: Distribution = 
-  let bootstrapSamples = sample 1000 (Array.length originalSample) originalSample
+  let bootstrapSamples = buildBootstrapSamples 1000 originalSample
   let newSample = 
     Array.map
-      (fun sample -> 
-        let onlineVariance = new Stats.Sample.OnlineVariance()
-        onlineVariance.pushAll sample
-
+      (fun bootstrapSample -> 
         match samplingDistributionType with
-        | Mean -> onlineVariance.mean
-        | Min -> onlineVariance.min
-        | Max -> onlineVariance.max
+        | Mean -> Sample.mean bootstrapSample
+        | StdDev -> Sample.stdDev bootstrapSample
+        | Min -> 
+          Array.reduce min bootstrapSample
+//          let onlineVariance = new Stats          Array.reduce max bootstrapSample.Sample.OnlineVariance()
+//          onlineVariance.pushAll bootstrapSample
+//          onlineVariance.min |> Option.get
+        | Max -> 
+          Array.reduce max bootstrapSample
+//          let onlineVariance = new Stats.Sample.OnlineVariance()
+//          onlineVariance.pushAll bootstrapSample
+//          onlineVariance.max |> Option.get
+        | Percentile p -> Stats.Sample.percentiles [p |> decimal] bootstrapSample |> Seq.head
       )
       bootstrapSamples
   buildDistribution newSample
 
-let buildSamplingDistributionFromTrialResults samplingDistributionType (valueExtractorFn: TrialResult -> Option<decimal>) (sample: seq<TrialResult>): Distribution =
-  trialResults |> Seq.flatMapO valueExtractorFn |> (buildSamplingDistribution samplingDistributionType)
+let buildSamplingDistributionFromTrialResults samplingDistributionType (valueExtractorFn: TrialResult -> Option<decimal>) (trialResults: seq<TrialResult>): Distribution =
+  trialResults |> Seq.flatMapO valueExtractorFn |> Seq.toArray |> buildSamplingDistribution samplingDistributionType
 
 
 let printDistribution distribution: unit =
@@ -124,12 +128,12 @@ let printDistribution distribution: unit =
   printfn "%M" <| distribution.max
 
 let printReport (trialResults: seq<TrialResult>): unit =
-  let yieldDistribution = buildDistribution YieldExtractor trialResults
-  let mfeDistribution = buildDistribution MfeExtractor trialResults
-  let maeDistribution = buildDistribution MaeExtractor trialResults
-  let dailyStdDevDistribution = buildDistribution DailyStdDevExtractor trialResults
+  let yieldDistribution = buildDistributionFromTrialResults YieldExtractor trialResults
+  let mfeDistribution = buildDistributionFromTrialResults MfeExtractor trialResults
+  let maeDistribution = buildDistributionFromTrialResults MaeExtractor trialResults
+  let dailyStdDevDistribution = buildDistributionFromTrialResults DailyStdDevExtractor trialResults
 
-  printfn "Trial Results"
+  printfn "Trial Results Summary"
   printfn "Yield Distribution"
   printDistribution yieldDistribution
   printfn "Maximum Favorable Excursion Distribution"

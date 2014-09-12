@@ -15,9 +15,9 @@
       <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
       <File FileName="tradesim/math.fs" Line="1" Column="1" />
-      <File FileName="tradesim/array.fs" Line="1" Column="1" />
-      <File FileName="tradesim/stats.fs" Line="5" Column="5" />
-      <File FileName="tradesim/trialSetStats.fs" Line="103" Column="103" />
+      <File FileName="tradesim/array.fs" Line="5" Column="5" />
+      <File FileName="tradesim/stats.fs" Line="7" Column="7" />
+      <File FileName="tradesim/trialSetStats.fs" Line="9" Column="9" />
       <File FileName="tradesim/priceHistory.fs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>

@@ -118,20 +118,34 @@ let printDistribution distribution: unit =
   printfn "%M" <| distribution.max
 
 let printReport (trialResults: seq<TrialResult>): unit =
-  let yieldDistribution = buildDistributionFromTrialResults YieldExtractor trialResults
-  let mfeDistribution = buildDistributionFromTrialResults MfeExtractor trialResults
-  let maeDistribution = buildDistributionFromTrialResults MaeExtractor trialResults
-  let dailyStdDevDistribution = buildDistributionFromTrialResults DailyStdDevExtractor trialResults
+  let yieldValues = trialResults |> Seq.flatMapO YieldExtractor |> Seq.toArray
+  let mfeValues = trialResults |> Seq.flatMapO MfeExtractor |> Seq.toArray
+  let maeValues = trialResults |> Seq.flatMapO MaeExtractor |> Seq.toArray
+  let dailyStdDevValues = trialResults |> Seq.flatMapO DailyStdDevExtractor |> Seq.toArray
+
+  let yieldDistribution = yieldValues |> buildDistribution
+  let mfeDistribution = mfeValues |> buildDistribution
+  let maeDistribution = maeValues |> buildDistribution
+  let dailyStdDevDistribution = dailyStdDevValues |> buildDistribution
+
+  let samplingDistOfMeanYield = buildSamplingDistribution Mean yieldValues
+  let samplingDistOfMeanMfe = buildSamplingDistribution Mean mfeValues
+  let samplingDistOfMeanMae = buildSamplingDistribution Mean maeValues
+  let samplingDistOfMeanDailyStdDev = buildSamplingDistribution Mean dailyStdDevValues
 
   printfn "Trial Results Summary"
   printfn "Yield Distribution"
   printDistribution yieldDistribution
+  printDistribution samplingDistOfMeanYield
   printfn "Maximum Favorable Excursion Distribution"
   printDistribution mfeDistribution
+  printDistribution samplingDistOfMeanMfe
   printfn "Maximum Adverse Excursion Distribution"
   printDistribution maeDistribution
+  printDistribution samplingDistOfMeanMae
   printfn "Daily Std. Dev. Distribution"
   printDistribution dailyStdDevDistribution
+  printDistribution samplingDistOfMeanDailyStdDev
 
 let buildMissingTrialSetDistributions connectionString trialAttribute: unit =
   // figure out which trials set distributions are missing

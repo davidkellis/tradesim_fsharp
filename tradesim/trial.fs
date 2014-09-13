@@ -211,13 +211,13 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
   let isFinalState = strategyInterface.isFinalState strategy
   let incrementTime = trial.incrementTime
 
-  printfn "------------------------------------------------"
-  printfn "strategy=%A" strategy
-  printfn "trial=%A" trial
+//  printfn "------------------------------------------------"
+//  printfn "strategy=%A" strategy
+//  printfn "trial=%A" trial
 
   let rec runTrialR (currentState: 'StateT): 'StateT =
-    printfn "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    printfn "currentState=%A" currentState
+//    printfn "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+//    printfn "currentState=%A" currentState
 
     if isFinalState strategy trial currentState then
       currentState
@@ -241,7 +241,7 @@ let runTrial (strategyInterface: TradingStrategy<'StrategyT, 'StateT>) (stateInt
 
 //  let t1 = currentTime <| Some EasternTimeZone
   let result = runTrialR <| buildInitStrategyState strategy trial
-  printfn "================================================"
+//  printfn "================================================"
 //  let t2 = currentTime <| Some EasternTimeZone
 //  verbose <| sprintf "runTrial time: %s" (formatPeriod <| periodBetween t1 t2)
   result

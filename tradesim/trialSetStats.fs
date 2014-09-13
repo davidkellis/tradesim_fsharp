@@ -76,26 +76,16 @@ type SamplingDistributionType = Mean | StdDev | Min | Max | Percentile of int
 // given a single sample of values
 let buildSamplingDistribution samplingDistributionType originalSample: Distribution = 
   let bootstrapSamples = buildBootstrapSamples 1000 originalSample
-  let newSample = 
-    Array.map
-      (fun bootstrapSample -> 
-        match samplingDistributionType with
-        | Mean -> Sample.mean bootstrapSample
-        | StdDev -> Sample.stdDev bootstrapSample
-        | Min -> 
-          Array.reduce min bootstrapSample
-//          let onlineVariance = new Stats          Array.reduce max bootstrapSample.Sample.OnlineVariance()
-//          onlineVariance.pushAll bootstrapSample
-//          onlineVariance.min |> Option.get
-        | Max -> 
-          Array.reduce max bootstrapSample
-//          let onlineVariance = new Stats.Sample.OnlineVariance()
-//          onlineVariance.pushAll bootstrapSample
-//          onlineVariance.max |> Option.get
-        | Percentile p -> Stats.Sample.percentiles [p |> decimal] bootstrapSample |> Seq.head
-      )
-      bootstrapSamples
-  buildDistribution newSample
+  let sampleStatisticFn = 
+    match samplingDistributionType with
+    | Mean -> Sample.mean
+    | StdDev -> Sample.stdDev
+    | Min -> Array.reduce min
+    | Max -> Array.reduce max
+    | Percentile p -> fun bootstrapSample -> Stats.Sample.percentiles [p |> decimal] bootstrapSample |> Seq.head
+
+  let samplingDistribution = Array.map sampleStatisticFn bootstrapSamples
+  buildDistribution samplingDistribution
 
 let buildSamplingDistributionFromTrialResults samplingDistributionType (valueExtractorFn: TrialResult -> Option<decimal>) (trialResults: seq<TrialResult>): Distribution =
   trialResults |> Seq.flatMapO valueExtractorFn |> Seq.toArray |> buildSamplingDistribution samplingDistributionType

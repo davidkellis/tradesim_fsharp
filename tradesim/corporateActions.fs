@@ -27,11 +27,11 @@ let corporateActionExDate = function
   | CashDividendCA dividend -> dividend.exDate
 
 let queryCorporateActions dao (securityIds: seq<SecurityId>): array<CorporateAction> =
-  infoL <| lazy (sprintf "queryCorporateActions %s" (String.joinInts "," securityIds))
+  debugL <| lazy (sprintf "queryCorporateActions %s" (String.joinInts "," securityIds))
   dao.queryCorporateActions securityIds |> Seq.toArray
 
 let queryCorporateActionsBetween dao (securityIds: seq<int>) (startTime: ZonedDateTime) (endTime: ZonedDateTime): array<CorporateAction> =
-  infoL <| lazy (sprintf "queryCorporateActionsBetween %s %s %s" (String.joinInts "," securityIds) (dateTimeToTimestampStr startTime) (dateTimeToTimestampStr endTime))
+  debugL <| lazy (sprintf "queryCorporateActionsBetween %s %s %s" (String.joinInts "," securityIds) (dateTimeToTimestampStr startTime) (dateTimeToTimestampStr endTime))
   dao.queryCorporateActionsBetween securityIds startTime endTime |> Seq.toArray
 
 type CorporateActionHistory = TreeDictionary<datestamp, CorporateAction>

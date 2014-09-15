@@ -5,7 +5,7 @@ open Logging
 open Database
 
 let findExchanges dao (exchangeLabels: seq<string>): seq<Exchange> =
-  info (sprintf "findExchanges %s" <| String.join "," exchangeLabels)
+  debug (sprintf "findExchanges %s" <| String.join "," exchangeLabels)
   dao.findExchanges exchangeLabels
 
 let Amex dao = findExchanges dao ["UA"]
@@ -16,5 +16,5 @@ let OTC_BB dao = findExchanges dao ["UU"]
 let OTC dao = findExchanges dao ["UV"]
 
 let findSecurities dao (exchanges: seq<Exchange>) (symbols: seq<string>): seq<Security> =
-  info (sprintf "findSecurities %s %s" (exchanges |> Seq.map (fun e -> e.label) |> String.join ",") (String.join "," symbols) )
+  debug (sprintf "findSecurities %s %s" (exchanges |> Seq.map (fun e -> e.label) |> String.join ",") (String.join "," symbols) )
   dao.findSecurities exchanges symbols

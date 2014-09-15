@@ -33,6 +33,9 @@ type RuntimeConfig() =
     [<Opt('s', "scenario", HelpText = "Run scenario <i>")>]
     member val Scenario = null with get, set
 
+    [<Opt('v', "verbose", HelpText = "Turn on verbose logging")>]
+    member val Verbose = false with get, set
+
     [<HelpOption>]
     member this.GetUsage() = 
       HelpText.AutoBuild(
@@ -40,7 +43,7 @@ type RuntimeConfig() =
         fun current -> HelpText.DefaultParsingErrorsHandler(this, current)
       ).ToString() +
       "Usage:\n\
-        tradesim [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--build-trial-samples | --scenario <scenarioName>]\n\n\
+        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--build-trial-samples | --scenario <scenarioName>]\n\n\
       Example:\n\
         tradesim --scenario buyandhold1\n"
   end
@@ -59,11 +62,14 @@ let parseCommandLineArgs args =
 let main argv = 
   let parsedOptions = parseCommandLineArgs argv
 
-  setLogLevel Verbose
-
   parsedOptions
   |> Option.iter (fun options ->
     let connectionString = Postgres.buildConnectionString options.Host options.Port options.Username options.Password options.Database
+
+    if options.Verbose then
+      setLogLevel Verbose
+    else
+      setLogLevel Info
 
     if options.BuildTrialSamples then
       info "build trial samples"

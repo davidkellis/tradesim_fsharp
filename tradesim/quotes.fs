@@ -46,7 +46,7 @@ let barSimQuote (bar: Bar): decimal =
  *   unique: true)
  *)
 let queryEodBar dao (time: ZonedDateTime) (securityId: SecurityId) =
-  Logging.info <| sprintf "queryEodBar %s %i" (time.ToString()) securityId
+  Logging.debug <| sprintf "queryEodBar %s %i" (time.ToString()) securityId
   dao.queryEodBar time securityId
 
 (*
@@ -65,15 +65,15 @@ let queryEodBar dao (time: ZonedDateTime) (securityId: SecurityId) =
  *   unique: true)
  *)
 let queryEodBarPriorTo dao (time: ZonedDateTime) (securityId: SecurityId) =
-  Logging.info <| sprintf "queryEodBarPriorTo %s %i" (time.ToString()) securityId
+  Logging.debug <| sprintf "queryEodBarPriorTo %s %i" (time.ToString()) securityId
   dao.queryEodBarPriorTo time securityId
 
 let queryEodBars dao (securityId: SecurityId) =
-  Logging.info <| sprintf "queryEodBars %i" securityId
+  Logging.debug <| sprintf "queryEodBars %i" securityId
   dao.queryEodBars securityId
 
 let queryEodBarsBetween dao (securityId: SecurityId) (earliestTime: ZonedDateTime) (latestTime: ZonedDateTime): seq<Bar> =
-  Logging.info <| sprintf "queryEodBarsBetween %i %s %s" securityId (earliestTime.ToString()) (latestTime.ToString())
+  Logging.debug <| sprintf "queryEodBarsBetween %i %s %s" securityId (earliestTime.ToString()) (latestTime.ToString())
 //  let t1 = currentTime None
   let result = dao.queryEodBarsBetween securityId earliestTime latestTime
 //  let t2 = currentTime None
@@ -81,11 +81,11 @@ let queryEodBarsBetween dao (securityId: SecurityId) (earliestTime: ZonedDateTim
   result
 
 let findOldestEodBar dao (securityId: SecurityId): Option<Bar> =
-  info <| sprintf "findOldestEodBar(%i)" securityId
+  debug <| sprintf "findOldestEodBar(%i)" securityId
   dao.findOldestEodBar securityId
 
 let findMostRecentEodBar dao (securityId: SecurityId): Option<Bar> =
-  info <| sprintf "findMostRecentEodBar(%i)" securityId
+  debug <| sprintf "findMostRecentEodBar(%i)" securityId
   dao.findMostRecentEodBar securityId
 
 

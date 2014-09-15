@@ -3,6 +3,7 @@
 open FSharpx
 
 open Core
+open Math
 open Stats
 open Database
 
@@ -93,29 +94,29 @@ let buildSamplingDistributionFromTrialResults samplingDistributionType (valueExt
 
 let printDistribution distribution: unit =
   printfn "n = %i" distribution.n
-  printfn "mean = %M" distribution.average
-  printfn "%s%%" <| String.joinInts "\t" [ 0 .. 5 .. 100 ]
-  printf "%M\t" <| distribution.min
-  printf "%M\t" <| distribution.percentile5
-  printf "%M\t" <| distribution.percentile10
-  printf "%M\t" <| distribution.percentile15
-  printf "%M\t" <| distribution.percentile20
-  printf "%M\t" <| distribution.percentile25
-  printf "%M\t" <| distribution.percentile30
-  printf "%M\t" <| distribution.percentile35
-  printf "%M\t" <| distribution.percentile40
-  printf "%M\t" <| distribution.percentile45
-  printf "%M\t" <| distribution.percentile50
-  printf "%M\t" <| distribution.percentile55
-  printf "%M\t" <| distribution.percentile60
-  printf "%M\t" <| distribution.percentile65
-  printf "%M\t" <| distribution.percentile70
-  printf "%M\t" <| distribution.percentile75
-  printf "%M\t" <| distribution.percentile80
-  printf "%M\t" <| distribution.percentile85
-  printf "%M\t" <| distribution.percentile90
-  printf "%M\t" <| distribution.percentile95
-  printfn "%M" <| distribution.max
+  printfn "mean = %M" <| Decimal.roundTo 4 distribution.average
+  printfn "%s%%" <| String.joinInts "%\t" [ 0 .. 5 .. 100 ]
+  printf "%M\t" <| Decimal.roundTo 3 distribution.min
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile5
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile10
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile15
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile20
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile25
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile30
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile35
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile40
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile45
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile50
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile55
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile60
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile65
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile70
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile75
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile80
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile85
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile90
+  printf "%M\t" <| Decimal.roundTo 3 distribution.percentile95
+  printfn "%M" <| Decimal.roundTo 3 distribution.max
 
 let printReport (trialResults: seq<TrialResult>): unit =
   let yieldValues = trialResults |> Seq.flatMapO YieldExtractor |> Seq.toArray
@@ -143,9 +144,9 @@ let printReport (trialResults: seq<TrialResult>): unit =
   printfn "Maximum Adverse Excursion Distribution"
   printDistribution maeDistribution
   printDistribution samplingDistOfMeanMae
-  printfn "Daily Std. Dev. Distribution"
-  printDistribution dailyStdDevDistribution
-  printDistribution samplingDistOfMeanDailyStdDev
+//  printfn "Daily Std. Dev. Distribution"
+//  printDistribution dailyStdDevDistribution
+//  printDistribution samplingDistOfMeanDailyStdDev
 
 let buildMissingTrialSetDistributions connectionString trialAttribute: unit =
   // figure out which trials set distributions are missing

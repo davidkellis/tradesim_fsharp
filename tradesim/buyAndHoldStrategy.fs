@@ -168,21 +168,22 @@ module Scenarios =
     let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
     let strategy = buildStrategy dao
     let exchanges = PrimaryUsExchanges dao
-    let tickerSymbols = [
-      "MIDHX";
-      "RERCX";
-      "ODVNX";
-      "OIBNX";
-      "WMGRX";
-      "SAMVX";
-      "TRLGX";
-      "PSSMX";
-      "PLFMX";
-      "CMPIX";
-      "PRRRX";
-      "PTRRX";
-      "FSIAX"
-    ]
+//    let tickerSymbols = [
+//      "MIDHX";
+//      "RERCX";
+//      "ODVNX";
+//      "OIBNX";
+//      "WMGRX";
+//      "SAMVX";
+//      "TRLGX";
+//      "PSSMX";
+//      "PLFMX";
+//      "CMPIX";
+//      "PRRRX";
+//      "PTRRX";
+//      "FSIAX"
+//    ]
+    let tickerSymbols = ["VFINX"; "SPY"]
     let securities = findSecurities dao exchanges tickerSymbols
     let trialGenerator = buildTrialGenerator 10000M 7M 0M timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
     let trialIntervalBuilderFn = 
@@ -195,7 +196,7 @@ module Scenarios =
     |> Seq.iter
       (fun security ->
         let securityIds = [security.id |> Option.get] |> Vector.ofSeq
-        info "Building trials"
+        info <| sprintf "Building trials for %s" security.symbol
         let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
         info <| sprintf "Running %i trials" (Seq.length trials)
         let (finalStates, trialResults) = runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials

@@ -109,6 +109,8 @@ let localDateToDatestampStr (date: LocalDate): string = datestampPattern.Format(
 let localDateToDatestamp (date: LocalDate): datestamp = Int32.Parse(localDateToDatestampStr date)
 
 let years n: Period = Period.FromYears(n)
+let months n: Period = Period.FromMonths(n)
+let weeks n: Period = Period.FromWeeks(n)
 let days n: Period = Period.FromDays(n)
 let hours n: Period = Period.FromHours(n)
 let minutes n: Period = Period.FromMinutes(n)

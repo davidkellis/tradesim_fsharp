@@ -124,6 +124,22 @@ let buildDefaultBuyAndHoldStrategyAndTrials dao tickerSymbols principal commissi
   let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
   (strategy, trials)
 
+let buildWeeklyBuyAndHoldStrategyAndTrials dao tickerSymbols principal commissionPerTrade commissionPerShare trialPeriodLength: Strategy * seq<Trial> =
+  let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
+  let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+  let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
+  let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+  let strategy = buildStrategy dao
+  let exchanges = PrimaryUsExchanges dao
+  let securityIds = findSecurities dao exchanges tickerSymbols |> Seq.flatMapO (fun security -> security.id) |> Vector.ofSeq
+  let trialGenerator = buildTrialGenerator principal commissionPerTrade commissionPerShare timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
+  let trialIntervalBuilderFn = 
+    fun securityIds trialPeriodLength -> 
+      buildNonOverlappingWeeklyTrialIntervals dao securityIds
+      |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+  let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds (weeks 1L)
+  (strategy, trials)
+
 
 module Scenarios =
   let runSingleTrial1 dao: unit =
@@ -203,7 +219,7 @@ module Scenarios =
         TrialSetStats.printReport trialResults
       )
 
-  let computeWeeklyMutualFundReturns dao: unit =
+  let runWeeklyTrials dao: unit =
     let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
     let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
     let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M

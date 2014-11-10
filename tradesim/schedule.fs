@@ -33,8 +33,8 @@ let defaultTradingSchedule (date: LocalDate): MInterval =
   tradingHours
   |> Option.map 
     (fun (startOfTrading, endOfTrading) ->
-      let startOfTradingDateTime = localDateToDateTime date startOfTrading.Hour startOfTrading.Minute startOfTrading.Second
-      let endOfTradingDateTime = localDateToDateTime date endOfTrading.Hour endOfTrading.Minute endOfTrading.Second
+      let startOfTradingDateTime = localDateToDateTime startOfTrading.Hour startOfTrading.Minute startOfTrading.Second date
+      let endOfTradingDateTime = localDateToDateTime endOfTrading.Hour endOfTrading.Minute endOfTrading.Second date
       createMInterval [intervalBetween startOfTradingDateTime endOfTradingDateTime]
     )
   |> Option.getOrElse emptyMInterval

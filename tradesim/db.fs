@@ -746,8 +746,8 @@ module Postgres =
         decimalParam "principal" principal;
         decimalParam "commissionPerTrade" commissionPerTrade;
         decimalParam "commissionPerShare" commissionPerShare;
-        longParam "smallestStartTime" <| (localDateToDateTime startDate 0 0 0 |> dateTimeToTimestamp);
-        longParam "largestStartTime" <| (localDateToDateTime startDate 23 59 59 |> dateTimeToTimestamp)
+        longParam "smallestStartTime" <| (localDateToDateTime 0 0 0 startDate |> dateTimeToTimestamp);
+        longParam "largestStartTime" <| (localDateToDateTime 23 59 59 startDate |> dateTimeToTimestamp)
       ]
       toTrial
     |> Seq.firstOption

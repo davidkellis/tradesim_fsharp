@@ -21,6 +21,16 @@ type DayOfWeek =
   | Saturday = 6
   | Sunday = 7
 
+let toDayOfWeek = function
+  1 -> DayOfWeek.Monday
+  | 2 -> DayOfWeek.Tuesday
+  | 3 -> DayOfWeek.Wednesday
+  | 4 -> DayOfWeek.Thursday
+  | 5 -> DayOfWeek.Friday
+  | 6 -> DayOfWeek.Saturday
+  | 7 -> DayOfWeek.Sunday
+  | _ -> failwith "Day of week must be in range 1-7 inclusive."
+
 let dayOfWeekToInt = function
   DayOfWeek.Monday -> 1
   | DayOfWeek.Tuesday -> 2
@@ -81,7 +91,7 @@ let datestampToDatetime (datestamp: datestamp): ZonedDateTime =
   let day = System.Convert.ToInt32(String.substring ds 6 2)
   datetime year month day 0 0 0
 
-let localDateToDateTime (date: LocalDate) (hour: int) (minute: int) (second: int): ZonedDateTime =
+let localDateToDateTime (hour: int) (minute: int) (second: int) (date: LocalDate): ZonedDateTime =
   datetime date.Year date.Month date.Day hour minute second
 
 let timestampPattern = ZonedDateTimePattern.CreateWithInvariantCulture("yyyyMMddHHmmss", DateTimeZoneProviders.Tzdb)
@@ -121,7 +131,7 @@ let minutesD n: Duration = Duration.FromMinutes(n)
 let secondsD n: Duration = Duration.FromSeconds(n)
 let millisD n: Duration = Duration.FromMilliseconds(n)
 
-let midnightOnDate (date: LocalDate): ZonedDateTime = localDateToDateTime date 0 0 0
+let midnightOnDate = localDateToDateTime 0 0 0
 let midnight (time: ZonedDateTime): ZonedDateTime = datetime time.Year time.Month time.Day 0 0 0
 
 let compareDateTimes (t1: ZonedDateTime) (t2: ZonedDateTime): int = t1.CompareTo(t2)
@@ -206,70 +216,6 @@ let interspersedIntervals (startTimeInterval: Interval) (intervalLength: Period)
 
 let daysInMonth (year: int) (month: int): int = DateTime.DaysInMonth(year, month)
 
-// returns day of week where 1 = Monday, ..., 7 = Sunday
-let dayOfWeek (t: ZonedDateTime): int = t.DayOfWeek
-
-let dayOfWeekD (date: LocalDate): int = date.DayOfWeek
-
-(*
- * Returns the number of days that must be added to the first day of the given month to arrive at the first
- *   occurrence of the <desired-weekday> in that month; put another way, it returns the number of days
- *   that must be added to the first day of the given month to arrive at the <desired-weekday> in the first
- *   week of that month.
- * The return value will be an integer in the range [0, 6].
- * NOTE: the return value is the result of the following expression:
- *   (desired-weekday - dayOfWeek(year, month, 1) + 7) mod 7
- * desired-weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
- * month is an integer indicating the month, s.t. 1=Jan., 2=Feb., ..., 11=Nov., 12=Dec.
- * year is an integer indicating the year (e.g. 1999, 2010, 2012, etc.)
- * Example:
- *   offsetOfFirstWeekdayInMonth(1, 2, 2012)    ; monday
- *   > 5
- *   offsetOfFirstWeekdayInMonth(3, 2, 2012)    ; wednesday
- *   > 0
- *   offsetOfFirstWeekdayInMonth(5, 2, 2012)    ; friday
- *   > 2
- *)
-let offsetOfFirstWeekdayInMonth (desiredWeekday: int) (month: int) (year: int): int =
-  (desiredWeekday - (dayOfWeek <| datetime year month 1 0 0 0) + 7) % 7
-
-(*
- * returns a LocalDate representing the nth weekday in the given month.
- * Example:
- *   nthWeekday(3, DateTimeConstants.MONDAY, 1, 2012)   ; returns the 3rd monday in January 2012.
- *   => #<LocalDate 2012-01-16>
- *   nthWeekday(3, DateTimeConstants.MONDAY, 2, 2012)   ; returns the 3rd monday in February 2012.
- *   => #<LocalDate 2012-02-20>
- *)
-let nthWeekday (n: int) (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDate = 
-  let firstDayOfTheMonth = date year (int month) 1
-  let firstDesiredWeekdayOfTheMonth = firstDayOfTheMonth + Period.FromDays(offsetOfFirstWeekdayInMonth (int desiredWeekday) (int month) year |> int64)
-  let weekOffsetInDays = Period.FromDays(7 * (n - 1) |> int64)
-  firstDesiredWeekdayOfTheMonth + weekOffsetInDays
-
-(*
- * Returns a LocalDate representing the last weekday in the given month.
- * source: http://www.irt.org/articles/js050/
- * formula:
- *   daysInMonth - (DayOfWeek(daysInMonth,month,year) - desiredWeekday + 7)%7
- * Example:
- *   lastWeekday DayOfWeek.Monday Month.February 2012;;
- *   val it : NodaTime.LocalDate = Monday, February 27, 2012 {...}
- *)
-let lastWeekday (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDate = 
-  let month' = int month
-  let days = daysInMonth year month'
-  let dayOfMonth = days - ((datetime year month' days 0 0 0 |> dayOfWeek) - (int desiredWeekday) + 7) % 7
-  date year month' dayOfMonth
-
-let previousBusinessDay (date: LocalDate) =
-  if dayOfWeekD date = (DayOfWeek.Monday |> dayOfWeekToInt) then date - (days 3L) else date - (days 1L)
-
-let nextBusinessDay (date: LocalDate) =
-  if dayOfWeekD date = (DayOfWeek.Friday |> dayOfWeekToInt) then date + (days 3L) else date + (days 1L)
-
-let isBusinessDay date = dayOfWeekD date < (DayOfWeek.Saturday |> dayOfWeekToInt)
-
 // returns [month, year] representing the month and year following the given month and year
 let nextMonth month year = 
   if month = 12 then
@@ -296,5 +242,195 @@ let addMonths baseMonth baseYear monthOffset =
       (fun (month, year) i -> previousMonth month year)
       (baseMonth, baseYear)
 
-let firstDayOfMonth year month = date year month 1
+let firstDayOfMonth (year: int) (month: int): LocalDate = date year month 1
 
+// returns day of week where 1 = Monday, ..., 7 = Sunday
+let dayOfWeek (t: ZonedDateTime): DayOfWeek = t.DayOfWeek |> toDayOfWeek
+
+let dayOfWeekD (date: LocalDate): DayOfWeek = date.DayOfWeek |> toDayOfWeek
+
+(*
+ * Returns the number of days that must be added to the first day of the given month to arrive at the first
+ *   occurrence of the <desired-weekday> in that month; put another way, it returns the number of days
+ *   that must be added to the first day of the given month to arrive at the <desired-weekday> in the first
+ *   week of that month.
+ * The return value will be an integer in the range [0, 6].
+ * NOTE: the return value is the result of the following expression:
+ *   (desired-weekday - dayOfWeek(year, month, 1) + 7) mod 7
+ * desired-weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * month is an integer indicating the month, s.t. 1=Jan., 2=Feb., ..., 11=Nov., 12=Dec.
+ * year is an integer indicating the year (e.g. 1999, 2010, 2012, etc.)
+ * Example:
+ *   offsetOfFirstWeekdayInMonth(1, 2, 2012)    ; monday
+ *   > 5
+ *   offsetOfFirstWeekdayInMonth(3, 2, 2012)    ; wednesday
+ *   > 0
+ *   offsetOfFirstWeekdayInMonth(5, 2, 2012)    ; friday
+ *   > 2
+ *)
+let offsetOfFirstWeekdayInMonth (desiredWeekday: DayOfWeek) (month: int) (year: int): int =
+  (dayOfWeekToInt desiredWeekday - (datetime year month 1 0 0 0 |> dayOfWeek |> dayOfWeekToInt) + 7) % 7
+
+(*
+ * The return value will be an integer in the range [0, 6].
+ * desired_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * current_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ *)
+let offsetOfFirstWeekdayAtOrAfterWeekday (desiredWeekday: DayOfWeek) (currentWeekday: DayOfWeek): int = 
+  (dayOfWeekToInt desiredWeekday - dayOfWeekToInt currentWeekday + 7) % 7
+
+(*
+ * The return value will be an integer in the range [-6, 0].
+ * desired_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * current_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ *)
+let offsetOfFirstWeekdayAtOrBeforeWeekday (desiredWeekday: DayOfWeek) (currentWeekday: DayOfWeek): int = 
+  -((dayOfWeekToInt currentWeekday - dayOfWeekToInt desiredWeekday + 7) % 7)
+
+(*
+ * The return value will be an integer in the range [1, 7].
+ * desired_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * current_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * offset_of_first_weekday_after_weekday(2, 2) => 7
+ * offset_of_first_weekday_after_weekday(5, 2) => 3
+ * offset_of_first_weekday_after_weekday(3, 6) => 4
+ *)
+let offsetOfFirstWeekdayAfterWeekday (desiredWeekday: DayOfWeek) (currentWeekday: DayOfWeek): int =
+  let offset = offsetOfFirstWeekdayAtOrAfterWeekday desiredWeekday currentWeekday
+  if offset = 0 then 7
+  else offset
+
+(*
+ * The return value will be an integer in the range [-7, -1].
+ * desired_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * current_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * offset_of_first_weekday_before_weekday(2, 2) => -7
+ * offset_of_first_weekday_before_weekday(5, 2) => -4
+ * offset_of_first_weekday_before_weekday(3, 6) => -3
+ *)
+let offsetOfFirstWeekdayBeforeWeekday (desiredWeekday: DayOfWeek) (currentWeekday: DayOfWeek): int =
+  let offset = offsetOfFirstWeekdayAtOrBeforeWeekday desiredWeekday currentWeekday
+  if offset = 0 then -7
+  else offset
+
+(*
+ * desired_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * first_weekday_after_date(DayOfWeek::Friday, Date.new(2012, 2, 18)) => #<Date: 2012-02-24 ((2455982j,0s,0n),+0s,2299161j)>
+ * first_weekday_after_date(DayOfWeek::Friday, Date.new(2012, 2, 24)) => #<Date: 2012-03-02 ((2455989j,0s,0n),+0s,2299161j)>
+ *)
+let firstWeekdayAfterDate (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let offset = offsetOfFirstWeekdayAfterWeekday desiredWeekday <| (date |> dayOfWeekD)
+  date + (offset |> int64 |> days)
+
+(*
+ * desired_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * first_weekday_at_or_after_date(DayOfWeek::Friday, Date.new(2012, 2, 18)) => #<Date: 2012-02-24 ((2455982j,0s,0n),+0s,2299161j)>
+ * first_weekday_at_or_after_date(DayOfWeek::Friday, Date.new(2012, 2, 24)) => #<Date: 2012-02-24 ((2455982j,0s,0n),+0s,2299161j)>
+ *)
+let firstWeekdayAtOrAfterDate (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let offset = offsetOfFirstWeekdayAtOrAfterWeekday desiredWeekday <| dayOfWeekD date
+  date + (offset |> int64 |> days)
+
+(*
+ * desired_weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * first_weekday_before_date(DayOfWeek::Friday, Date.new(2012, 3, 2)) => #<Date: 2012-02-24 ((2455982j,0s,0n),+0s,2299161j)>
+ * first_weekday_before_date(DayOfWeek::Wednesday, Date.new(2012, 3, 2)) => #<Date: 2012-02-29 ((2455987j,0s,0n),+0s,2299161j)>
+ *)
+let firstWeekdayBeforeDate (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let offset = offsetOfFirstWeekdayBeforeWeekday desiredWeekday <| dayOfWeekD date
+  date + (offset |> int64 |> days)
+
+let firstWeekdayAtOrBeforeDate (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let offset = offsetOfFirstWeekdayAtOrBeforeWeekday desiredWeekday <| dayOfWeekD date
+  date + (offset |> int64 |> days)
+
+(*
+ * returns a Date representing the nth weekday after the given date
+ * desired-weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * nth_weekday_at_or_after_date(1, DayOfWeek::Friday, Date.new(2012, 2, 3)) => #<Date: 2012-02-03 ((2455961j,0s,0n),+0s,2299161j)>
+ * nth_weekday_at_or_after_date(2, DayOfWeek::Friday, Date.new(2012, 2, 3)) => #<Date: 2012-02-10 ((2455968j,0s,0n),+0s,2299161j)>
+ *)
+let nthWeekdayAtOrAfterDate (n: int) (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let weekOffsetInDays = 7 * (n - 1) |> int64 |> days
+  firstWeekdayAtOrAfterDate desiredWeekday date + weekOffsetInDays
+
+let nthWeekdayAtOrBeforeDate (n: int) (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let weekOffsetInDays = 7 * (n - 1) |> int64 |> days
+  firstWeekdayAtOrBeforeDate desiredWeekday date - weekOffsetInDays
+
+(*
+ * returns a Date representing the nth weekday after the given date
+ * desired-weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * nth_weekday_after_date(1, DayOfWeek::Friday, Date.new(2012, 2, 18)) => #<Date: 2012-02-24 ((2455982j,0s,0n),+0s,2299161j)>
+ * nth_weekday_after_date(2, DayOfWeek::Friday, Date.new(2012, 2, 18)) => #<Date: 2012-03-02 ((2455989j,0s,0n),+0s,2299161j)>
+ * nth_weekday_after_date(4, DayOfWeek::Wednesday, Date.new(2012, 2, 18)) => #<Date: 2012-03-14 ((2456001j,0s,0n),+0s,2299161j)>
+ *)
+let nthWeekdayAfterDate (n: int) (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let weekOffsetInDays = 7 * (n - 1) |> int64 |> days
+  firstWeekdayAfterDate desiredWeekday date + weekOffsetInDays
+
+(*
+ * returns a Date representing the nth weekday after the given date
+ * desired-weekday is an integer indicating the desired day of the week, s.t. 1=Monday, 2=Tue., ..., 6=Sat., 7=Sun.
+ * Example:
+ * nth_weekday_before_date(1, DayOfWeek::Friday, Date.new(2012, 3, 2)) => #<Date: 2012-02-24 ((2455982j,0s,0n),+0s,2299161j)>
+ * nth_weekday_before_date(2, DayOfWeek::Friday, Date.new(2012, 3, 2)) => #<Date: 2012-02-17 ((2455975j,0s,0n),+0s,2299161j)>
+ * nth_weekday_before_date(4, DayOfWeek::Wednesday, Date.new(2012, 3, 2)) => #<Date: 2012-02-08 ((2455966j,0s,0n),+0s,2299161j)>
+ *)
+let nthWeekdayBeforeDate (n: int) (desiredWeekday: DayOfWeek) (date: LocalDate): LocalDate =
+  let weekOffsetInDays = 7 * (n - 1) |> int64 |> days
+  firstWeekdayBeforeDate desiredWeekday date - weekOffsetInDays
+
+(*
+ * returns a LocalDate representing the nth weekday in the given month.
+ * Example:
+ *   nthWeekdayOfMonth(3, DateTimeConstants.MONDAY, 1, 2012)   ; returns the 3rd monday in January 2012.
+ *   => #<LocalDate 2012-01-16>
+ *   nthWeekdayOfMonth(3, DateTimeConstants.MONDAY, 2, 2012)   ; returns the 3rd monday in February 2012.
+ *   => #<LocalDate 2012-02-20>
+ *)
+let nthWeekdayOfMonth (n: int) (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDate = 
+//  let firstDayOfTheMonth = date year (int month) 1
+//  let firstDesiredWeekdayOfTheMonth = firstDayOfTheMonth + Period.FromDays(offsetOfFirstWeekdayInMonth (int desiredWeekday) (int month) year |> int64)
+//  let weekOffsetInDays = Period.FromDays(7 * (n - 1) |> int64)
+//  firstDesiredWeekdayOfTheMonth + weekOffsetInDays
+  nthWeekdayAtOrAfterDate n desiredWeekday <| firstDayOfMonth year (int month)
+
+(*
+ * Returns a LocalDate representing the last weekday in the given month.
+ * source: http://www.irt.org/articles/js050/
+ * formula:
+ *   daysInMonth - (DayOfWeek(daysInMonth,month,year) - desiredWeekday + 7)%7
+ * Example:
+ *   lastWeekday DayOfWeek.Monday Month.February 2012;;
+ *   val it : NodaTime.LocalDate = Monday, February 27, 2012 {...}
+ *)
+let lastWeekday (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDate = 
+  let month' = int month
+  let days = daysInMonth year month'
+  let dayOfMonth = days - ((datetime year month' days 0 0 0 |> dayOfWeek |> dayOfWeekToInt) - (desiredWeekday |> dayOfWeekToInt) + 7) % 7
+  date year month' dayOfMonth
+
+let previousBusinessDay (date: LocalDate) =
+  if dayOfWeekD date = DayOfWeek.Monday then date - (days 3L)
+  else date - (days 1L)
+
+let nextBusinessDay (date: LocalDate) =
+  if dayOfWeekD date = DayOfWeek.Friday then date + (days 3L)
+  else date + (days 1L)
+
+let isBusinessDay date = dayOfWeekD date < DayOfWeek.Saturday
+
+
+let firstMondayAfter = firstWeekdayAfterDate DayOfWeek.Monday
+let firstMondayAtOrAfter = firstWeekdayAtOrAfterDate DayOfWeek.Monday
+
+let firstMondayBefore = firstWeekdayBeforeDate DayOfWeek.Monday
+let firstMondayAtOrBefore = firstWeekdayAtOrBeforeDate DayOfWeek.Monday

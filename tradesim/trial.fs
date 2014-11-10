@@ -31,7 +31,7 @@ let fixedTradingPeriodIsFinalState (strategyInterface: TradingStrategy<'Strategy
 let buildScheduledTimeIncrementer (timeComponent: Period) (periodIncrement: Period) (tradingSchedule: TradingSchedule): ZonedDateTime -> ZonedDateTime =
   (fun (time: ZonedDateTime) ->
     nextTradingDay tradingSchedule (time.LocalDateTime.Date) periodIncrement 
-    |> (fun date -> localDateToDateTime date (int timeComponent.Hours) (int timeComponent.Minutes) (int timeComponent.Seconds))
+    |> localDateToDateTime (int timeComponent.Hours) (int timeComponent.Minutes) (int timeComponent.Seconds)
   )
 
 (*
@@ -49,7 +49,7 @@ let buildInitialJumpTimeIncrementer (timeComponent: Period)
       nextTradingDay tradingSchedule time.LocalDateTime.Date initialPeriodIncrement
     else
       nextTradingDay tradingSchedule time.LocalDateTime.Date subsequentPeriodIncrement
-    ) |> (fun date -> localDateToDateTime date (int timeComponent.Hours) (int timeComponent.Minutes) (int timeComponent.Seconds))
+    ) |> localDateToDateTime (int timeComponent.Hours) (int timeComponent.Minutes) (int timeComponent.Seconds)
   )
 
 (*
@@ -250,6 +250,20 @@ let buildAllTrialIntervals dao (separationLength: Period) (securityIds: Vector<S
   commonTrialPeriodStartDates dao securityIds intervalLength
   |> Option.map (fun startDateRange -> interspersedIntervals startDateRange intervalLength separationLength)
   |> Option.getOrElse Seq.empty
+
+let buildNonOverlappingWeeklyTrialIntervals dao (securityIds: Vector<SecurityId>): seq<Interval> =
+  let intervalLength = weeks 1L
+  let separationLength = intervalLength
+  commonTrialPeriodStartDates dao securityIds intervalLength
+  |> Option.map (fun startDateRange -> 
+    let firstDayInStartDateRange = startDateRange.Start |> instantToEasternTime |> dateTimeToLocalDate
+    let intervalStart = firstMondayAtOrAfter firstDayInStartDateRange |> localDateToDateTime 12 0 0
+    let intervalEnd = firstMondayAtOrBefore firstDayInStartDateRange |> localDateToDateTime 12 0 0
+    intervalBetween intervalStart intervalEnd
+  )
+  |> Option.map (fun startDateRange -> interspersedIntervals startDateRange intervalLength separationLength)
+  |> Option.getOrElse Seq.empty
+
 
 // TrialGenerator = (securityIds: Vector<SecurityId>) (startTime: ZonedDateTime) (endTime: ZonedDateTime) (trialDuration: Period) -> Trial
 type TrialGenerator = Vector<SecurityId> -> ZonedDateTime -> ZonedDateTime -> Period -> Trial

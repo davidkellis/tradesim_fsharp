@@ -1,16 +1,17 @@
 ﻿<Properties>
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/time.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/runner.fs">
     <Files>
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
-      <File FileName="tradesim/runner.fs" Line="1" Column="1" />
-      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="71" Column="71" />
+      <File FileName="tradesim/runner.fs" Line="5" Column="5" />
+      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="1" Column="1" />
       <File FileName="tradesim/db.fs" Line="1" Column="1" />
       <File FileName="tradesim/trial.fs" Line="1" Column="1" />
       <File FileName="tradesim/ordering.fs" Line="1" Column="1" />
       <File FileName="tradesim/securities.fs" Line="1" Column="1" />
       <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
-      <File FileName="tradesim/time.fs" Line="3" Column="3" />
+      <File FileName="tradesim/time.fs" Line="1" Column="1" />
+      <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
       <File FileName="tradesim/array.fs" Line="1" Column="1" />
       <File FileName="tradesim/stats.fs" Line="1" Column="1" />
       <File FileName="tradesim/trialSetStats.fs" Line="1" Column="1" />

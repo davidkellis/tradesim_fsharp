@@ -27,6 +27,15 @@ type RuntimeConfig() =
     [<Opt('p', "password", HelpText = "Database password")>]
     member val Password = "" with get, set
 
+    [<Opt("qhost", HelpText = "Beanstalkd host")>]
+    member val QHost = "localhost" with get, set
+
+    [<Opt("qport", HelpText = "Beanstalkd port")>]
+    member val QPort = 11300 with get, set
+
+    [<Opt('q', "queue", HelpText = "Run commands received from Beanstalkd message queue")>]
+    member val Queue = null with get, set
+
     [<Opt("build-trial-samples", HelpText = "Build missing trial samples")>]
     member val BuildTrialSamples = false with get, set
 
@@ -43,9 +52,20 @@ type RuntimeConfig() =
         fun current -> HelpText.DefaultParsingErrorsHandler(this, current)
       ).ToString() +
       "Usage:\n\
-        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--build-trial-samples | --scenario <scenarioName>]\n\n\
+        In general:\n\
+        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--qhost localhost] [--qport 11300] [--queue <beanstalkd queue name> | --build-trial-samples | --scenario <scenarioName>]\n\n\
+
+        Run specific scenario\n\
+        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] --scenario <scenarioName>\n\n\
+
+        Build Trial Samples\n\
+        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] --build-trial-samples\n\n\
+
+        Listen to Beanstalkd queue for commands\n\
+        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--qhost localhost] [--qport 11300] --queue <beanstalkd queue name>\n\n\
+
       Example:\n\
-        tradesim --scenario buyandhold1\n"
+        tradesim --scenario bah1\n"
   end
 
 let parseCommandLineArgs args =
@@ -74,6 +94,8 @@ let main argv =
     if options.BuildTrialSamples then
       info "build trial samples"
       TrialSetStats.buildMissingTrialSetDistributions connectionString Core.TrialYield
+    elif options.Queue <> null then
+      info "Awaiting job from queue"
     elif options.Scenario <> null then
       info <| sprintf "run scenario %s" options.Scenario
       let dao = Postgres.createDao connectionString

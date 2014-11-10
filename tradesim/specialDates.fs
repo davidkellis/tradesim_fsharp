@@ -8,11 +8,21 @@ let newYears year: LocalDate = date year 1 1
 // third monday in January in the given year
 let martinLutherKingJrDay = nthWeekdayOfMonth 3 DayOfWeek.Monday Month.January
 
-// third monday in February in the given year
+(*
+ * president's day - third monday in February in the given year
+ *
+ * NOTE: Washington's Birthday was first declared a federal holiday by an 1879 act of Congress. 
+ * The Monday Holiday Law, enacted in 1968, shifted the date of the commemoration of Washington's Birthday 
+ * from February 22 to the third Monday in February, but neither that law nor any subsequent law changed 
+ * the name of the holiday from Washington's Birthday to President's Day. Although the third Monday in 
+ * February has become popularly known as President's Day, the NYSE's designation of Washington's Birthday 
+ * as an Exchange holiday (Rule 51) follows the form of the federal holiday outlined above (section 6103(a) 
+ * of title 5 of the United States Code).
+ *)
 let presidentsDay = nthWeekdayOfMonth 3 DayOfWeek.Monday Month.February
 
 // last Monday in May
-let memorialDay = lastWeekday DayOfWeek.Monday Month.May
+let memorialDay = lastWeekdayOfMonth DayOfWeek.Monday Month.May
 
 // July 4th
 let independenceDay year = date year (int Month.July) 4
@@ -21,6 +31,7 @@ let independenceDay year = date year (int Month.July) 4
 let laborDay = nthWeekdayOfMonth 1 DayOfWeek.Monday Month.September
 
 // second Monday in October
+// NOTE: CBOE still observes Columbus day, but NYSE does not (NYSE observed it between 1909-1953).
 let columbusDay = nthWeekdayOfMonth 2 DayOfWeek.Monday Month.October
 
 // fourth Thursday in November
@@ -85,9 +96,43 @@ let HolidayLookupFunctions = [
     memorialDay;
     independenceDay;
     laborDay;
-    columbusDay;
+//    columbusDay;    // CBOE still observes Columbus day, but NYSE does not (NYSE observed it between 1909-1953).
     thanksgiving;
     christmas
   ]
 
 let isAnyHoliday (date: LocalDate): bool = List.exists (isHoliday date) HolidayLookupFunctions
+
+(*
+ * sources:
+ * http://www1.nyse.com/pdfs/closings.pdf
+ * http://www.cboe.com/publish/RegCir/RG12-150.pdf
+ *)
+let UnscheduledMarketClosures =
+  [
+    date 1972 12 28;    // Closed. Funeral of former President Harry S. Truman.
+    date 1973 1 25;     // Closed for funeral of former President Lyndon B. Johnson.
+    date 1977 7 14;     // Closed due to blackout in New York City.
+    date 1985 9 27;     // Market closed due to Hurricane Gloria.
+    date 1994 4 27;     // Closed for funeral of former President Richard M. Nixon.
+    date 2001 9 11;     // Closed following the terrorist attack on the World Trade Center. 
+    date 2001 9 12;     // Closed following the terrorist attack on the World Trade Center. 
+    date 2001 9 13;     // Closed following the terrorist attack on the World Trade Center. 
+    date 2001 9 14;     // Closed following the terrorist attack on the World Trade Center. 
+    date 2004 6 11;     // Closed in observance of the National Day of Mourning for former President Ronald W. Reagan (died June 5, 2004)
+    date 2007 1 2;      // Closed in observance of the National Day of Mourning for former President Gerald R. Ford (died December 26, 2006).
+    date 2012 10 29;    // Closed Monday for Hurricane Sandy
+    date 2012 10 30     // Closed Tuesday for Hurricane Sandy
+  ] |> Set.ofList
+
+let isDateUnscheduledMarketClosure date = Set.contains date UnscheduledMarketClosures 
+
+// see the holiday rules at: http://cfe.cboe.com/aboutcfe/ExpirationCalendar.aspx
+let isMarketHoliday includeUnscheduledMarketClosures date =
+  let todayIsUnscheduledClosure = if includeUnscheduledMarketClosures then isDateUnscheduledMarketClosure date else false
+  let todayIsFridayAndSaturdayIsHoliday = isDateFriday date && (nextDay date |> isAnyHoliday)
+  let todayIsMondayAndSundayIsHoliday = isDateMonday date && (previousDay date |> isAnyHoliday)
+  isAnyHoliday date || todayIsFridayAndSaturdayIsHoliday || todayIsMondayAndSundayIsHoliday || todayIsUnscheduledClosure
+
+let isMarketBusinessDay includeUnscheduledMarketClosures date = 
+  isBusinessDay date && (not <| isMarketHoliday includeUnscheduledMarketClosures date)

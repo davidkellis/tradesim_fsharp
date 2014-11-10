@@ -244,10 +244,20 @@ let addMonths baseMonth baseYear monthOffset =
 
 let firstDayOfMonth (year: int) (month: int): LocalDate = date year month 1
 
+let nextDay (date: LocalDate): LocalDate = date + days 1L
+let previousDay (date: LocalDate): LocalDate = date - days 1L
+
 // returns day of week where 1 = Monday, ..., 7 = Sunday
 let dayOfWeek (t: ZonedDateTime): DayOfWeek = t.DayOfWeek |> toDayOfWeek
 
 let dayOfWeekD (date: LocalDate): DayOfWeek = date.DayOfWeek |> toDayOfWeek
+let isDateMonday date = dayOfWeekD date = DayOfWeek.Monday
+let isDateTuesday date = dayOfWeekD date = DayOfWeek.Tuesday
+let isDateWednesday date = dayOfWeekD date = DayOfWeek.Wednesday
+let isDateThursday date = dayOfWeekD date = DayOfWeek.Thursday
+let isDateFriday date = dayOfWeekD date = DayOfWeek.Friday
+let isDateSaturday date = dayOfWeekD date = DayOfWeek.Saturday
+let isDateSunday date = dayOfWeekD date = DayOfWeek.Sunday
 
 (*
  * Returns the number of days that must be added to the first day of the given month to arrive at the first
@@ -409,14 +419,20 @@ let nthWeekdayOfMonth (n: int) (desiredWeekday: DayOfWeek) (month: Month) (year:
  * formula:
  *   daysInMonth - (DayOfWeek(daysInMonth,month,year) - desiredWeekday + 7)%7
  * Example:
- *   lastWeekday DayOfWeek.Monday Month.February 2012;;
+ *   lastWeekdayOfMonth DayOfWeek.Monday Month.February 2012;;
  *   val it : NodaTime.LocalDate = Monday, February 27, 2012 {...}
  *)
-let lastWeekday (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDate = 
+let lastWeekdayOfMonth (desiredWeekday: DayOfWeek) (month: Month) (year: int): LocalDate = 
   let month' = int month
   let days = daysInMonth year month'
   let dayOfMonth = days - ((datetime year month' days 0 0 0 |> dayOfWeek |> dayOfWeekToInt) - (desiredWeekday |> dayOfWeekToInt) + 7) % 7
   date year month' dayOfMonth
+
+let firstMondayAfter = firstWeekdayAfterDate DayOfWeek.Monday
+let firstMondayAtOrAfter = firstWeekdayAtOrAfterDate DayOfWeek.Monday
+
+let firstMondayBefore = firstWeekdayBeforeDate DayOfWeek.Monday
+let firstMondayAtOrBefore = firstWeekdayAtOrBeforeDate DayOfWeek.Monday
 
 let previousBusinessDay (date: LocalDate) =
   if dayOfWeekD date = DayOfWeek.Monday then date - (days 3L)
@@ -427,10 +443,3 @@ let nextBusinessDay (date: LocalDate) =
   else date + (days 1L)
 
 let isBusinessDay date = dayOfWeekD date < DayOfWeek.Saturday
-
-
-let firstMondayAfter = firstWeekdayAfterDate DayOfWeek.Monday
-let firstMondayAtOrAfter = firstWeekdayAtOrAfterDate DayOfWeek.Monday
-
-let firstMondayBefore = firstWeekdayBeforeDate DayOfWeek.Monday
-let firstMondayAtOrBefore = firstWeekdayAtOrBeforeDate DayOfWeek.Monday

@@ -2,9 +2,9 @@
 
 open CommandLine
 open CommandLine.Text
+
 open System
 open Database
-
 open Logging
 
 // command line parser example found at
@@ -96,6 +96,21 @@ let main argv =
       TrialSetStats.buildMissingTrialSetDistributions connectionString Core.TrialYield
     elif options.Queue <> null then
       info "Awaiting job from queue"
+
+      let client = jack.Connection.parseAddress "localhost:11300" |> jack.Client.connect
+      client.watch "tube_name_goes_here" |> ignore
+
+      let mutable keepLooping = true
+      while keepLooping do
+        let result = client.reserveWithTimeout 5
+        match result with
+        | jack.Success (jobId, payload) ->
+          printfn "jobId=%i  payload=%s" jobId payload
+          client.delete jobId |> ignore
+        | jack.Failure msg ->
+          failwith msg
+          keepLooping <- false
+
     elif options.Scenario <> null then
       info <| sprintf "run scenario %s" options.Scenario
       let dao = Postgres.createDao connectionString

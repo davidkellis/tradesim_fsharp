@@ -1,19 +1,21 @@
 Install:
-./nuget install NodaTime -Version 1.3.0
-./nuget install CommandLineParser
-./nuget install Npgsql
-./nuget install Npgsql.EntityFramework
-./nuget install FSharp.Data.TypeProviders
-./nuget install C5
-./nuget install CSharpTest.Net.Library
-./nuget install Google.ProtocolBuffers
-./nuget install Microsoft.Bcl.Immutable -Pre
-./nuget install FSharpx.Core
-./nuget install MathNet.Numerics
-./nuget install MathNet.Numerics.FSharp
-./nuget install FSharp.Collections.ParallelSeq
+nuget install NodaTime -Version 1.3.0
+nuget install CommandLineParser
+nuget install Npgsql
+nuget install Npgsql.EntityFramework
+nuget install FSharp.Data.TypeProviders
+nuget install C5
+nuget install CSharpTest.Net.Library
+nuget install Google.ProtocolBuffers
+nuget install Microsoft.Bcl.Immutable -Pre
+nuget install FSharpx.Core
+nuget install MathNet.Numerics
+nuget install MathNet.Numerics.FSharp
+nuget install FSharp.Collections.ParallelSeq
+nuget install FSharp.Data
+nuget install jack
 
-./nuget install FsUnit
+nuget install FsUnit
 
 Build:
 ??

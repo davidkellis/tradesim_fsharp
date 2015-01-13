@@ -33,8 +33,8 @@ type RuntimeConfig() =
     [<Opt("qport", HelpText = "Beanstalkd port")>]
     member val QPort = 11300 with get, set
 
-    [<Opt('q', "queue", HelpText = "Run commands received from Beanstalkd message queue")>]
-    member val Queue = null with get, set
+    [<Opt('c', "command", HelpText = "Run specified command")>]
+    member val Command = null with get, set
 
     [<Opt("build-trial-samples", HelpText = "Build missing trial samples")>]
     member val BuildTrialSamples = false with get, set
@@ -62,7 +62,7 @@ type RuntimeConfig() =
         tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] --build-trial-samples\n\n\
 
         Listen to Beanstalkd queue for commands\n\
-        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--qhost localhost] [--qport 11300] --queue <beanstalkd queue name>\n\n\
+        tradesim [--verbose] [--host localhost] [--port 5432] [--db tradesim] [--username <username>] [--password <password>] [--qhost localhost] [--qport 11300] -c runMissingWeeklyTrials\n\n\
 
       Example:\n\
         tradesim --scenario bah1\n"
@@ -94,22 +94,11 @@ let main argv =
     if options.BuildTrialSamples then
       info "build trial samples"
       TrialSetStats.buildMissingTrialSetDistributions connectionString Core.TrialYield
-    elif options.Queue <> null then
-      info "Awaiting job from queue"
-
-      let client = jack.Connection.parseAddress "localhost:11300" |> jack.Client.connect
-      client.watch "tube_name_goes_here" |> ignore
-
-      let mutable keepLooping = true
-      while keepLooping do
-        let result = client.reserveWithTimeout 5
-        match result with
-        | jack.Success (jobId, payload) ->
-          printfn "jobId=%i  payload=%s" jobId payload
-          client.delete jobId |> ignore
-        | jack.Failure msg ->
-          failwith msg
-          keepLooping <- false
+    elif options.Command <> null then
+      match options.Command with
+      | "runWeeklyMissingTrials" -> dke.returnStats.runMissingWeeklyTrials.run connectionString options.QHost options.QPort
+      | _ -> printfn "Unknown command"
+      |> ignore
 
     elif options.Scenario <> null then
       info <| sprintf "run scenario %s" options.Scenario

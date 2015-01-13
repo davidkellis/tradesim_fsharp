@@ -18,8 +18,9 @@ type TrialDefinition = {
   commissionPerTrade: decimal;
   commissionPerShare: decimal;
   duration: NodaTime.Period;
-  startTime: int64;
-  strategyParams: Map<string, string>
+  startTime: NodaTime.ZonedDateTime;
+  strategyParams: Map<string, string>;
+  securityId: int
 }
 
 let decodeMessage message: TrialDefinition =
@@ -29,11 +30,12 @@ let decodeMessage message: TrialDefinition =
   let commissionPerTrade = json?commission_per_trade.AsDecimal()
   let commissionPerShare = json?commission_per_share.AsDecimal()
   let duration = json?duration.AsString()
-  let startTime = json?start_time.AsInteger64()
+  let startTime = json?start_time.AsInteger64() |> timestampToDatetime
   let strategyParams = 
     (json?strategy_params).Properties 
     |> Array.map (function (k,v) -> (k, v.AsString()))
     |> Map.ofArray
+  let securityId = json?security_id.AsInteger()
   {
     strategyName = strategyName 
     principal = principal
@@ -42,6 +44,7 @@ let decodeMessage message: TrialDefinition =
     duration = duration |> parsePeriod |> Option.getOrElse (NodaTime.Period.FromWeeks(1L))
     startTime = startTime
     strategyParams = strategyParams
+    securityId = securityId
   }
 
 let run connectionString beanstalkdHost beanstalkdPort =
@@ -61,7 +64,15 @@ let run connectionString beanstalkdHost beanstalkdPort =
 
       let trialDefinition = decodeMessage payload
 
-      strategies.BuyAndHold.Scenarios.runWeeklyTrials dao
+      if trialDefinition.strategyName = strategies.BuyAndHold.StrategyName then
+        strategies.BuyAndHold.Scenarios.runWeeklyTrial 
+          dao
+          trialDefinition.principal
+          trialDefinition.commissionPerTrade
+          trialDefinition.commissionPerShare
+          trialDefinition.duration
+          trialDefinition.startTime
+          trialDefinition.securityId
 
       client.delete jobId |> ignore
     | Failure msg ->

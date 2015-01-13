@@ -28,7 +28,7 @@ let defaultWeeklyTradingHours = Map.ofList [
                                              DayOfWeek.Friday |> dayOfWeekToInt, defaultDailyTradingHours
                                            ]
 
-let defaultTradingSchedule (date: LocalDate): MInterval =
+let defaultNormalTradingSchedule (date: LocalDate): MInterval =
   let tradingHours = Map.tryFind date.DayOfWeek defaultWeeklyTradingHours
   tradingHours
   |> Option.map 
@@ -42,7 +42,7 @@ let defaultTradingSchedule (date: LocalDate): MInterval =
 // returns an MInterval spanning the time of the holiday - this MInterval represents the time we take off for the holiday
 let defaultHolidaySchedule (date: LocalDate): MInterval =
   if isAnyHoliday date then
-    defaultTradingSchedule date
+    defaultNormalTradingSchedule date
   else
     emptyMInterval
 

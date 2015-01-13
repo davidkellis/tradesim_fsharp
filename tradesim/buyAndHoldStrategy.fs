@@ -18,6 +18,8 @@ open dke.tradesim.Schedule
 open dke.tradesim.Securities
 open dke.tradesim.Trial
 
+let StrategyName = "Buy And Hold"
+
 type State = {
   previousTime: ZonedDateTime
   time: ZonedDateTime
@@ -102,15 +104,17 @@ let TradingStrategyImpl: TradingStrategy<Strategy, State> = {
 }
 
 let buildStrategy dao: Strategy = {
-  name = "Buy And Hold"
+  name = StrategyName
   buildInitialState = initialState
   buildNextState = nextState dao
   isFinalState = fixedTradingPeriodIsFinalState TradingStrategyImpl StrategyStateImpl
 }
 
+let defaultTradingSchedule = buildTradingSchedule defaultNormalTradingSchedule defaultHolidaySchedule
+let defaultOneDayTimeIncrementer = buildScheduledTimeIncrementer (hours 12L) (days 1L) defaultTradingSchedule
+
 let buildDefaultBuyAndHoldStrategyAndTrials dao tickerSymbols principal commissionPerTrade commissionPerShare trialPeriodLength: Strategy * seq<Trial> =
-  let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
-  let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+  let timeIncrementerFn = defaultOneDayTimeIncrementer
   let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
   let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
   let strategy = buildStrategy dao
@@ -120,13 +124,12 @@ let buildDefaultBuyAndHoldStrategyAndTrials dao tickerSymbols principal commissi
   let trialIntervalBuilderFn = 
     fun securityIds trialPeriodLength -> 
       buildAllTrialIntervals dao (days 1L) securityIds trialPeriodLength 
-      |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+      |> Seq.filter (fun interval -> isTradingDay defaultTradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
   let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
   (strategy, trials)
 
 let buildWeeklyBuyAndHoldStrategyAndTrials dao tickerSymbols principal commissionPerTrade commissionPerShare trialPeriodLength: Strategy * seq<Trial> =
-  let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
-  let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+  let timeIncrementerFn = defaultOneDayTimeIncrementer
   let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
   let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
   let strategy = buildStrategy dao
@@ -136,7 +139,7 @@ let buildWeeklyBuyAndHoldStrategyAndTrials dao tickerSymbols principal commissio
   let trialIntervalBuilderFn = 
     fun securityIds trialPeriodLength -> 
       buildNonOverlappingWeeklyTrialIntervals dao securityIds
-      |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+      |> Seq.filter (fun interval -> isTradingDay defaultTradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
   let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds (weeks 1L)
   (strategy, trials)
 
@@ -146,9 +149,8 @@ module Scenarios =
     let trialPeriodLength = years 1L
     let startTime = datetime 2003 2 15 12 0 0
     let endTime = (startTime.LocalDateTime + trialPeriodLength).InZoneLeniently(EasternTimeZone)
-    let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
-    let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
-//    let timeIncrementerFn = buildInitialJumpTimeIncrementer (hours 12L) (periodBetween startTime endTime) (days 1L) tradingSchedule
+    let timeIncrementerFn = defaultOneDayTimeIncrementer
+//    let timeIncrementerFn = buildInitialJumpTimeIncrementer (hours 12L) (periodBetween startTime endTime) (days 1L) defaultTradingSchedule
 //    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
 //    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
     let purchaseFillPriceFn = naiveFillPrice dao (findEodBar dao) barSimQuote
@@ -178,8 +180,7 @@ module Scenarios =
     TrialSetStats.printReport trialResults
 
   let compareMutualFunds dao: unit =
-    let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
-    let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+    let timeIncrementerFn = defaultOneDayTimeIncrementer
     let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
     let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
     let strategy = buildStrategy dao
@@ -205,7 +206,7 @@ module Scenarios =
     let trialIntervalBuilderFn = 
       fun securityIds trialPeriodLength -> 
         buildAllTrialIntervals dao (days 1L) securityIds trialPeriodLength 
-        |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+        |> Seq.filter (fun interval -> isTradingDay defaultTradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
     let trialPeriodLength = years 1L
 
     securities
@@ -219,9 +220,28 @@ module Scenarios =
         TrialSetStats.printReport trialResults
       )
 
+  let runWeeklyTrial dao principal commissionPerTrade commissionPerShare duration startTime securityId: unit =
+    let timeIncrementerFn = defaultOneDayTimeIncrementer
+    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
+    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+    let strategy = buildStrategy dao
+    let trial: Trial = {
+      securityIds = [securityId]
+      principal = principal
+      commissionPerTrade = commissionPerTrade
+      commissionPerShare = commissionPerShare
+      startTime = startTime
+      endTime = Period.add duration startTime
+      duration = duration
+      incrementTime = timeIncrementerFn
+      purchaseFillPrice = purchaseFillPriceFn
+      saleFillPrice = saleFillPriceFn
+    }
+    info "Running 1 trial"
+    runAndLogTrials TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
+
   let runWeeklyTrials dao: unit =
-    let tradingSchedule = buildTradingSchedule defaultTradingSchedule defaultHolidaySchedule
-    let timeIncrementerFn = buildScheduledTimeIncrementer (hours 12L) (days 1L) tradingSchedule
+    let timeIncrementerFn = defaultOneDayTimeIncrementer
     let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
     let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
     let strategy = buildStrategy dao
@@ -232,7 +252,7 @@ module Scenarios =
     let trialIntervalBuilderFn = 
       fun securityIds trialPeriodLength -> 
         buildAllTrialIntervals dao (weeks 1L) securityIds trialPeriodLength 
-        |> Seq.filter (fun interval -> isTradingDay tradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
+        |> Seq.filter (fun interval -> isTradingDay defaultTradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
     let trialPeriodLength = weeks 1L
 
     securities

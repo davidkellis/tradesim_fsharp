@@ -290,14 +290,26 @@ let buildTrialGenerator (principal: decimal)
     }
   )
 
+let buildTrialsOverIntervals (intervals: seq<Interval>)
+                             (trialGeneratorFn: TrialGenerator)
+                             (securityIds: Vector<SecurityId>)
+                             (trialPeriodLength: Period)
+                             : seq<Trial> =
+  intervals
+  |> Seq.map (fun interval -> 
+    trialGeneratorFn securityIds 
+                     (interval.Start |> instantToEasternTime)
+                     (interval.End |> instantToEasternTime)
+                     trialPeriodLength
+  )
+
 let buildTrials (trialIntervalGeneratorFn: Vector<SecurityId> -> Period -> seq<Interval>)
                 (trialGeneratorFn: TrialGenerator)
                 (securityIds: Vector<SecurityId>)
                 (trialPeriodLength: Period)
                 : seq<Trial> =
-  trialIntervalGeneratorFn securityIds trialPeriodLength
-  |> Seq.map
-    (fun interval -> trialGeneratorFn securityIds (interval.Start |> instantToEasternTime) (interval.End |> instantToEasternTime) trialPeriodLength)
+  let trialIntervals = trialIntervalGeneratorFn securityIds trialPeriodLength
+  buildTrialsOverIntervals trialIntervals trialGeneratorFn securityIds trialPeriodLength
 
 let runTrials strategyInterface stateInterface dao (strategy: 'StrategyT) (trials: seq<Trial>): seq<'StateT> = 
   trials |> Seq.map (fun trial -> runTrial strategyInterface stateInterface dao strategy trial) |> Seq.cache

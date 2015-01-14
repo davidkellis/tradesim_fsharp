@@ -6,11 +6,18 @@ open jack
 open FSharp.Data
 open FSharp.Data.JsonExtensions
 open FSharpx
+open FSharpx.Collections
+open NodaTime
 
 open dke.tradesim
+open Core
 open Database
 open Logging
 open Time
+open Trial
+open Quotes
+open Schedule
+open strategies.BuyAndHold
 
 type WeeklyTrialSetDefinition = {
   strategyName: string; 
@@ -18,8 +25,8 @@ type WeeklyTrialSetDefinition = {
   principal: decimal; 
   commissionPerTrade: decimal;
   commissionPerShare: decimal;
-  mondayOfFirstWeeklyTrial: NodaTime.LocalDate;
-  mondayOfLastWeeklyTrial: NodaTime.LocalDate
+  intervalStart: NodaTime.LocalDate;
+  intervalEnd: NodaTime.LocalDate
 }
 
 let decodeMessage message: WeeklyTrialSetDefinition =
@@ -29,17 +36,41 @@ let decodeMessage message: WeeklyTrialSetDefinition =
   let principal = json?principal.AsDecimal()
   let commissionPerTrade = json?commission_per_trade.AsDecimal()
   let commissionPerShare = json?commission_per_share.AsDecimal()
-  let mondayOfFirstWeeklyTrial = json?monday_of_first_weekly_trial.AsInteger() |> datestampToDate
-  let mondayOfLastWeeklyTrial = json?monday_of_last_weekly_trial.AsInteger() |> datestampToDate
+  let intervalStart = json?interval_start.AsInteger() |> datestampToDate
+  let intervalEnd = json?interval_end.AsInteger() |> datestampToDate
   {
     strategyName = strategyName 
     securityId = securityId
     principal = principal
     commissionPerTrade = commissionPerTrade
     commissionPerShare = commissionPerShare
-    mondayOfFirstWeeklyTrial = mondayOfFirstWeeklyTrial
-    mondayOfLastWeeklyTrial = mondayOfLastWeeklyTrial
+    intervalStart = intervalStart
+    intervalEnd = intervalEnd
   }
+
+// returns weekly non-overlapping intervals
+let buildNonOverlappingWeeklyTrialIntervalsBetween startDate endDate: seq<Interval> =
+  let oneWeek = weeks 1L
+  let firstMondayAtMarketOpen = firstMondayAtOrAfter startDate |> localDateToDateTime 9 30 0
+  let lastMondayAtMarketOpen = nthWeekdayAtOrBeforeDate 2 DayOfWeek.Monday endDate |> localDateToDateTime 9 30 0
+  interspersedIntervals2 firstMondayAtMarketOpen lastMondayAtMarketOpen oneWeek oneWeek
+
+let runWeeklyTrials dao securityId principal commissionPerTrade commissionPerShare intervalStart intervalEnd: unit =
+  let timeIncrementerFn = defaultOneDayTimeIncrementer
+  let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
+  let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
+  let strategy = buildStrategy dao
+  let trialGenerator = buildTrialGenerator principal commissionPerTrade commissionPerShare timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
+  let securityIds = [securityId] |> Vector.ofSeq
+  let trialIntervals = buildNonOverlappingWeeklyTrialIntervalsBetween intervalStart intervalEnd
+  let trialPeriodLength = weeks 1L
+
+  info <| sprintf "Building trials for %i" securityId
+  let trials = buildTrialsOverIntervals trialIntervals trialGenerator securityIds trialPeriodLength
+  info <| sprintf "Running %i trials" (Seq.length trials)
+  let (finalStates, trialResults) = runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials
+  TrialSetStats.printReport trialResults
+
 
 let run connectionString beanstalkdHost beanstalkdPort =
   info "Awaiting job from queue run_missing_weekly_fund_trials"
@@ -59,16 +90,16 @@ let run connectionString beanstalkdHost beanstalkdPort =
       let trialSetDefinition = decodeMessage payload
 
       if trialSetDefinition.strategyName = strategies.BuyAndHold.StrategyName then
-        strategies.BuyAndHold.Scenarios.runWeeklyTrials
+        runWeeklyTrials
           dao
           trialSetDefinition.securityId
           trialSetDefinition.principal
           trialSetDefinition.commissionPerTrade
           trialSetDefinition.commissionPerShare
-          trialSetDefinition.mondayOfFirstWeeklyTrial
-          trialSetDefinition.mondayOfLastWeeklyTrial
+          trialSetDefinition.intervalStart
+          trialSetDefinition.intervalEnd
 
       client.delete jobId |> ignore
-    | Failure msg ->
+    | jack.Failure msg ->
       failwith msg
       keepLooping <- false

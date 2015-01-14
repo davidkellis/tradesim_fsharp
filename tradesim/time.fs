@@ -208,11 +208,14 @@ let infInterspersedIntervals (startTime: ZonedDateTime) (intervalLength: Period)
   let startTimes = infPeriodicalTimeSeries startTime separationLength
   Seq.map (fun t -> intervalBetween t (Period.add intervalLength t)) startTimes
 
+let interspersedIntervals2 (firstIntervalStartTime: ZonedDateTime) (lastIntervalStartTime: ZonedDateTime) (intervalLength: Period) (separationLength: Period): seq<Interval> =
+  let startTimes = infPeriodicalTimeSeries firstIntervalStartTime separationLength |> Seq.takeWhile (fun t -> t <= lastIntervalStartTime)
+  startTimes |> Seq.map (fun t -> intervalBetween t (Period.add intervalLength t))
+
 let interspersedIntervals (startTimeInterval: Interval) (intervalLength: Period) (separationLength: Period): seq<Interval> =
   let startTime = startTimeInterval.Start |> instantToZonedTime EasternTimeZone
   let endTime = startTimeInterval.End |> instantToZonedTime EasternTimeZone
-  let startTimes = infPeriodicalTimeSeries startTime separationLength |> Seq.takeWhile (fun t -> t <= endTime)
-  Seq.map (fun t -> intervalBetween t (Period.add intervalLength t)) startTimes
+  interspersedIntervals2 startTime endTime intervalLength separationLength
 
 let daysInMonth (year: int) (month: int): int = DateTime.DaysInMonth(year, month)
 

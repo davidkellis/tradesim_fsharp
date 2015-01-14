@@ -219,21 +219,3 @@ module Scenarios =
         let (finalStates, trialResults) = runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials
         TrialSetStats.printReport trialResults
       )
-
-  let runWeeklyTrials dao securityId principal commissionPerTrade commissionPerShare mondayOfFirstWeeklyTrial mondayOfLastWeeklyTrial: unit =
-    let timeIncrementerFn = defaultOneDayTimeIncrementer
-    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
-    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
-    let strategy = buildStrategy dao
-    let trialGenerator = buildTrialGenerator principal commissionPerTrade commissionPerShare timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
-    let trialIntervalBuilderFn = 
-      fun securityIds trialPeriodLength -> 
-        buildAllTrialIntervals dao (weeks 1L) securityIds trialPeriodLength 
-        |> Seq.filter (fun interval -> isTradingDay defaultTradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
-    let trialPeriodLength = weeks 1L
-
-    info <| sprintf "Building trials for %i" securityId
-    let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
-    info <| sprintf "Running %i trials" (Seq.length trials)
-    let (finalStates, trialResults) = runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials
-    TrialSetStats.printReport trialResults

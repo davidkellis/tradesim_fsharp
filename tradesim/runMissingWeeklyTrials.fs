@@ -12,39 +12,33 @@ open Database
 open Logging
 open Time
 
-type TrialDefinition = {
+type WeeklyTrialSetDefinition = {
   strategyName: string; 
+  securityId: int;
   principal: decimal; 
   commissionPerTrade: decimal;
   commissionPerShare: decimal;
-  duration: NodaTime.Period;
-  startTime: NodaTime.ZonedDateTime;
-  strategyParams: Map<string, string>;
-  securityId: int
+  mondayOfFirstWeeklyTrial: NodaTime.LocalDate;
+  mondayOfLastWeeklyTrial: NodaTime.LocalDate
 }
 
-let decodeMessage message: TrialDefinition =
+let decodeMessage message: WeeklyTrialSetDefinition =
   let json = JsonValue.Parse(message)
-  let strategyName = json?strategyName.AsString()
+  let strategyName = json?strategy_name.AsString()
+  let securityId = json?security_id.AsInteger()
   let principal = json?principal.AsDecimal()
   let commissionPerTrade = json?commission_per_trade.AsDecimal()
   let commissionPerShare = json?commission_per_share.AsDecimal()
-  let duration = json?duration.AsString()
-  let startTime = json?start_time.AsInteger64() |> timestampToDatetime
-  let strategyParams = 
-    (json?strategy_params).Properties 
-    |> Array.map (function (k,v) -> (k, v.AsString()))
-    |> Map.ofArray
-  let securityId = json?security_id.AsInteger()
+  let mondayOfFirstWeeklyTrial = json?monday_of_first_weekly_trial.AsInteger() |> datestampToDate
+  let mondayOfLastWeeklyTrial = json?monday_of_last_weekly_trial.AsInteger() |> datestampToDate
   {
     strategyName = strategyName 
+    securityId = securityId
     principal = principal
     commissionPerTrade = commissionPerTrade
     commissionPerShare = commissionPerShare
-    duration = duration |> parsePeriod |> Option.getOrElse (NodaTime.Period.FromWeeks(1L))
-    startTime = startTime
-    strategyParams = strategyParams
-    securityId = securityId
+    mondayOfFirstWeeklyTrial = mondayOfFirstWeeklyTrial
+    mondayOfLastWeeklyTrial = mondayOfLastWeeklyTrial
   }
 
 let run connectionString beanstalkdHost beanstalkdPort =
@@ -62,17 +56,17 @@ let run connectionString beanstalkdHost beanstalkdPort =
     | Success (jobId, payload) ->
       printfn "jobId=%i  payload=%s" jobId payload
 
-      let trialDefinition = decodeMessage payload
+      let trialSetDefinition = decodeMessage payload
 
-      if trialDefinition.strategyName = strategies.BuyAndHold.StrategyName then
-        strategies.BuyAndHold.Scenarios.runWeeklyTrial 
+      if trialSetDefinition.strategyName = strategies.BuyAndHold.StrategyName then
+        strategies.BuyAndHold.Scenarios.runWeeklyTrials
           dao
-          trialDefinition.principal
-          trialDefinition.commissionPerTrade
-          trialDefinition.commissionPerShare
-          trialDefinition.duration
-          trialDefinition.startTime
-          trialDefinition.securityId
+          trialSetDefinition.securityId
+          trialSetDefinition.principal
+          trialSetDefinition.commissionPerTrade
+          trialSetDefinition.commissionPerShare
+          trialSetDefinition.mondayOfFirstWeeklyTrial
+          trialSetDefinition.mondayOfLastWeeklyTrial
 
       client.delete jobId |> ignore
     | Failure msg ->

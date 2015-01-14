@@ -1,23 +1,22 @@
 ﻿<Properties StartupItem="tradesim/tradesim.fsproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/runMissingWeeklyTrials.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/buyAndHoldStrategy.fs">
     <Files>
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
-      <File FileName="tradesim/runner.fs" Line="78" Column="78" />
-      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="22" Column="22" />
-      <File FileName="tradesim/db.fs" Line="13" Column="13" />
+      <File FileName="tradesim/runner.fs" Line="1" Column="1" />
+      <File FileName="tradesim/buyAndHoldStrategy.fs" Line="1" Column="1" />
+      <File FileName="tradesim/db.fs" Line="1" Column="1" />
       <File FileName="tradesim/trial.fs" Line="1" Column="1" />
       <File FileName="tradesim/ordering.fs" Line="1" Column="1" />
       <File FileName="tradesim/securities.fs" Line="1" Column="1" />
       <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
-      <File FileName="tradesim/time.fs" Line="16" Column="16" />
+      <File FileName="tradesim/time.fs" Line="1" Column="1" />
       <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
       <File FileName="tradesim/array.fs" Line="1" Column="1" />
       <File FileName="tradesim/stats.fs" Line="1" Column="1" />
       <File FileName="tradesim/trialSetStats.fs" Line="1" Column="1" />
       <File FileName="tradesim/priceHistory.fs" Line="1" Column="1" />
       <File FileName="tradesim/schedule.fs" Line="1" Column="1" />
-      <File FileName="tradesim/runMissingWeeklyTrials.fs" Line="5" Column="5" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

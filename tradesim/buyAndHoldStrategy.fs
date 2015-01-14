@@ -220,48 +220,20 @@ module Scenarios =
         TrialSetStats.printReport trialResults
       )
 
-  let runWeeklyTrial dao principal commissionPerTrade commissionPerShare duration startTime securityId: unit =
+  let runWeeklyTrials dao securityId principal commissionPerTrade commissionPerShare mondayOfFirstWeeklyTrial mondayOfLastWeeklyTrial: unit =
     let timeIncrementerFn = defaultOneDayTimeIncrementer
     let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
     let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
     let strategy = buildStrategy dao
-    let trial: Trial = {
-      securityIds = [securityId]
-      principal = principal
-      commissionPerTrade = commissionPerTrade
-      commissionPerShare = commissionPerShare
-      startTime = startTime
-      endTime = Period.add duration startTime
-      duration = duration
-      incrementTime = timeIncrementerFn
-      purchaseFillPrice = purchaseFillPriceFn
-      saleFillPrice = saleFillPriceFn
-    }
-    info "Running 1 trial"
-    runAndLogTrials TradingStrategyImpl StrategyStateImpl dao strategy [trial] |> ignore
-
-  let runWeeklyTrials dao: unit =
-    let timeIncrementerFn = defaultOneDayTimeIncrementer
-    let purchaseFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barHigh 0.3M
-    let saleFillPriceFn = tradingBloxFillPriceWithSlippage dao (findEodBar dao) barSimQuote barLow 0.3M
-    let strategy = buildStrategy dao
-    let exchanges = PrimaryUsExchanges dao
-    let tickerSymbols = ["VFINX"; "SPY"]
-    let securities = findSecurities dao exchanges tickerSymbols
-    let trialGenerator = buildTrialGenerator 10000M 0M 0M timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
+    let trialGenerator = buildTrialGenerator principal commissionPerTrade commissionPerShare timeIncrementerFn purchaseFillPriceFn saleFillPriceFn
     let trialIntervalBuilderFn = 
       fun securityIds trialPeriodLength -> 
         buildAllTrialIntervals dao (weeks 1L) securityIds trialPeriodLength 
         |> Seq.filter (fun interval -> isTradingDay defaultTradingSchedule (interval.Start |> instantToEasternTime |> dateTimeToLocalDate) )
     let trialPeriodLength = weeks 1L
 
-    securities
-    |> Seq.iter
-      (fun security ->
-        let securityIds = [security.id |> Option.get] |> Vector.ofSeq
-        info <| sprintf "Building trials for %s" security.symbol
-        let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
-        info <| sprintf "Running %i trials" (Seq.length trials)
-        let (finalStates, trialResults) = runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials
-        TrialSetStats.printReport trialResults
-      )
+    info <| sprintf "Building trials for %i" securityId
+    let trials = buildTrials trialIntervalBuilderFn trialGenerator securityIds trialPeriodLength
+    info <| sprintf "Running %i trials" (Seq.length trials)
+    let (finalStates, trialResults) = runAndLogTrialsInParallel TradingStrategyImpl StrategyStateImpl dao strategy trials
+    TrialSetStats.printReport trialResults

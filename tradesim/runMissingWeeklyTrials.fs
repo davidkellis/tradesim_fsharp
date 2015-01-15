@@ -73,7 +73,7 @@ let runWeeklyTrials dao securityId principal commissionPerTrade commissionPerSha
 
 
 let run connectionString beanstalkdHost beanstalkdPort =
-  info "Awaiting job from queue run_missing_weekly_fund_trials"
+  info "Awaiting job from run_missing_weekly_fund_trials queue"
 
   let dao = Postgres.createDao connectionString
 

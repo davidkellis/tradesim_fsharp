@@ -1,11 +1,14 @@
 ﻿<Properties StartupItem="tradesim/tradesim.fsproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/buyAndHoldStrategy.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/computeMissingSamplingDistributions.fs">
     <Files>
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
       <File FileName="tradesim/runner.fs" Line="1" Column="1" />
       <File FileName="tradesim/buyAndHoldStrategy.fs" Line="1" Column="1" />
-      <File FileName="tradesim/db.fs" Line="1" Column="1" />
+      <File FileName="tradesim/runMissingWeeklyTrials.fs" Line="27" Column="27" />
+      <File FileName="tradesim/computeMissingSamplingDistributions.fs" Line="5" Column="5" />
+      <File FileName="tradesim/samplingDistribution.fs" Line="4" Column="4" />
+      <File FileName="tradesim/db.fs" Line="34" Column="34" />
       <File FileName="tradesim/trial.fs" Line="1" Column="1" />
       <File FileName="tradesim/ordering.fs" Line="1" Column="1" />
       <File FileName="tradesim/securities.fs" Line="1" Column="1" />

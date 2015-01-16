@@ -12,8 +12,8 @@ open MathNet.Numerics.LinearRegression
 open Math
 open dke.tradesim.Seq
 
-let buildSampleWithReplacement = Array.getRandomElements
-let buildSampleWithoutReplacement = Array.getRandomElements     // todo, implement this
+let sampleWithReplacement = Array.getRandomElements
+let sampleWithoutReplacement = Array.getRandomElements     // todo, implement this
 
 // numberOfSamples is the number of samples to generate
 // sampleSize is the number of elements that should be placed into each sample
@@ -26,26 +26,20 @@ let sample numberOfSamples sampleSize withReplacement (xs: array<'T>): array<arr
 
   let mappingFn = 
     if withReplacement then
-      (fun _ -> buildSampleWithReplacement sampleSize xs)
+      (fun _ -> sampleWithReplacement sampleSize xs)
     else
-      (fun _ -> buildSampleWithoutReplacement sampleSize xs)
+      (fun _ -> sampleWithoutReplacement sampleSize xs)
 
   samplesToBuild
   |> PSeq.map mappingFn
   |> PSeq.toArray
 
+let buildBootstrapSample (xs: array<'T>): array<'T> = sampleWithReplacement xs.Length xs
+
 let buildBootstrapSamples numberOfSamples (originalSample: array<'T>): array<array<'T>> = 
   sample numberOfSamples (Array.length originalSample) true originalSample
 
 module Sample =
-  let mean (xs: seq<decimal>): decimal =
-    let rec onlineMean (enum: IEnumerator<decimal>) (sum: decimal) (length: int64): decimal =
-      if enum.MoveNext() then
-        onlineMean enum (sum + enum.Current) (length + 1L)
-      else
-        sum / decimal length
-    onlineMean (xs.GetEnumerator()) 0M 0L
-
   (*
    * Example:
    *   ols(DenseMatrix((1.59, 1.0), (2.89, 1.0), (3.76, 1.0), (4.93, 1.0)), DenseVector(1.14, 2.54, 3.89, 4.18))
@@ -199,90 +193,177 @@ module Sample =
     Seq.iter (fun (x, y) -> onlineRegression.push(x, y)) pairs
     {slope = onlineRegression.slope; intercept = onlineRegression.intercept}
 
+  module Seq =
+    let mean (xs: seq<decimal>): decimal =
+      let rec onlineMean (enum: IEnumerator<decimal>) (sum: decimal) (length: int64): decimal =
+        if enum.MoveNext() then
+          onlineMean enum (sum + enum.Current) (length + 1L)
+        else
+          sum / decimal length
+      onlineMean (xs.GetEnumerator()) 0M 0L
 
-  // This implementation is based on http://en.wikipedia.org/wiki/Quantiles#Estimating_the_quantiles_of_a_population
-  // For additional information, see:
-  // http://www.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
-  // http://en.wikipedia.org/wiki/Percentile
-  // http://www.mathworks.com/help/stats/quantiles-and-percentiles.html
-  // 
-  // hFn is the function:
-  //   (n: decimal) -> (p: decimal) -> decimal
-  //   such that hFn returns a 1-based real-valued index (which may or may not be a whole-number) into the array of sorted values in xs
-  // qSubPFn is the function:
-  //   (getIthX: (int -> decimal)) -> (h: decimal) -> decimal
-  //   such that getIthX returns the zero-based ith element from the array of sorted values in xs
-  // percentages is a sequence of percentages expressed as real numbers in the range [0.0, 100.0]
-  let quantiles
-      (hFn: decimal -> decimal -> decimal) 
-      (qSubPFn: (int -> decimal) -> decimal -> decimal) 
-      (interpolate: bool) 
-      (isSorted: bool) 
-      (percentages: seq<decimal>)
-      (xs: seq<decimal>)
-      : seq<decimal> =
-    let sortedXs = (if isSorted then xs else Seq.sort xs) |> Seq.toArray
-    let n = decimal sortedXs.Length   // n is the sample size
-    let q = 100m
-    let p k = k / q
-    let subtract1 = (fun x -> x - 1m)
-    let hs = Seq.map (p >> hFn n >> subtract1) percentages   // NOTE: these indices are 0-based indices into sortedXs
-    let getIthX = Array.get sortedXs
+    // This implementation is based on http://en.wikipedia.org/wiki/Quantiles#Estimating_the_quantiles_of_a_population
+    // For additional information, see:
+    // http://www.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
+    // http://en.wikipedia.org/wiki/Percentile
+    // http://www.mathworks.com/help/stats/quantiles-and-percentiles.html
+    // 
+    // hFn is the function:
+    //   (n: decimal) -> (p: decimal) -> decimal
+    //   such that hFn returns a 1-based real-valued index (which may or may not be a whole-number) into the array of sorted values in xs
+    // qSubPFn is the function:
+    //   (getIthX: (int -> decimal)) -> (h: decimal) -> decimal
+    //   such that getIthX returns the zero-based ith element from the array of sorted values in xs
+    // percentages is a sequence of percentages expressed as real numbers in the range [0.0, 100.0]
+    let quantiles
+        (hFn: decimal -> decimal -> decimal) 
+        (qSubPFn: (int -> decimal) -> decimal -> decimal) 
+        (interpolate: bool) 
+        (isSorted: bool) 
+        (percentages: seq<decimal>)
+        (xs: seq<decimal>)
+        : seq<decimal> =
+      let sortedXs = (if isSorted then xs else Seq.sort xs) |> Seq.toArray
+      let n = decimal sortedXs.Length   // n is the sample size
+      let q = 100m
+      let p k = k / q
+      let subtract1 = (fun x -> x - 1m)
+      let hs = Seq.map (p >> hFn n >> subtract1) percentages   // NOTE: these indices are 0-based indices into sortedXs
+      let getIthX = Array.get sortedXs
 
-    if interpolate then                   // interpolate
-      Seq.map
-        (fun h ->
-          let i = Decimal.floor h         // i is a 0-based index into sortedXs   (smaller index to interpolate between)
-          let j = Decimal.ceil h          // j is a 0-based index into sortedXs   (larger index to interpolate between)
-          let f = h - i                   // f is the fractional part of real-valued index h
-          let intI = int i
-          let intJ = int j
-          (1m - f) * getIthX intI + f * getIthX intJ    // [1] - (1-f) * x_k + f * x_k+1 === x_k + f*(x_k+1 - x_k)
-          // [1]:
-          // see: http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
-          // also: (1-f) * x_k + f * x_k+1 === x_k - f*x_k + f*x_k+1 === x_k + f*(x_k+1 - x_k) which is what I'm after
+      if interpolate then                   // interpolate
+        Seq.map
+          (fun h ->
+            let i = Decimal.floor h         // i is a 0-based index into sortedXs   (smaller index to interpolate between)
+            let j = Decimal.ceil h          // j is a 0-based index into sortedXs   (larger index to interpolate between)
+            let f = h - i                   // f is the fractional part of real-valued index h
+            let intI = int i
+            let intJ = int j
+            (1m - f) * getIthX intI + f * getIthX intJ    // [1] - (1-f) * x_k + f * x_k+1 === x_k + f*(x_k+1 - x_k)
+            // [1]:
+            // see: http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
+            // also: (1-f) * x_k + f * x_k+1 === x_k - f*x_k + f*x_k+1 === x_k + f*(x_k+1 - x_k) which is what I'm after
+          )
+          hs
+      else                                  // floor the index instead of interpolating
+        Seq.map
+          (fun h ->
+            let i = int (Decimal.floor h)   // i is a 0-based index into sortedXs
+            getIthX i
+          )
+          hs
+    
+    // implementation based on description of R-1 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
+    let quantilesR1 (interpolate: bool) (isSorted: bool) (percentages: seq<decimal>) (xs: seq<decimal>): seq<decimal> =
+      quantiles 
+        (fun (n: decimal) (p: decimal) -> if p = 0m then 1m else n * p + 0.5m)
+        (fun (getIthX: (int -> decimal)) (h: decimal) -> getIthX (int (Decimal.ceil (h - 0.5m))))
+        interpolate
+        isSorted
+        percentages
+        xs
+
+    // The R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
+    // see: http://stat.ethz.ch/R-manual/R-patched/library/stats/html/quantile.html
+    // implementation based on description of R-8 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
+    let OneThird = 1m / 3m
+    let TwoThirds = 2m / 3m
+    let quantilesR8 (interpolate: bool) (isSorted: bool) (percentages: seq<decimal>) (xs: seq<decimal>): seq<decimal> =
+      quantiles 
+        (fun (n: decimal) (p: decimal) ->
+          if p < TwoThirds / (n + OneThird) then 1m
+          elif p >= (n - OneThird) / (n + OneThird) then n
+          else (n + OneThird) * p + OneThird
         )
-        hs
-    else                                  // floor the index instead of interpolating
-      Seq.map
-        (fun h ->
-          let i = int (Decimal.floor h)   // i is a 0-based index into sortedXs
-          getIthX i
+        (fun (getIthX: (int -> decimal)) (h: decimal) -> 
+          let floorHDec = Decimal.floor h
+          let floorH = int floorHDec
+          getIthX floorH + (h - floorHDec) * (getIthX (floorH + 1) - getIthX floorH)
         )
-        hs
-  
-  // implementation based on description of R-1 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
-  let quantilesR1 (interpolate: bool) (isSorted: bool) (percentages: seq<decimal>) (xs: seq<decimal>): seq<decimal> =
-    quantiles 
-      (fun (n: decimal) (p: decimal) -> if p = 0m then 1m else n * p + 0.5m)
-      (fun (getIthX: (int -> decimal)) (h: decimal) -> getIthX (int (Decimal.ceil (h - 0.5m))))
-      interpolate
-      isSorted
-      percentages
-      xs
+        interpolate
+        isSorted
+        percentages
+        xs
 
-  // The R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
-  // see: http://stat.ethz.ch/R-manual/R-patched/library/stats/html/quantile.html
-  // implementation based on description of R-8 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
-  let OneThird = 1m / 3m
-  let TwoThirds = 2m / 3m
-  let quantilesR8 (interpolate: bool) (isSorted: bool) (percentages: seq<decimal>) (xs: seq<decimal>): seq<decimal> =
-    quantiles 
-      (fun (n: decimal) (p: decimal) ->
-        if p < TwoThirds / (n + OneThird) then 1m
-        elif p >= (n - OneThird) / (n + OneThird) then n
-        else (n + OneThird) * p + OneThird
-      )
-      (fun (getIthX: (int -> decimal)) (h: decimal) -> 
-        let floorHDec = Decimal.floor h
-        let floorH = int floorHDec
-        getIthX floorH + (h - floorHDec) * (getIthX (floorH + 1) - getIthX floorH)
-      )
-      interpolate
-      isSorted
-      percentages
-      xs
+    // we use the type 8 quantile method because the R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
+    let percentiles percentages xs = quantilesR8 true false percentages xs
+    let percentilesSorted percentages xs = quantilesR8 true true percentages xs
 
-  // we use the type 8 quantile method because the R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
-  let percentiles percentages xs = quantilesR8 true false percentages xs
-  let percentilesSorted percentages xs = quantilesR8 true true percentages xs
+  module Array =
+    let mean sample = 
+      let n = Array.length sample |> decimal
+      Array.sum sample / n
+
+    let quantiles
+        (hFn: decimal -> decimal -> decimal) 
+        (qSubPFn: (int -> decimal) -> decimal -> decimal) 
+        (interpolate: bool) 
+        (isSorted: bool) 
+        (percentages: array<decimal>)
+        (xs: array<decimal>)
+        : array<decimal> =
+      let sortedXs = (if isSorted then xs else Array.sort xs)
+      let n = decimal sortedXs.Length   // n is the sample size
+      let q = 100m
+      let p k = k / q
+      let subtract1 = (fun x -> x - 1m)
+      let hs = percentages |> Array.map (p >> hFn n >> subtract1)   // NOTE: these indices are 0-based indices into sortedXs
+      let getIthX = Array.get sortedXs
+
+      if interpolate then                   // interpolate
+        Array.map
+          (fun h ->
+            let i = Decimal.floor h         // i is a 0-based index into sortedXs   (smaller index to interpolate between)
+            let j = Decimal.ceil h          // j is a 0-based index into sortedXs   (larger index to interpolate between)
+            let f = h - i                   // f is the fractional part of real-valued index h
+            let intI = int i
+            let intJ = int j
+            (1m - f) * getIthX intI + f * getIthX intJ    // [1] - (1-f) * x_k + f * x_k+1 === x_k + f*(x_k+1 - x_k)
+            // [1]:
+            // see: http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
+            // also: (1-f) * x_k + f * x_k+1 === x_k - f*x_k + f*x_k+1 === x_k + f*(x_k+1 - x_k) which is what I'm after
+          )
+          hs
+      else                                  // floor the index instead of interpolating
+        Array.map
+          (fun h ->
+            let i = int (Decimal.floor h)   // i is a 0-based index into sortedXs
+            getIthX i
+          )
+          hs
+
+    // implementation based on description of R-1 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
+    let quantilesR1 (interpolate: bool) (isSorted: bool) (percentages: array<decimal>) (xs: array<decimal>): array<decimal> =
+      quantiles 
+        (fun (n: decimal) (p: decimal) -> if p = 0m then 1m else n * p + 0.5m)
+        (fun (getIthX: (int -> decimal)) (h: decimal) -> getIthX (int (Decimal.ceil (h - 0.5m))))
+        interpolate
+        isSorted
+        percentages
+        xs
+
+    // The R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
+    // see: http://stat.ethz.ch/R-manual/R-patched/library/stats/html/quantile.html
+    // implementation based on description of R-8 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
+    let OneThird = 1m / 3m
+    let TwoThirds = 2m / 3m
+    let quantilesR8 (interpolate: bool) (isSorted: bool) (percentages: array<decimal>) (xs: array<decimal>): array<decimal> =
+      quantiles 
+        (fun (n: decimal) (p: decimal) ->
+          if p < TwoThirds / (n + OneThird) then 1m
+          elif p >= (n - OneThird) / (n + OneThird) then n
+          else (n + OneThird) * p + OneThird
+        )
+        (fun (getIthX: (int -> decimal)) (h: decimal) -> 
+          let floorHDec = Decimal.floor h
+          let floorH = int floorHDec
+          getIthX floorH + (h - floorHDec) * (getIthX (floorH + 1) - getIthX floorH)
+        )
+        interpolate
+        isSorted
+        percentages
+        xs
+
+    // we use the type 8 quantile method because the R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
+    let percentiles percentages xs = quantilesR8 true false percentages xs
+    let percentilesSorted percentages xs = quantilesR8 true true percentages xs

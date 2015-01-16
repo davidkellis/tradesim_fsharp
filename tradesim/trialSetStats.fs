@@ -41,7 +41,7 @@ let DailyStdDevExtractor trialResult: Option<decimal> = trialResult.dailyStdDev
 let buildDistribution sampleValues: Distribution =
   let onlineVariance = new Stats.Sample.OnlineVariance()
   onlineVariance.pushAll sampleValues
-  let percentiles = Stats.Sample.percentiles [5m; 10m; 15m; 20m; 25m; 30m; 35m; 40m; 45m; 50m; 55m; 60m; 65m; 70m; 75m; 80m; 85m; 90m; 95m] sampleValues |> Seq.toArray
+  let percentiles = Stats.Sample.Seq.percentiles [5m; 10m; 15m; 20m; 25m; 30m; 35m; 40m; 45m; 50m; 55m; 60m; 65m; 70m; 75m; 80m; 85m; 90m; 95m] sampleValues |> Seq.toArray
   {
     n = onlineVariance.n |> int
     average = onlineVariance.mean
@@ -79,11 +79,11 @@ let buildSamplingDistribution samplingDistributionType originalSample: Distribut
   let bootstrapSamples = buildBootstrapSamples 1000 originalSample
   let sampleStatisticFn = 
     match samplingDistributionType with
-    | Mean -> Sample.mean
+    | Mean -> Sample.Seq.mean
     | StdDev -> Sample.stdDev
     | Min -> Array.reduce min
     | Max -> Array.reduce max
-    | Percentile p -> fun bootstrapSample -> Stats.Sample.percentiles [p |> decimal] bootstrapSample |> Seq.head
+    | Percentile p -> fun bootstrapSample -> Stats.Sample.Seq.percentiles [p |> decimal] bootstrapSample |> Seq.head
 
   let samplingDistribution = Array.map sampleStatisticFn bootstrapSamples
   buildDistribution samplingDistribution

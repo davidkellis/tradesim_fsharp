@@ -3,6 +3,9 @@
 open System
 open System.Threading.Tasks
 
+open Math
+open Stats
+
 module Range =
   let iter (startI: int) (endI: int) (fn: int -> unit): unit =
     for i = startI to endI do
@@ -24,184 +27,6 @@ module Range =
       failwith "The start of the range must not exceed the end of the range."
     else
       Array.Parallel.init length (fun i -> fn (i + startI))
-
-module Decimal = 
-  let Zero = 0M
-  let One = 1M
-  let Billionth = 0.000000001m
-
-  let ceil (d: decimal): decimal = System.Math.Ceiling(d)
-
-  let floor (d: decimal): decimal = System.Math.Floor(d)
-
-  let isSignSame a b = (a < 0m) = (b < 0m)
-
-  let isSignDiff a b = not (isSignSame a b)
-
-  let rec pow (x: decimal) (exp: int): decimal =
-    if exp > 0 then
-      let mutable acc = 1m
-      for i = 1 to exp do
-        acc <- acc * x
-      acc
-    elif exp = 0 then
-      1m
-    else  // exp < 0
-      1m / pow x -exp
-
-  // This is a recursive implementation of the Bisection Method as defined by pseudocode in
-  // Bisection3 on page 95 of Numerical Mathematics and Computing (5th ed.) by Ward/Kincaid.
-  //
-  // Arguments:
-  // a, b define the interval within which the root is guaranteed to exist (i.e. a < root < b)
-  // fa, fb are f(a) and f(b) respectively
-  // n-max is the maximum iterations to perform
-  // epsilon is an error threshold. The algorithm continues iterating until the error is less than epsilon.
-  // n is the current iteration
-  //
-  // Returns:
-  // [root-approximation error number-of-iterations]
-  let rec findRootWithBisectionMethodR (f: decimal -> decimal) (a: decimal) (b: decimal) (fa: decimal) (fb: decimal) (maxN: int) (epsilon: decimal) (n: int): decimal =
-    let error = (b - a) / 2m     // error <- (b - a) / 2
-    let c = a + error            // c <- a + error  (c is the midpoint between a and b ; this is our best root approximation)
-    let fc = (f c)               // fc <- f(c)      (fc is f evaluated at the midpoint between a and b)
-    let n' = n + 1
-    if ((abs error) < epsilon) || (n' > maxN) then  // our error is less than the error threshold epsilon OR we've executed the maximum number of iterations - in either case we have converged enough, so return c
-      c
-    else
-      if isSignDiff fa fc then
-        findRootWithBisectionMethodR f a c fa fc maxN epsilon n'
-      else
-        findRootWithBisectionMethodR f c b fc fb maxN epsilon n'
-
-  let findRootWithBisectionMethod5 f a b maxN epsilon: decimal = findRootWithBisectionMethodR f a b (f a) (f b) maxN epsilon 1
-  let findRootWithBisectionMethod f a b: decimal = findRootWithBisectionMethod5 f a b 300 Billionth
-
-  // todo: implement Brent's root finding method: http://en.wikipedia.org/wiki/Brent%27s_method
-
-  // Returns the nth root of A
-  // -> A^(1/n)
-  // It works by finding the positive root (i.e. positive zero) of the function f(x) = x^n - A
-  // It returns the positive x at which f(x) = 0.
-  //
-  // Arguments:
-  // n is the root we want to find (i.e. the "n" in "nth root")
-  // A is the positive real number that we want to find the nth root of.
-  //
-  // Usage:
-  //   (nth-root 45.13579 3)
-  //   -> 3.5604674194663124
-  //   Check the result:
-  //   (expt 3.5604674194663124 3)
-  //   45.13578999552352        (that's pretty close!)
-  //
-  //   (nth-root 0.456 4)
-  //   -> 882350387/1073741824       ; (float (nth-root 0.456 4)) = 0.82175285
-  //   Check the result:
-  //   (float (expt 882350387/1073741824 4))
-  //   -> 0.456
-  let nthRoot (a: decimal) (n: int): decimal =
-    let f = (fun x -> (pow x n) - a)
-    if a < 1m then
-      findRootWithBisectionMethod f 0m 1m
-    else
-      findRootWithBisectionMethod f 0m a
-
-// This implementation is based on http://en.wikipedia.org/wiki/Quantiles#Estimating_the_quantiles_of_a_population
-// For additional information, see:
-// http://www.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
-// http://en.wikipedia.org/wiki/Percentile
-// http://www.mathworks.com/help/stats/quantiles-and-percentiles.html
-// 
-// hFn is the function:
-//   (n: decimal) -> (p: decimal) -> decimal
-//   such that hFn returns a 1-based real-valued index (which may or may not be a whole-number) into the array of sorted values in xs
-// qSubPFn is the function:
-//   (getIthX: (int -> decimal)) -> (h: decimal) -> decimal
-//   such that getIthX returns the zero-based ith element from the array of sorted values in xs
-// percentages is a sequence of percentages expressed as real numbers in the range [0.0, 100.0]
-let quantiles
-    (hFn: decimal -> decimal -> decimal) 
-    (qSubPFn: (int -> decimal) -> decimal -> decimal) 
-    (interpolate: bool) 
-    (isSorted: bool) 
-    (percentages: array<decimal>)
-    (xs: array<decimal>)
-    : array<decimal> =
-  let sortedXs = (if isSorted then xs else Array.sort xs)
-  let n = decimal sortedXs.Length   // n is the sample size
-  let q = 100m
-  let p k = k / q
-  let subtract1 = (fun x -> x - 1m)
-  let hs = percentages |> Array.map (p >> hFn n >> subtract1)   // NOTE: these indices are 0-based indices into sortedXs
-  let getIthX = Array.get sortedXs
-
-  if interpolate then                   // interpolate
-    Array.map
-      (fun h ->
-        let i = Decimal.floor h         // i is a 0-based index into sortedXs   (smaller index to interpolate between)
-        let j = Decimal.ceil h          // j is a 0-based index into sortedXs   (larger index to interpolate between)
-        let f = h - i                   // f is the fractional part of real-valued index h
-        let intI = int i
-        let intJ = int j
-        (1m - f) * getIthX intI + f * getIthX intJ    // [1] - (1-f) * x_k + f * x_k+1 === x_k + f*(x_k+1 - x_k)
-        // [1]:
-        // see: http://web.stanford.edu/class/archive/anthsci/anthsci192/anthsci192.1064/handouts/calculating%20percentiles.pdf
-        // also: (1-f) * x_k + f * x_k+1 === x_k - f*x_k + f*x_k+1 === x_k + f*(x_k+1 - x_k) which is what I'm after
-      )
-      hs
-  else                                  // floor the index instead of interpolating
-    Array.map
-      (fun h ->
-        let i = int (Decimal.floor h)   // i is a 0-based index into sortedXs
-        getIthX i
-      )
-      hs
-
-// implementation based on description of R-1 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
-let quantilesR1 (interpolate: bool) (isSorted: bool) (percentages: array<decimal>) (xs: array<decimal>): array<decimal> =
-  quantiles 
-    (fun (n: decimal) (p: decimal) -> if p = 0m then 1m else n * p + 0.5m)
-    (fun (getIthX: (int -> decimal)) (h: decimal) -> getIthX (int (Decimal.ceil (h - 0.5m))))
-    interpolate
-    isSorted
-    percentages
-    xs
-
-// The R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
-// see: http://stat.ethz.ch/R-manual/R-patched/library/stats/html/quantile.html
-// implementation based on description of R-8 at http://en.wikipedia.org/wiki/Quantile#Estimating_the_quantiles_of_a_population
-let OneThird = 1m / 3m
-let TwoThirds = 2m / 3m
-let quantilesR8 (interpolate: bool) (isSorted: bool) (percentages: array<decimal>) (xs: array<decimal>): array<decimal> =
-  quantiles 
-    (fun (n: decimal) (p: decimal) ->
-      if p < TwoThirds / (n + OneThird) then 1m
-      elif p >= (n - OneThird) / (n + OneThird) then n
-      else (n + OneThird) * p + OneThird
-    )
-    (fun (getIthX: (int -> decimal)) (h: decimal) -> 
-      let floorHDec = Decimal.floor h
-      let floorH = int floorHDec
-      getIthX floorH + (h - floorHDec) * (getIthX (floorH + 1) - getIthX floorH)
-    )
-    interpolate
-    isSorted
-    percentages
-    xs
-
-// we use the type 8 quantile method because the R manual claims that "Hyndman and Fan (1996) ... recommended type 8"
-let percentiles percentages xs = quantilesR8 true false percentages xs
-let percentilesSorted percentages xs = quantilesR8 true true percentages xs
-
-
-let sampleWithReplacement (n: int) (xs: array<'T>): array<'T> =
-  let length = Array.length xs
-  let rnd = new Random(int DateTime.Now.Ticks)
-  Array.init n (fun i -> xs.[rnd.Next(0, length)])
-
-let buildBootstrapSample (xs: array<'T>): array<'T> = sampleWithReplacement xs.Length xs
-  
   
 (*
   // returns array of sampling distributions s.t. the ith sampling distribution is the sampling distribution of the statistic computed by compute_sample_statistic_fns[i]
@@ -275,29 +100,7 @@ let build5YearReturnObservationFn () = sampleWithReplacement 60 monthlyReturns |
 let build1YearReturnSample nObservations: array<decimal> = buildCumulativeReturnSample monthlyReturns 12 nObservations
 let build5YearReturnSample nObservations: array<decimal> = buildSample nObservations build5YearReturnObservationFn
 
-let computeSampleMean sample = 
-  let n = Array.length sample |> decimal
-  Array.sum sample / n
-
 let computeAllStats (sample: array<decimal>): array<decimal> = 
   Array.append
-    [| computeSampleMean sample |]
-    (percentiles [|1m; 5m; 10m; 20m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 95m; 99m|] sample)
-
-(*
- * let t1 = DateTime.Now
- * 
- * let numberOfSamples = 10000
- * let numberOfObservationsPerSample = 10000
- * // samplingDistributions = build_sampling_distributions(number_of_samples, number_of_observations_per_sample, build_1_year_return_sample_fn, sample_statistic_fns)
- * let samplingDistributions = buildSamplingDistributionsFromOneMultiStatisticFn numberOfSamples numberOfObservationsPerSample build1YearReturnSample computeAllStats
- * 
- * let t2 = DateTime.Now
- * printfn "Building sampling distributions from %i samples, each containing %i observations, took %A seconds." numberOfSamples numberOfObservationsPerSample (t2 - t1)
- * 
- * let returnPercentiles = samplingDistributions |> Array.map (percentiles [| 1m; 10m; 20m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 99m |])
- * printfn "%A" returnPercentiles
- * 
- * let samplingDistributionMeans = samplingDistributions |> Array.map computeSampleMean
- * printfn "%A" samplingDistributionMeans
- *)
+    [| Sample.Array.mean sample |]
+    (Sample.Array.percentiles [|1m; 5m; 10m; 20m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 95m; 99m|] sample)

@@ -17,6 +17,7 @@ open Time
 open Trial
 open Quotes
 open Schedule
+open Stats
 open SamplingDistribution
 open strategies.BuyAndHold
 
@@ -42,10 +43,10 @@ let computeAndStoreSamplingDistributions trialSetDistributionId: unit =
   let t2 = DateTime.Now
   printfn "Building sampling distributions from %i samples, each containing %i observations, took %A seconds." numberOfSamples numberOfObservationsPerSample (t2 - t1)
   
-  let returnPercentiles = samplingDistributions |> Array.map (percentiles [| 1m; 10m; 20m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 99m |])
+  let returnPercentiles = samplingDistributions |> Array.map (Sample.Array.percentiles [| 1m; 10m; 20m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 99m |])
   printfn "%A" returnPercentiles
   
-  let samplingDistributionMeans = samplingDistributions |> Array.map computeSampleMean
+  let samplingDistributionMeans = samplingDistributions |> Array.map Sample.Array.mean
   printfn "%A" samplingDistributionMeans
   
   // compute sampling distributions

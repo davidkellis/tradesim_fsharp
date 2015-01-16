@@ -32,13 +32,13 @@ let ``correlation returns the sample correlation coefficient (Pearson's r coeffi
 [<Test>]
 let ``mean returns sample mean`` () =
   let mutable xs = [12m; 14m; 15m; 16m; 18m]
-  Sample.mean xs |> should equal 15m
+  Sample.Seq.mean xs |> should equal 15m
 
   xs <- [32m; 35m; 45m; 50m; 65m]
-  Sample.mean xs |> should equal 45.4m
+  Sample.Seq.mean xs |> should equal 45.4m
 
   xs <- [350000m; 399765m; 429000m; 435000m; 433000m]
-  Sample.mean xs |> should equal 409353m
+  Sample.Seq.mean xs |> should equal 409353m
 
 [<Test>]
 let ``stdDev computes sample standard deviation`` () =
@@ -99,6 +99,6 @@ let ``quantilesR8 should calculate the nth quantile`` () =
   // in R:
   // x <- c(5, 1, 9, 3, 14, 9, 7)
   // quantile(x, probs = c(0, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1), na.rm = FALSE, names = TRUE, type = 8)
-  Sample.percentiles [0m; 10m; 20m; 25m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 100m] xs 
+  Sample.Seq.percentiles [0m; 10m; 20m; 25m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 100m] xs 
   |> Seq.map (Decimal.roundTo 4) 
   |> should equal [1m; 1.1333m; 2.6000m; 3.3333m; 4.0667m; 5.5333m; 7m; 8.4667m; 9m; 10m; 13.6667m; 14m;]

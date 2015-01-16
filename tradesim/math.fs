@@ -19,6 +19,7 @@ module Double =
 module Decimal = 
   let Zero = 0M
   let One = 1M
+  let Billionth = 0.000000001m
 
   let ceil (d: decimal): decimal = System.Math.Ceiling(d)
 
@@ -31,8 +32,6 @@ module Decimal =
 
   let wholePart (d: decimal): decimal = integralQuotient d One
   let fractionalPart (d: decimal): decimal = d - wholePart d
-
-  let billionth = 0.000000001m
 
   let sum (xs: seq<decimal>): decimal = Seq.reduce (+) xs
 
@@ -77,7 +76,7 @@ module Decimal =
         findRootWithBisectionMethodR f c b fc fb maxN epsilon n'
 
   let findRootWithBisectionMethod5 f a b maxN epsilon: decimal = findRootWithBisectionMethodR f a b (f a) (f b) maxN epsilon 1
-  let findRootWithBisectionMethod f a b: decimal = findRootWithBisectionMethod5 f a b 300 billionth
+  let findRootWithBisectionMethod f a b: decimal = findRootWithBisectionMethod5 f a b 300 Billionth
 
   // todo: implement Brent's root finding method: http://en.wikipedia.org/wiki/Brent%27s_method
 

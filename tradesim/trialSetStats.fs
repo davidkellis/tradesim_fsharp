@@ -12,6 +12,7 @@ type Distribution = {
   average: decimal
   min: decimal
   max: decimal
+  percentile1: decimal
   percentile5: decimal
   percentile10: decimal
   percentile15: decimal
@@ -31,6 +32,7 @@ type Distribution = {
   percentile85: decimal
   percentile90: decimal
   percentile95: decimal
+  percentile99: decimal
 }
 
 let YieldExtractor trialResult: Option<decimal> = trialResult.trialYield

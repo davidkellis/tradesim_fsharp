@@ -5,21 +5,15 @@
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
       <File FileName="tradesim/runner.fs" Line="1" Column="1" />
       <File FileName="tradesim/buyAndHoldStrategy.fs" Line="1" Column="1" />
-      <File FileName="tradesim/runMissingWeeklyTrials.fs" Line="27" Column="27" />
-      <File FileName="tradesim/computeMissingSamplingDistributions.fs" Line="5" Column="5" />
-      <File FileName="tradesim/samplingDistribution.fs" Line="4" Column="4" />
-      <File FileName="tradesim/db.fs" Line="34" Column="34" />
+      <File FileName="tradesim/runMissingWeeklyTrials.fs" Line="1" Column="1" />
+      <File FileName="tradesim/computeMissingSamplingDistributions.fs" Line="72" Column="72" />
+      <File FileName="tradesim/samplingDistribution.fs" Line="1" Column="1" />
+      <File FileName="tradesim/db.fs" Line="1" Column="1" />
+      <File FileName="tradesim/trialSetStats.fs" Line="1" Column="1" />
+      <File FileName="tradesim/stats.fs" Line="1" Column="1" />
       <File FileName="tradesim/trial.fs" Line="1" Column="1" />
       <File FileName="tradesim/ordering.fs" Line="1" Column="1" />
-      <File FileName="tradesim/securities.fs" Line="1" Column="1" />
-      <File FileName="tradesim/quotes.fs" Line="1" Column="1" />
       <File FileName="tradesim/time.fs" Line="1" Column="1" />
-      <File FileName="tradesim/specialDates.fs" Line="1" Column="1" />
-      <File FileName="tradesim/array.fs" Line="1" Column="1" />
-      <File FileName="tradesim/stats.fs" Line="1" Column="1" />
-      <File FileName="tradesim/trialSetStats.fs" Line="1" Column="1" />
-      <File FileName="tradesim/priceHistory.fs" Line="1" Column="1" />
-      <File FileName="tradesim/schedule.fs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

@@ -31,7 +31,7 @@ type TrialSetDistribution = {
   id: int option
   attribute: string
   startTime: ZonedDateTime
-  endtime: ZonedDateTime
+  endTime: ZonedDateTime
   distribution: array<decimal>
 
   n: int
@@ -61,10 +61,15 @@ type TrialSetDistribution = {
   percentile99: decimal
 }
 
+type SampleStatistic = {
+  id: int option
+  name: string
+}
+
 type SamplingDistribution = {
   id: int option
   trialSetDistributionId: int
-  sampleStatistic: string
+  sampleStatisticId: int
   distribution: array<decimal>
 
   n: int
@@ -99,6 +104,12 @@ let decodeMessage message: TrialSetDistributionReference =
   let trialSetDistributionId = json?trial_set_distribution_id.AsInteger()
   {
     trialSetDistributionId = trialSetDistributionId
+  }
+
+let toSampleStatistic (reader: NpgsqlDataReader): SampleStatistic =
+  { 
+    id = dbOptInt reader "id"
+    name = dbGetStr reader "name"
   }
 
 let toTrialSetDistribution (reader: NpgsqlDataReader): TrialSetDistribution =
@@ -136,24 +147,25 @@ let toTrialSetDistribution (reader: NpgsqlDataReader): TrialSetDistribution =
     percentile99 = dbGetDecimal reader "percentile_99"
   }
 
-let lookupTrialSetDistribution connection id: TrialSetDistribution =
+let lookupTrialSetDistribution connectionString id: TrialSetDistribution =
   let sql = """
     select *
     from trial_set_distributions
     where id = @id
   """
   query
-    connection
+    connectionString
     sql 
     [intParam "id" id]
     toTrialSetDistribution
+  |> Seq.firstOption |> Option.get
 
-let insertSamplingDistribution connection samplingDistribution: SamplingDistribution = 
+let insertSamplingDistribution connectionString (samplingDistribution: SamplingDistribution): SamplingDistribution = 
   let sql = """
     insert into sampling_distributions
     (
       trial_set_distribution_id, 
-      sample_statistic, 
+      sample_statistic_id, 
       distribution, 
       n, 
       average, 
@@ -184,7 +196,7 @@ let insertSamplingDistribution connection samplingDistribution: SamplingDistribu
     values
     (
       @trialSetDistributionId,
-      @sampleStatistic,
+      @sampleStatisticId,
       @distribution,
       @n,
       @average,
@@ -214,70 +226,200 @@ let insertSamplingDistribution connection samplingDistribution: SamplingDistribu
     )
     returning id;
   """
-  insertReturningId
-    connection
-    sql
-    [
-      intParam "trialSetDistributionId" samplingDistribution.trialSetDistributionId;
-      stringParam "sampleStatistic" samplingDistribution.sampleStatistic;
-      byteArrayParam "distribution" (DecimalList.encode 3 samplingDistribution.distribution);
-      intParam "n" samplingDistribution.n;
-      decimalParam "average" samplingDistribution.average;
-      decimalParam "min" samplingDistribution.min;
-      decimalParam "max" samplingDistribution.max;
-      decimalParam "percentile1" samplingDistribution.percentile1;
-      decimalParam "percentile5" samplingDistribution.percentile5;
-      decimalParam "percentile10" samplingDistribution.percentile10;
-      decimalParam "percentile15" samplingDistribution.percentile15;
-      decimalParam "percentile20" samplingDistribution.percentile20;
-      decimalParam "percentile25" samplingDistribution.percentile25;
-      decimalParam "percentile30" samplingDistribution.percentile30;
-      decimalParam "percentile35" samplingDistribution.percentile35;
-      decimalParam "percentile40" samplingDistribution.percentile40;
-      decimalParam "percentile45" samplingDistribution.percentile45;
-      decimalParam "percentile50" samplingDistribution.percentile50;
-      decimalParam "percentile55" samplingDistribution.percentile55;
-      decimalParam "percentile60" samplingDistribution.percentile60;
-      decimalParam "percentile65" samplingDistribution.percentile65;
-      decimalParam "percentile70" samplingDistribution.percentile70;
-      decimalParam "percentile75" samplingDistribution.percentile75;
-      decimalParam "percentile80" samplingDistribution.percentile80;
-      decimalParam "percentile85" samplingDistribution.percentile85;
-      decimalParam "percentile90" samplingDistribution.percentile90;
-      decimalParam "percentile95" samplingDistribution.percentile95;
-      decimalParam "percentile99" samplingDistribution.percentile99
-    ]
-  |> Option.map (fun id -> {samplingDistribution with id = id})
+  let id =
+    insertReturningId
+      connectionString
+      sql
+      [
+        intParam "trialSetDistributionId" samplingDistribution.trialSetDistributionId;
+        intParam "sampleStatisticId" samplingDistribution.sampleStatisticId;
+        byteArrayParam "distribution" (DecimalList.encode 3 samplingDistribution.distribution);
+        intParam "n" samplingDistribution.n;
+        decimalParam "average" samplingDistribution.average;
+        decimalParam "min" samplingDistribution.min;
+        decimalParam "max" samplingDistribution.max;
+        decimalParam "percentile1" samplingDistribution.percentile1;
+        decimalParam "percentile5" samplingDistribution.percentile5;
+        decimalParam "percentile10" samplingDistribution.percentile10;
+        decimalParam "percentile15" samplingDistribution.percentile15;
+        decimalParam "percentile20" samplingDistribution.percentile20;
+        decimalParam "percentile25" samplingDistribution.percentile25;
+        decimalParam "percentile30" samplingDistribution.percentile30;
+        decimalParam "percentile35" samplingDistribution.percentile35;
+        decimalParam "percentile40" samplingDistribution.percentile40;
+        decimalParam "percentile45" samplingDistribution.percentile45;
+        decimalParam "percentile50" samplingDistribution.percentile50;
+        decimalParam "percentile55" samplingDistribution.percentile55;
+        decimalParam "percentile60" samplingDistribution.percentile60;
+        decimalParam "percentile65" samplingDistribution.percentile65;
+        decimalParam "percentile70" samplingDistribution.percentile70;
+        decimalParam "percentile75" samplingDistribution.percentile75;
+        decimalParam "percentile80" samplingDistribution.percentile80;
+        decimalParam "percentile85" samplingDistribution.percentile85;
+        decimalParam "percentile90" samplingDistribution.percentile90;
+        decimalParam "percentile95" samplingDistribution.percentile95;
+        decimalParam "percentile99" samplingDistribution.percentile99
+      ]
+  {samplingDistribution with id = id}
 
+// computes the following sample statistics of a single sample (in the following order): 
+// mean, min, max, 1st %ile, 5th %ile, 10th %ile, 15th %ile, ..., 95th %ile, and 99th %ile
+let computeSampleStatistics (sample: array<decimal>): array<decimal> = 
+  let onlineMeanMinMax = new Stats.Sample.OnlineMeanMinMax()
+  onlineMeanMinMax.pushAll sample
 
-let computeAndStoreSamplingDistributions trialSetDistributionId: unit =
+  let mean = onlineMeanMinMax.mean
+  let min = onlineMeanMinMax.min |> Option.getOrElse 0m
+  let max = onlineMeanMinMax.max |> Option.getOrElse 0m
+
+  Array.append
+    [| mean; min; max |]
+    (Sample.Array.percentiles [|1m; 5m; 10m; 15m; 20m; 25m; 30m; 35m; 40m; 45m; 50m; 55m; 60m; 65m; 70m; 75m; 80m; 85m; 90m; 95m; 99m|] sample)
+
+let loadSampleStatistic connectionString name: SampleStatistic =
+  let sql = """
+    select *
+    from sample_statistics
+    where name = @name
+  """
+  query
+    connectionString
+    sql 
+    [stringParam "name" name]
+    toSampleStatistic
+  |> Seq.firstOption |> Option.get
+
+let allSampleStatistics connectionString = [|
+  loadSampleStatistic connectionString "mean";
+  loadSampleStatistic connectionString "min";
+  loadSampleStatistic connectionString "max";
+  loadSampleStatistic connectionString "percentile1";
+  loadSampleStatistic connectionString "percentile5";
+  loadSampleStatistic connectionString "percentile10";
+  loadSampleStatistic connectionString "percentile15";
+  loadSampleStatistic connectionString "percentile20";
+  loadSampleStatistic connectionString "percentile25";
+  loadSampleStatistic connectionString "percentile30";
+  loadSampleStatistic connectionString "percentile35";
+  loadSampleStatistic connectionString "percentile40";
+  loadSampleStatistic connectionString "percentile45";
+  loadSampleStatistic connectionString "percentile50";
+  loadSampleStatistic connectionString "percentile55";
+  loadSampleStatistic connectionString "percentile60";
+  loadSampleStatistic connectionString "percentile65";
+  loadSampleStatistic connectionString "percentile70";
+  loadSampleStatistic connectionString "percentile75";
+  loadSampleStatistic connectionString "percentile80";
+  loadSampleStatistic connectionString "percentile85";
+  loadSampleStatistic connectionString "percentile90";
+  loadSampleStatistic connectionString "percentile95";
+  loadSampleStatistic connectionString "percentile99"
+|]
+
+// returns a sample of <sampleSize> simulated yearly return observations, given an initial sample of 3 monthly return observations
+let build1YearReturnSampleFromWeeklyReturns weeklyReturns sampleSize: array<decimal> = 
+  buildCumulativeReturnSample weeklyReturns 52 sampleSize
+
+let buildSamplingDistributionRecord connectionString trialSetDistributionId sampleStatisticId (samplingDistribution: array<decimal>): SamplingDistribution =
+  let sampleStatistics = computeSampleStatistics samplingDistribution
+  let n = Array.length samplingDistribution
+  let mean = sampleStatistics.[0]
+  let min = sampleStatistics.[1]
+  let max = sampleStatistics.[2]
+  let percentile1 = sampleStatistics.[3]
+  let percentile5 = sampleStatistics.[4]
+  let percentile10 = sampleStatistics.[5]
+  let percentile15 = sampleStatistics.[6]
+  let percentile20 = sampleStatistics.[7]
+  let percentile25 = sampleStatistics.[8]
+  let percentile30 = sampleStatistics.[9]
+  let percentile35 = sampleStatistics.[10]
+  let percentile40 = sampleStatistics.[11]
+  let percentile45 = sampleStatistics.[12]
+  let percentile50 = sampleStatistics.[13]
+  let percentile55 = sampleStatistics.[14]
+  let percentile60 = sampleStatistics.[15]
+  let percentile65 = sampleStatistics.[16]
+  let percentile70 = sampleStatistics.[17]
+  let percentile75 = sampleStatistics.[18]
+  let percentile80 = sampleStatistics.[19]
+  let percentile85 = sampleStatistics.[20]
+  let percentile90 = sampleStatistics.[21]
+  let percentile95 = sampleStatistics.[22]
+  let percentile99 = sampleStatistics.[23]
+
+  {
+    id = None
+    trialSetDistributionId = trialSetDistributionId
+    sampleStatisticId = sampleStatisticId
+    distribution = DecimalList.encode 3 samplingDistribution
+
+    n = n
+    average = mean
+    min = min
+    max = max
+    percentile1 = percentile1
+    percentile5 = percentile5
+    percentile10 = percentile10
+    percentile15 = percentile15
+    percentile20 = percentile20
+    percentile25 = percentile25
+    percentile30 = percentile30
+    percentile35 = percentile35
+    percentile40 = percentile40
+    percentile45 = percentile45
+    percentile50 = percentile50
+    percentile55 = percentile55
+    percentile60 = percentile60
+    percentile65 = percentile65
+    percentile70 = percentile70
+    percentile75 = percentile75
+    percentile80 = percentile80
+    percentile85 = percentile85
+    percentile90 = percentile90
+    percentile95 = percentile95
+    percentile99 = percentile99
+  }
+
+let computeAndStoreSamplingDistributions connectionString trialSetDistributionId: unit =
   let t1 = DateTime.Now
   
-  let connection = ???
-  let trialSetDistribution = lookupTrialSetDistribution connection trialSetDistributionId
-  let sample = trialSetDistribution.distribution
+  let trialSetDistribution = lookupTrialSetDistribution connectionString trialSetDistributionId
+  let weeklyReturns = trialSetDistribution.distribution
   
   let numberOfSamples = 10000
   let numberOfObservationsPerSample = 10000
-  // samplingDistributions = build_sampling_distributions(number_of_samples, number_of_observations_per_sample, build_1_year_return_sample_fn, sample_statistic_fns)
-  let samplingDistributions = buildSamplingDistributionsFromOneMultiStatisticFn numberOfSamples numberOfObservationsPerSample build1YearReturnSample computeAllStats
+  let samplingDistributions = 
+    buildSamplingDistributionsFromOneMultiStatisticFn 
+      numberOfSamples 
+      numberOfObservationsPerSample 
+      (build1YearReturnSampleFromWeeklyReturns weeklyReturns)
+      computeSampleStatistics
+  let sampleStatistics = allSampleStatistics connectionString
+  // NOTE: the sample statistics in <sampleStatistics> are in the same order as the statistics used to
+  // construct the sampling distributions in <samplingDistributions>; in other words, they are parallel arrays
+  let samplingDistributionsWithSampleStatistics = Array.zip samplingDistributions sampleStatistics
   
   let t2 = DateTime.Now
-  printfn "Building sampling distributions from %i samples, each containing %i observations, took %A seconds." numberOfSamples numberOfObservationsPerSample (t2 - t1)
+  printfn "Building sampling distributions for TrialSetDistribution %i from %i samples, each containing %i observations, took %A seconds." 
+    trialSetDistributionId 
+    numberOfSamples 
+    numberOfObservationsPerSample (t2 - t1)
   
-  let returnPercentiles = samplingDistributions |> Array.map (Sample.Array.percentiles [| 1m; 10m; 20m; 30m; 40m; 50m; 60m; 70m; 80m; 90m; 99m |])
-  printfn "%A" returnPercentiles
-  
-  let samplingDistributionMeans = samplingDistributions |> Array.map Sample.Array.mean
-  printfn "%A" samplingDistributionMeans
+  // build SamplingDistribution objects from sampling distribution arrays stored in samplingDistributions
+  let samplingDistributionRecords = 
+    samplingDistributionsWithSampleStatistics
+    |> Array.map (fun (samplingDistributionArray, sampleStatistic) -> 
+      let sampleStatisticId = sampleStatistic.id |> Option.get
+      buildSamplingDistributionRecord connectionString trialSetDistributionId sampleStatisticId samplingDistributionArray
+    )
 
-  // compute sampling distributions
-  ()
+  // insert sampling distributions into database
+  samplingDistributionRecords |> Array.map (insertSamplingDistribution connectionString)
+  |> ignore
 
 let run connectionString beanstalkdHost beanstalkdPort =
   info "Awaiting job from compute_missing_sampling_distributions queue"
-
-  let dao = Postgres.createDao connectionString
 
   let client = Client.connect (beanstalkdHost, beanstalkdPort)
   client.watch "compute_missing_sampling_distributions" |> ignore
@@ -290,8 +432,9 @@ let run connectionString beanstalkdHost beanstalkdPort =
       printfn "jobId=%i  payload=%s" jobId payload
 
       let trialSetDistributionReference = decodeMessage payload
-
-      computeAndStoreSamplingDistributions trialSetDistributionReference.trialSetDistributionId
+      
+      // the assumption is that the specified trial set distribution has *no* associated sampling distributions, so we need to build them all.
+      computeAndStoreSamplingDistributions connectionString trialSetDistributionReference.trialSetDistributionId
 
       client.delete jobId |> ignore
     | jack.Failure msg ->

@@ -101,8 +101,8 @@
     <Compile Include="array.fs" />
     <Compile Include="seq.fs" />
     <Compile Include="stats.fs" />
-    <Compile Include="decimalList.fs" />
     <Compile Include="intList.fs" />
+    <Compile Include="decimalList.fs" />
     <Compile Include="vector.fs" />
     <Compile Include="option.fs" />
     <Compile Include="cache.fs" />

@@ -97,6 +97,7 @@ let main argv =
     elif options.Command <> null then
       match options.Command with
       | "runWeeklyMissingTrials" -> dke.returnStats.runMissingWeeklyTrials.run connectionString options.QHost options.QPort
+      | "computeMissingSamplingDistributions" -> dke.returnStats.computeMissingSamplingDistributions.run connectionString options.QHost options.QPort
       | _ -> printfn "Unknown command"
       |> ignore
 

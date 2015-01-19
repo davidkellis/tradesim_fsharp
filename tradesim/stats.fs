@@ -70,7 +70,6 @@ module Sample =
            0.0
     )
 
-
   // copied from http://www.johndcook.com/standard_deviation.html
   //   except for the min/max logic
   type OnlineVariance() =
@@ -119,6 +118,43 @@ module Sample =
 
     member this.max: Option<decimal> = if k > 0L then Some maxValue else None
 
+
+  type OnlineMeanMinMax() =
+    let mutable k: int64 = 0L
+    let mutable m_k: decimal = 0M
+    let mutable minValue: decimal = 0M
+    let mutable maxValue: decimal = 0M
+
+    member this.pushAll(xs: seq<decimal>) = Seq.iter this.push xs
+
+    member this.push(x: decimal) =
+      if k = 0L then
+        minValue <- x
+        maxValue <- x
+      else
+        if x < minValue then
+          minValue <- x
+        elif x > maxValue then
+          maxValue <- x
+
+      k <- k + 1L
+
+      // See Knuth TAOCP vol 2, 3rd edition, page 232
+      if k = 1L then
+        m_k <- x
+      else
+        let m_kPlus1 = m_k + (x - m_k) / decimal k
+        m_k <- m_kPlus1
+
+
+    member this.n: int64 = k
+
+    member this.mean: decimal = if k > 0L then m_k else 0M
+
+    member this.min: Option<decimal> = if k > 0L then Some minValue else None
+
+    member this.max: Option<decimal> = if k > 0L then Some maxValue else None
+      
 
   // copied from http://www.johndcook.com/running_regression.html
   type OnlineRegression() =

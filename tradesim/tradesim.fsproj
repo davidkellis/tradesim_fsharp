@@ -101,7 +101,10 @@
     <Compile Include="array.fs" />
     <Compile Include="seq.fs" />
     <Compile Include="stats.fs" />
+    <Compile Include="range.fs" />
+    <Compile Include="bitManipulation.fs" />
     <Compile Include="intList.fs" />
+    <Compile Include="intListTests.fs" />
     <Compile Include="decimalList.fs" />
     <Compile Include="vector.fs" />
     <Compile Include="option.fs" />

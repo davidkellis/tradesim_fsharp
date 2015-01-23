@@ -6,28 +6,6 @@ open System.Threading.Tasks
 open Math
 open Stats
 
-module Range =
-  let iter (startI: int) (endI: int) (fn: int -> unit): unit =
-    for i = startI to endI do
-      fn i
-  
-  let map (startI: int) (endI: int) (fn: int -> 'T): array<'T> =
-    let length = endI - startI + 1
-    if length < 0 then
-      failwith "The start of the range must not exceed the end of the range."
-    else
-      Array.init length (fun i -> fn (i + startI))
-      
-  let piter (startI: int) (endI: int) (fn: int -> unit): unit =
-    Parallel.For(startI, endI, (fun i -> fn i)) |> ignore
-
-  let pmap (startI: int) (endI: int) (fn: int -> 'T): array<'T> =
-    let length = endI - startI + 1
-    if length < 0 then
-      failwith "The start of the range must not exceed the end of the range."
-    else
-      Array.Parallel.init length (fun i -> fn (i + startI))
-  
 (*
   // returns array of sampling distributions s.t. the ith sampling distribution is the sampling distribution of the statistic computed by compute_sample_statistic_fns[i]
   let buildSamplingDistributions nSamples nObservationsPerSample buildSampleFn computeSampleStatisticFns =
@@ -60,9 +38,8 @@ let buildSamplingDistributionsFromOneMultiStatisticFn
   let numberOfSamplingDistributions = multiStatisticFn diagnosticSample |> Array.length
   let samplingDistributions = Array.init numberOfSamplingDistributions (fun _ -> Array.create nSamples 0m)
 
-  Range.piter
-    0
-    (nSamples - 1)
+  (0, nSamples - 1)
+  |> Range.piter
     (fun sampleIndex ->
       let sample = buildSampleFn nObservationsPerSample
       let sampleStatistics = multiStatisticFn sample
@@ -107,7 +84,7 @@ let buildCumulativeReturnSample (observedReturns: array<decimal>) numberOfTimePe
       let newAcc = acc * observedReturns.[rnd.Next(0, observedReturnsLength)]
       calculateCumulativeReturnR rnd nObservationsToMultiply observedReturns observedReturnsLength newAcc (i + 1)
 
-  Range.map 1 sampleSizeN (fun _ -> calculateCumulativeReturnR rnd numberOfTimePeriodsToConcatenate observedReturns observedReturnsLength 1m 0)
+  (1, sampleSizeN) |> Range.map (fun _ -> calculateCumulativeReturnR rnd numberOfTimePeriodsToConcatenate observedReturns observedReturnsLength 1m 0)
 
 
 (* let monthlyReturnsF = [| 23.2; 15.1; 2.4; -3.9; 25.1; 7.6; -2.8;  -12.6; -3.5; 5.6; -2.2; 11.8; 16.5; 30.9; 5.0; 35.9; -2.8; -25.5; 21.3;  9.4; 15.0; 22.5; -5.5; 18.1; -13.7; 20.3; -3.9; 10.5; -0.3; 0.2; -11.5;  31.6; -13.3; 14.4; 1.1; 12.9; 5.0; -16.8; -0.7; 1.3; 0.2; 18.9; 15.5; -11.7; 9.2; -11.8 |] *)

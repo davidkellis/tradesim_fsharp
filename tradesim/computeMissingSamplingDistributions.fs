@@ -352,7 +352,7 @@ let buildSamplingDistributionRecord connectionString trialSetDistributionId samp
     id = None
     trialSetDistributionId = trialSetDistributionId
     sampleStatisticId = sampleStatisticId
-    distribution = DecimalList.encode 3 samplingDistribution
+    distribution = samplingDistribution
 
     n = n
     average = mean

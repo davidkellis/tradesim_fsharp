@@ -1,5 +1,6 @@
 ﻿module dke.tradesim.BitManipulation
 
+open System
 open System.Numerics
 open FSharpx
 
@@ -31,6 +32,15 @@ module BigInteger =
   let mostSignificantBit (i: BigInteger) (mostSignificantBitIndex: Option<int>): int = 
     let index = mostSignificantBitIndex |> Option.getOrElse (mostSignificantBitPosition i)
     getBit i index
+
+  let flipBit (i: BigInteger) (index: int): BigInteger = i ^^^ (1I <<< index)
+    
+  let uToS (unsignedInt: BigInteger) (mostSignificantBitIndex: int): BigInteger =
+    let msb = mostSignificantBit unsignedInt <| Some mostSignificantBitIndex
+    if msb = 1 then
+      -(BigInteger(1) <<< mostSignificantBitIndex) + flipBit unsignedInt mostSignificantBitIndex
+    else unsignedInt
+
 
 module Byte =
   let getBit (b: byte) (ithLeastSignificantBit: int): int = int (b >>> ithLeastSignificantBit) &&& 1
@@ -79,13 +89,6 @@ module Int64 =
 //  let bitLengthInts(ints: Seq[int]): int = ints.foldLeft(0){ (sum, i) => sum + bitLength(i) }
 //  let bitLengthint64s(ints: Seq[int64]): int = ints.foldLeft(0){ (sum, i) => sum + bitLength(i) }
 //  let bitLengthBigIntegers(ints: Seq[BigInteger]): int = ints.foldLeft(0){ (sum, i) => sum + bitLength(i) }
-//
-//  let uToS(unsignedInt: BigInteger, mostSignificantBitIndex: int): BigInteger = {
-//    val msb = mostSignificantBit(unsignedInt, Some(mostSignificantBitIndex))
-//    if (msb == 1) {
-//      -(BigInteger(1) << mostSignificantBitIndex) + unsignedInt.flipBit(mostSignificantBitIndex)
-//    } else unsignedInt
-//  }
 //
 //  let printBits(int: byte) { 7.to(0).by(-1).foreach(i => print(getBit(int, i))) }
 //  let printBits(int: int) { 31.to(0).by(-1).foreach(i => print(getBit(int, i))) }

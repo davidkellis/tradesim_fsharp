@@ -61,12 +61,12 @@ type BitReader(byteSeq: MemoryStream) =
   let mutable nextPos = 0
   let mutable bytesRead = 0
   let mutable currentByte = 0uy
-  let reader = new BinaryReader(byteSeq)
 
   member private this.readByte(): byte =
-    let b = reader.ReadByte()
+    let b = byteSeq.ReadByte()
+    if b = -1 then failwith "End of stream has been reached."
     bytesRead <- bytesRead + 1
-    b
+    byte b
 
   member private this.isAtBeginningOfByteBoundary = this.currentByteBitPosition = 0
 
@@ -82,8 +82,7 @@ type BitReader(byteSeq: MemoryStream) =
     if n > 0 then
       nextPos <- pos + n
       while this.remainingBitsToRead > 0 do
-        (
-        if this.isAtBeginningOfByteBoundary then    // the compiler complains, but the compiler is wrong; this expression is correct
+        if this.isAtBeginningOfByteBoundary then
           currentByte <- this.readByte()      // if we're at the beginning of a byte-boundary, we need to read the "current byte" into memory
         
         let numberOfBitsToRead = 
@@ -93,10 +92,76 @@ type BitReader(byteSeq: MemoryStream) =
           else
             // read just a portion of the current byte
             this.remainingBitsToRead
+        
         sum <- (sum <<< numberOfBitsToRead) ||| BigInteger(Byte.extractIntLR currentByte this.currentByteBitPosition (this.currentByteBitPosition + numberOfBitsToRead - 1))
-        pos = pos + numberOfBitsToRead
-        )
+        pos <- pos + numberOfBitsToRead
     sum
+
+
+type VariableByteSignedIntEncoder() =
+  (*
+   * bw is a BitWriter object
+   * int is an unsigned integer
+   * returns the number of bytes written to the BitWriter
+   *)
+  let write (bw: BitWriter) (i: BigInteger): int =
+    let bitCount = BigInteger.bitLength i
+    let bitCountMod7 = bitCount % 7
+    let evenlyDivisibleBitCount = if bitCountMod7 = 0 then bitCount else bitCount + (7 - bitCountMod7)    // number of bits required to hold <i> in a whole number of 7-bit words
+    let sevenBitWordCount = evenlyDivisibleBitCount / 7
+    let mutable tmpInt = 0I
+
+    for wordIndex = 1 to sevenBitWordCount do
+      let shiftAmount = (sevenBitWordCount - wordIndex) * 7
+      tmpInt <- (int (i >>> shiftAmount) &&& 0x7F) ||| 0x80
+      bw.write tmpInt 8
+
+    tmpInt <- int i &&& 0x7F
+    bw.write tmpInt 8
+
+    sevenBitWordCount
+
+  (*
+   * bw is a BitWriter object
+   * int is a signed integer
+   * returns the number of bytes written to the BitWriter
+   *)
+  let writeSigned (bw: BitWriter) (i: BigInteger): int =
+    let bitCount = BigInteger.bitLength i + 1   // + 1 to account for the sign bit we prefix the integer with
+    let bitCountMod7 = bitCount % 7
+    let evenlyDivisibleBitCount = if bitCountMod7 = 0 then bitCount else bitCount + (7 - bitCountMod7)    // number of bits required to hold <i> in a whole number of 7-bit words
+    let sevenBitWordCount = evenlyDivisibleBitCount / 7
+    let mutable tmpInt = 0I
+    
+    for wordIndex = 1 to sevenBitWordCount do
+      let shiftAmount = (sevenBitWordCount - wordIndex) * 7
+      tmpInt <- (int (i >>> shiftAmount) &&& 0x7F) ||| 0x80
+      bw.write tmpInt 8
+    
+    tmpInt <- int i &&& 0x7F
+    bw.write tmpInt 8
+
+    sevenBitWordCount
+
+  // returns an unsigned int read from BitReader object <br>
+  let read (br: BitReader): BigInteger =
+    let mutable i = br.read 8
+    let mutable sum = BigInteger(int i &&& 0x7F)
+    while mostSignificantBit i <| Some 7 = 1 do
+      i <- br.read 8
+      sum <- (sum <<< 7) ||| (i &&& BigInteger(0x7F))
+    sum
+
+  // returns a signed int read from BitReader object <br>
+  let readSigned (br: BitReader): BigInteger =
+    let mutable i = br.read 8
+    let mutable count = 1
+    let mutable sum = BigInteger(int i &&& 0x7F)
+    while mostSignificantBit i <| Some 7 = 1 do
+      i <- br.read 8
+      count <- count + 1
+      sum <- (sum <<< 7) ||| (i &&& BigInteger(0x7F))
+    BigInteger.uToS sum (7 * count - 1)
 
 
 let decode (encodedInts: array<byte>): array<int> =

@@ -17,19 +17,42 @@ nuget install jack
 
 nuget install FsUnit
 
+
 Build:
 ??
 
+
+To run tests:
+Per https://github.com/fsprojects/FsUnit/issues/23, add tradesim.exe.config file to same directory 
+that tradesim.exe exists in and make sure it has the following content:
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <runtime>
+    <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+      <dependentAssembly>
+        <assemblyIdentity name="FSharp.Core" publicKeyToken="b03f5f7f11d50a3a" culture="neutral" />
+        <bindingRedirect oldVersion="0.0.0.0-4.3.0.0" newVersion="4.3.0.0" />
+      </dependentAssembly>
+    </assemblyBinding>
+  </runtime>
+</configuration>
+
+Then, run the tests.
+
+
 To generate profobuf classes:
 ./gen_proto
+
 
 Run REPL:
 ./repl
 open dke.tradesim.SpecialDates;;
 easter 2014;;
 
+
 To run trials:
 ./run -h localhost -p 5432 -u david -s bah2
+
 
 To build trial samples:
 ./run -h localhost -p 5432 -u david -s bah2 --build-trial-samples

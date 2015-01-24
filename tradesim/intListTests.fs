@@ -17,15 +17,11 @@ let ``bit writing and reading`` () =
   bw.write 67I 7
   bw.close()
 
-  printfn "%A" (bw.toByteArray())
-
   let br = new BitReader(new MemoryStream(bw.toByteArray()))
-  br.read 1 |> should equal 1
-  br.read 3 |> should equal 5
-  br.read 4 |> should equal 9
-  br.read 4 |> should equal 15
-  br.read 8 |> should equal 12
-  br.read 4 |> should equal 3
-  //intercept[IOException] {
-  //  br.read(4)
-  //}
+  br.read 1 |> should equal 1I
+  br.read 3 |> should equal 5I
+  br.read 4 |> should equal 9I
+  br.read 4 |> should equal 15I
+  br.read 8 |> should equal 12I
+  br.read 4 |> should equal 3I
+  (fun () -> br.read 1 |> ignore) |> should throw typeof<System.Exception>

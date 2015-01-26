@@ -8,20 +8,22 @@ open LinkedList
 open Range
 
 module BigInteger =
+  let Int32MaxValueAsBigInteger = BigInteger 0x7FFFFFFF
+  let toInt (bigInt: BigInteger): int =
+    let signMask = bigInt.Sign &&& 0x80000000
+    let valueMask = int (bigInt &&& Int32MaxValueAsBigInteger)
+    signMask ||| valueMask
+
   // ithLeastSignificantBit is a 0-based index from the right-most (least-significant) bit of the byte
   let getBit (bigInt: BigInteger) (ithLeastSignificantBit: int): int = int (bigInt >>> ithLeastSignificantBit) &&& 1
 
-  // this assumes i is positive
+  // Per http://docs.oracle.com/javase/7/docs/api/java/math/BigInteger.html#bitLength():
+  // Returns the number of bits in the minimal two's-complement representation of this BigInteger, excluding a sign bit. 
+  // For positive BigIntegers, this is equivalent to the number of bits in the ordinary binary representation. 
+  // Computes ceil(log2(this < 0 ? -this : this+1))
   let bitLength (i: BigInteger): int =
-    if i >= 0I then
-      let mutable j = i
-      let mutable len = 0
-      while j <> 0I do
-        len <- len + 1
-        j <- j >>> 1
-      len
-    else
-      failwith "BigInteger.bitLength does not work on negative BigIntegers."
+    let value = if i < BigInteger.Zero then -i else i + BigInteger.One
+    BigInteger.Log(value, 2.0) |> Math.Ceiling |> int
 
   // returns the 0-based index position of the most-significant-bit with respect to the least-significant-bit (i.e. the least-significant-bit is as index 0)
   let mostSignificantBitPosition (i: BigInteger): int =

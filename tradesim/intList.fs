@@ -44,7 +44,7 @@ type BitWriter() =
 
       let rightmostBitsMask = (1 <<< numberOfBitsToWrite) - 1
       let rightShiftCount = this.remainingBitsToWrite - numberOfBitsToWrite
-      currentByte <- (currentByte <<< numberOfBitsToWrite) ||| byte (int (i >>> rightShiftCount) &&& rightmostBitsMask)
+      currentByte <- (currentByte <<< numberOfBitsToWrite) ||| byte (BigInteger.toInt (i >>> rightShiftCount) &&& rightmostBitsMask)
       pos <- pos + numberOfBitsToWrite
 
       if (this.isAtBeginningOfByteBoundary) then
@@ -113,12 +113,12 @@ module VariableByteSignedIntEncoder =
     let sevenBitWordCount = evenlyDivisibleBitCount / 7
     let mutable tmpInt = 0
 
-    for wordIndex = 1 to sevenBitWordCount do
+    for wordIndex = 1 to (sevenBitWordCount - 1) do
       let shiftAmount = (sevenBitWordCount - wordIndex) * 7
-      tmpInt <- (int (i >>> shiftAmount) &&& 0x7F) ||| 0x80
+      tmpInt <- (BigInteger.toInt (i >>> shiftAmount) &&& 0x7F) ||| 0x80
       bw.write (BigInteger tmpInt) 8
 
-    tmpInt <- int i &&& 0x7F
+    tmpInt <- BigInteger.toInt i &&& 0x7F
     bw.write (BigInteger tmpInt) 8
 
     sevenBitWordCount
@@ -135,12 +135,12 @@ module VariableByteSignedIntEncoder =
     let sevenBitWordCount = evenlyDivisibleBitCount / 7
     let mutable tmpInt = 0
     
-    for wordIndex = 1 to sevenBitWordCount do
+    for wordIndex = 1 to (sevenBitWordCount - 1) do
       let shiftAmount = (sevenBitWordCount - wordIndex) * 7
-      tmpInt <- (int (i >>> shiftAmount) &&& 0x7F) ||| 0x80
+      tmpInt <- (BigInteger.toInt (i >>> shiftAmount) &&& 0x7F) ||| 0x80
       bw.write (BigInteger tmpInt) 8
     
-    tmpInt <- int i &&& 0x7F
+    tmpInt <- BigInteger.toInt i &&& 0x7F
     bw.write (BigInteger tmpInt) 8
 
     sevenBitWordCount
@@ -148,7 +148,7 @@ module VariableByteSignedIntEncoder =
   // returns an unsigned int read from BitReader object <br>
   let read (br: BitReader): BigInteger =
     let mutable i = br.read 8
-    let mutable sum = BigInteger(int i &&& 0x7F)
+    let mutable sum = i &&& (BigInteger 0x7F)
     while BigInteger.mostSignificantBit i <| Some 7 = 1 do
       i <- br.read 8
       sum <- (sum <<< 7) ||| (i &&& BigInteger(0x7F))
@@ -158,7 +158,7 @@ module VariableByteSignedIntEncoder =
   let readSigned (br: BitReader): BigInteger =
     let mutable i = br.read 8
     let mutable count = 1
-    let mutable sum = BigInteger(int i &&& 0x7F)
+    let mutable sum = i &&& (BigInteger 0x7F)
     while BigInteger.mostSignificantBit i <| Some 7 = 1 do
       i <- br.read 8
       count <- count + 1
@@ -199,26 +199,27 @@ type BinaryPackingIntListEncoder(blockSizeInBits: int) =
     BinaryPackingIntListEncoder(128)
 
   member this.write (bw: BitWriter) (ints: seq<BigInteger>): unit =
-    let bw = new BitWriter()
     if not (Seq.isEmpty ints) then
       let sortedInts = Seq.sort ints
       let deltaEncodedInts = BigInteger.deltaEncodeInts sortedInts
 
       let signedStartInt = deltaEncodedInts |> Seq.head
       let remainingInts = deltaEncodedInts |> Seq.tail
-      let slices = remainingInts |> Seq.windowed blockSizeInBits |> Seq.toArray
+      let slices = remainingInts |> Seq.slice blockSizeInBits |> Seq.toArray
       let numberOfSlices = slices.Length
 
       VariableByteSignedIntEncoder.writeSigned bw signedStartInt |> ignore
       VariableByteSignedIntEncoder.write bw <| BigInteger numberOfSlices |> ignore
 
-      slices |> Array.iter (fun sliceOfInts -> FrameOfReferenceIntListEncoder.write bw sliceOfInts)
+      slices |> Array.iter (fun sliceOfInts -> FrameOfReferenceIntListEncoder.write bw <| Seq.toArray sliceOfInts)
 
   member this.read (br: BitReader): seq<BigInteger> =
     let signedStartInt = VariableByteSignedIntEncoder.readSigned br
     let numberOfSlices = VariableByteSignedIntEncoder.read br |> int
 
-    let mutable deltaEncodedIntList = [| |]
+    printfn "read: %A %A" signedStartInt numberOfSlices
+
+    let mutable deltaEncodedIntList = [| signedStartInt |]
     let mutable i = 0
     while i < numberOfSlices do
       deltaEncodedIntList <- Array.append deltaEncodedIntList <| FrameOfReferenceIntListEncoder.read br

@@ -3,6 +3,7 @@
 open System.Collections.Immutable
 open C5
 open FSharpx.Collections
+open ResizeArray
 
 // Returns a lazy sequence of x, (f x), (f (f x)) etc.
 // f must be free of side-effects
@@ -54,6 +55,25 @@ let fromIEnumerable (xs: System.Collections.Generic.IEnumerable<'x>): seq<'x> = 
 let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, seq<'t>> = Seq.groupBy fn ts |> Map.ofSeq
 
 let tail (xs: seq<'T>): seq<'T> = Seq.skipNoFail 1 xs
+
+let slice (n: int) (xs: seq<'T>): seq<seq<'T>> =
+  let slices = ResizeArray.empty ()
+
+  let tmpSlice = ref <| ResizeArray.empty ()
+  xs
+  |> Seq.iteri
+    (fun i x ->
+      (!tmpSlice).Add(x)
+
+      if (!tmpSlice).Count = n then
+        slices.Add(!tmpSlice :> seq<'T>)
+        tmpSlice := ResizeArray.empty ()
+    )
+
+  if (!tmpSlice).Count > 0 then
+    slices.Add(!tmpSlice :> seq<'T>)
+
+  slices :> seq<seq<'T>>
 
 // Seq.apply [ (+) 1; (*) 2 ] 10 => [ 11; 20 ]
 let apply (fns: seq<'t -> 'u>) (arg1: 't): seq<'u> = Seq.map (fun f -> f arg1) fns

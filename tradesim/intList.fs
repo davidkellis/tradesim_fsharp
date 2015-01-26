@@ -5,13 +5,15 @@ open System.IO
 open System.Numerics
 
 open BitManipulation
+open ResizeArray
+open LinkedList
 
 type BitWriter() =
   let mutable pos = 0
   let mutable nextPos = 0
   let mutable bytesWritten = 0
   let mutable currentByte = 0uy
-  let mutable stream = new MemoryStream()
+  let stream = new MemoryStream()
   let out = new BinaryWriter(stream)
 
   member private this.writeByte(): unit =
@@ -98,7 +100,7 @@ type BitReader(byteSeq: MemoryStream) =
     sum
 
 
-type VariableByteSignedIntEncoder() =
+module VariableByteSignedIntEncoder =
   (*
    * bw is a BitWriter object
    * int is an unsigned integer
@@ -109,21 +111,21 @@ type VariableByteSignedIntEncoder() =
     let bitCountMod7 = bitCount % 7
     let evenlyDivisibleBitCount = if bitCountMod7 = 0 then bitCount else bitCount + (7 - bitCountMod7)    // number of bits required to hold <i> in a whole number of 7-bit words
     let sevenBitWordCount = evenlyDivisibleBitCount / 7
-    let mutable tmpInt = 0I
+    let mutable tmpInt = 0
 
     for wordIndex = 1 to sevenBitWordCount do
       let shiftAmount = (sevenBitWordCount - wordIndex) * 7
       tmpInt <- (int (i >>> shiftAmount) &&& 0x7F) ||| 0x80
-      bw.write tmpInt 8
+      bw.write (BigInteger tmpInt) 8
 
     tmpInt <- int i &&& 0x7F
-    bw.write tmpInt 8
+    bw.write (BigInteger tmpInt) 8
 
     sevenBitWordCount
 
   (*
    * bw is a BitWriter object
-   * int is a signed integer
+   * i is a signed integer
    * returns the number of bytes written to the BitWriter
    *)
   let writeSigned (bw: BitWriter) (i: BigInteger): int =
@@ -131,15 +133,15 @@ type VariableByteSignedIntEncoder() =
     let bitCountMod7 = bitCount % 7
     let evenlyDivisibleBitCount = if bitCountMod7 = 0 then bitCount else bitCount + (7 - bitCountMod7)    // number of bits required to hold <i> in a whole number of 7-bit words
     let sevenBitWordCount = evenlyDivisibleBitCount / 7
-    let mutable tmpInt = 0I
+    let mutable tmpInt = 0
     
     for wordIndex = 1 to sevenBitWordCount do
       let shiftAmount = (sevenBitWordCount - wordIndex) * 7
       tmpInt <- (int (i >>> shiftAmount) &&& 0x7F) ||| 0x80
-      bw.write tmpInt 8
+      bw.write (BigInteger tmpInt) 8
     
     tmpInt <- int i &&& 0x7F
-    bw.write tmpInt 8
+    bw.write (BigInteger tmpInt) 8
 
     sevenBitWordCount
 
@@ -147,7 +149,7 @@ type VariableByteSignedIntEncoder() =
   let read (br: BitReader): BigInteger =
     let mutable i = br.read 8
     let mutable sum = BigInteger(int i &&& 0x7F)
-    while mostSignificantBit i <| Some 7 = 1 do
+    while BigInteger.mostSignificantBit i <| Some 7 = 1 do
       i <- br.read 8
       sum <- (sum <<< 7) ||| (i &&& BigInteger(0x7F))
     sum
@@ -157,15 +159,85 @@ type VariableByteSignedIntEncoder() =
     let mutable i = br.read 8
     let mutable count = 1
     let mutable sum = BigInteger(int i &&& 0x7F)
-    while mostSignificantBit i <| Some 7 = 1 do
+    while BigInteger.mostSignificantBit i <| Some 7 = 1 do
       i <- br.read 8
       count <- count + 1
       sum <- (sum <<< 7) ||| (i &&& BigInteger(0x7F))
     BigInteger.uToS sum (7 * count - 1)
 
 
-let decode (encodedInts: array<byte>): array<int> =
-  [| |]
+module FrameOfReferenceIntListEncoder =
+  let write (bw: BitWriter) (ints: array<BigInteger>): unit =
+    let numberOfInts = ints.Length
+    if numberOfInts > 0 then
+      let signedMin = ints |> Array.min
+      let offsets = ints |> Array.map (fun i -> i - signedMin)   // all offsets are guaranteed to be non-negative
+      let maxOffset = offsets |> Array.max
+      let intBitSize = BigInteger.bitLength maxOffset
 
-let encode (ints: array<int>): array<byte> =
-  [| |]
+      VariableByteSignedIntEncoder.writeSigned bw signedMin |> ignore
+      VariableByteSignedIntEncoder.write bw <| BigInteger numberOfInts |> ignore
+      VariableByteSignedIntEncoder.write bw <| BigInteger intBitSize |> ignore
+      
+      offsets |> Array.iter (fun i -> bw.write i intBitSize)
+
+  let read (br: BitReader): array<BigInteger> =
+    let signedMinInt = VariableByteSignedIntEncoder.readSigned br
+    let numberOfInts = VariableByteSignedIntEncoder.read br |> int
+    let intBitSize = VariableByteSignedIntEncoder.read br |> int
+
+    let ints = ResizeArray.empty<BigInteger> ()
+    let mutable i = 0
+    while i < numberOfInts do
+      ResizeArray.add (signedMinInt + br.read intBitSize) ints |> ignore
+      i <- i + 1
+    ints |> ResizeArray.toArray
+
+
+type BinaryPackingIntListEncoder(blockSizeInBits: int) =
+  new() =
+    BinaryPackingIntListEncoder(128)
+
+  member this.write (bw: BitWriter) (ints: seq<BigInteger>): unit =
+    let bw = new BitWriter()
+    if not (Seq.isEmpty ints) then
+      let sortedInts = Seq.sort ints
+      let deltaEncodedInts = BigInteger.deltaEncodeInts sortedInts
+
+      let signedStartInt = deltaEncodedInts |> Seq.head
+      let remainingInts = deltaEncodedInts |> Seq.tail
+      let slices = remainingInts |> Seq.windowed blockSizeInBits |> Seq.toArray
+      let numberOfSlices = slices.Length
+
+      VariableByteSignedIntEncoder.writeSigned bw signedStartInt |> ignore
+      VariableByteSignedIntEncoder.write bw <| BigInteger numberOfSlices |> ignore
+
+      slices |> Array.iter (fun sliceOfInts -> FrameOfReferenceIntListEncoder.write bw sliceOfInts)
+
+  member this.read (br: BitReader): seq<BigInteger> =
+    let signedStartInt = VariableByteSignedIntEncoder.readSigned br
+    let numberOfSlices = VariableByteSignedIntEncoder.read br |> int
+
+    let mutable deltaEncodedIntList = [| |]
+    let mutable i = 0
+    while i < numberOfSlices do
+      deltaEncodedIntList <- Array.append deltaEncodedIntList <| FrameOfReferenceIntListEncoder.read br
+      i <- i + 1
+
+    BigInteger.deltaDecodeInts deltaEncodedIntList
+
+let decodeInts (encodedInts: array<byte>): array<int> =
+  let stream = new MemoryStream(encodedInts)
+  let br = new BitReader(stream)
+  let encoder = new BinaryPackingIntListEncoder()
+  let bigInts = encoder.read br
+  stream.Close()
+  bigInts |> Seq.map int |> Seq.toArray
+
+let encodeInts (ints: array<int>): array<byte> =
+  let bigInts = ints |> Array.map (fun i -> new BigInteger(i))
+  let bw = new BitWriter()
+  let encoder = new BinaryPackingIntListEncoder()
+  encoder.write bw bigInts
+  bw.close()
+  bw.toByteArray()

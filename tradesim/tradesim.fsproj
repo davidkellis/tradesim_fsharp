@@ -99,7 +99,9 @@
     <Compile Include="math.fs" />
     <Compile Include="string.fs" />
     <Compile Include="array.fs" />
+    <Compile Include="resizeArray.fs" />
     <Compile Include="seq.fs" />
+    <Compile Include="linkedList.fs" />
     <Compile Include="stats.fs" />
     <Compile Include="range.fs" />
     <Compile Include="bitManipulation.fs" />

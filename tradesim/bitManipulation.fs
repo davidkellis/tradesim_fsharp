@@ -4,6 +4,7 @@ open System
 open System.Numerics
 open FSharpx
 
+open LinkedList
 open Range
 
 module BigInteger =
@@ -40,6 +41,33 @@ module BigInteger =
     if msb = 1 then
       -(BigInteger(1) <<< mostSignificantBitIndex) + flipBit unsignedInt mostSignificantBitIndex
     else unsignedInt
+
+  (*
+   * deltaEncodeInts(List(50, 60, 70, 75))
+   * res14: Seq[int] = List(50, 10, 10, 5)
+   *)
+  let deltaEncodeInts (ints: seq<BigInteger>): seq<BigInteger> =
+    let rec deltaEncodeIntsR (ints: LinkedList<BigInteger>) (prev: BigInteger) (newList: LinkedList<BigInteger>): seq<BigInteger> =
+      match ints |> LinkedList.removeFirst with
+      | None -> newList |> LinkedList.toSeq
+      | Some next -> deltaEncodeIntsR ints next (newList |> LinkedList.addLastL (next - prev))
+
+    deltaEncodeIntsR <| LinkedList.fromSeq ints <| 0I <| LinkedList.empty ()
+  
+  (*
+   * deltaDecodeInts(List(50, 10, 10, 5))
+   * res13: Seq[int] = List(50, 60, 70, 75)
+   *)
+  let deltaDecodeInts (ints: seq<BigInteger>): seq<BigInteger> =
+    ints
+    |> Seq.fold 
+      (fun (list, sum) i -> 
+        let newSum = sum + i
+        (LinkedList.addLastL newSum list, newSum)
+      )
+      (LinkedList.empty (), 0I)
+    |> fst
+    |> LinkedList.toSeq
 
 
 module Byte =
@@ -97,26 +125,3 @@ module Int64 =
 //  let printBits(ints: Array[byte]) { ints.foreach{i => printBits(i); print(" ")} }
 //  let printBits(ints: Seq[BigInteger]) { ints.foreach{i => printBits(i); print(" ")} }
 //
-//  /**
-//   * deltaEncodeInts(List(50, 60, 70, 75))
-//   * res14: Seq[int] = List(50, 10, 10, 5)
-//   */
-//  let deltaEncodeInts(ints: Seq[BigInteger]): Seq[BigInteger] = {
-//    let encodeList(ints: Seq[BigInteger], prev: BigInteger, newList: Seq[BigInteger]): Seq[BigInteger] = {
-//      if (ints.isEmpty) newList
-//      else {
-//        val next = ints.head
-//        encodeList(ints.tail, next, newList :+ (next - prev))
-//      }
-//    }
-//    encodeList(ints, 0, List())
-//  }
-//
-//  /**
-//   * deltaDecodeInts(List(50, 10, 10, 5))
-//   * res13: Seq[int] = List(50, 60, 70, 75)
-//   */
-//  let deltaDecodeInts(ints: Seq[BigInteger]): Seq[BigInteger] = {
-//    var sum = BigInteger(0)
-//    ints.foldLeft(List[BigInteger]()) { (list, i) => sum += i; list :+ sum }
-//  }

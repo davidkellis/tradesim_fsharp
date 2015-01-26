@@ -53,6 +53,8 @@ let fromIEnumerable (xs: System.Collections.Generic.IEnumerable<'x>): seq<'x> = 
 
 let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, seq<'t>> = Seq.groupBy fn ts |> Map.ofSeq
 
+let tail (xs: seq<'T>): seq<'T> = Seq.skipNoFail 1 xs
+
 // Seq.apply [ (+) 1; (*) 2 ] 10 => [ 11; 20 ]
 let apply (fns: seq<'t -> 'u>) (arg1: 't): seq<'u> = Seq.map (fun f -> f arg1) fns
 

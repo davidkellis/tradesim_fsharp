@@ -1,0 +1,33 @@
+NUGET
+  remote: https://nuget.org/api/v2
+  specs:
+    C5 (2.3.0.1)
+    CommandLineParser (1.9.71)
+    CSharpTest.Net.Library (2.14.126.467)
+    FParsec (1.0.1)
+    FSharp.Collections.ParallelSeq (1.0.2)
+    FSharp.Core (3.1.2.1)
+    FSharp.Data (2.1.1)
+      Zlib.Portable (>= 1.10.0)
+    FSharpx.Core (1.8.41)
+    FsUnit (1.3.0.1)
+      NUnit (>= 2.6.3)
+    FsYaml (1.1.3.0)
+      FParsec (>= 1.0.1)
+    Google.ProtocolBuffers (2.4.1.521)
+    jack (1.0.1)
+      FParsec (>= 1.0.1)
+      FsUnit (>= 1.2.1.0)
+      FsYaml (>= 1.1.3.0)
+      NUnit (>= 2.6.2)
+    MathNet.Numerics (3.5.0)
+      TaskParallelLibrary (>= 1.0.2856) - >= net35 < net40
+    MathNet.Numerics.FSharp (3.5.0)
+      FSharp.Core (>= 3.1.2.1)
+      MathNet.Numerics (3.5.0)
+    Microsoft.Bcl.Immutable (1.0.34)
+    NodaTime (1.3.0)
+    Npgsql (2.2.3)
+    NUnit (2.6.4)
+    TaskParallelLibrary (1.0.2856.0) - >= net35 < net40
+    Zlib.Portable (1.10.0)

@@ -84,7 +84,7 @@ module Byte =
   let extractInt (b: byte) (msbit: int) (lsbit: int): int =
     if msbit < lsbit then failwith "most-significant-bit position cannot be less than the least-significant-bit position"
     if lsbit < 0 || msbit > 7 then failwith "least-significant-bit position must be >= 0 and most-significant-bit position must be < 8"
-    (lsbit, msbit) |> Range.fold (fun sum ithLeastSignificantBit -> sum + getBit b ithLeastSignificantBit * (1 <<< (ithLeastSignificantBit - lsbit)) ) 0
+    (lsbit, msbit) |> Range.foldInclusive (fun sum ithLeastSignificantBit -> sum + getBit b ithLeastSignificantBit * (1 <<< (ithLeastSignificantBit - lsbit)) ) 0
 
   // extractIntLR(0b11101010, 0, 2)
   // => 7

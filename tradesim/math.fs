@@ -13,6 +13,17 @@ module Random =
     let rnd = ThreadLocalRandom.Value
     Array.init n (fun _ -> rnd.Next(upperBoundExclusive))
 
+  let randomIntsBetween lowerBound upperBoundExclusive n: array<int> =
+    let range = upperBoundExclusive - lowerBound
+    randomInts range n |> Array.map (fun offset -> lowerBound + offset)
+
+module Int =
+  let pow value exp: int = 
+    if exp >= 0 then
+      Range.fold (fun memo i -> memo * value) 1 (0, exp)
+    else
+      failwith "ints cannot be raised to a negative power."
+
 module Double =
   let roundTo (fractionalDigits: int) (d: double): double = System.Math.Round(d, fractionalDigits)
 

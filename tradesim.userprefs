@@ -1,6 +1,6 @@
 ﻿<Properties StartupItem="tradesim/tradesim.fsproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/intListTests.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/decimalList.fs">
     <Files>
       <File FileName="tradesim/core.fs" Line="1" Column="1" />
       <File FileName="tradesim/buyAndHoldStrategy.fs" Line="1" Column="1" />
@@ -9,13 +9,13 @@
       <File FileName="tradesim/samplingDistribution.fs" Line="1" Column="1" />
       <File FileName="tradesim/db.fs" Line="1" Column="1" />
       <File FileName="tradesim/trialSetStats.fs" Line="1" Column="1" />
-      <File FileName="tradesim/decimalList.fs" Line="1" Column="1" />
       <File FileName="tradesim/range.fs" Line="1" Column="1" />
-      <File FileName="tradesim/bitManipulation.fs" Line="7" Column="7" />
-      <File FileName="tradesim/intList.fs" Line="65" Column="65" />
-      <File FileName="tradesim/intListTests.fs" Line="3" Column="3" />
-      <File FileName="tradesim/resizeArray.fs" Line="7" Column="7" />
-      <File FileName="tradesim/linkedList.fs" Line="16" Column="16" />
+      <File FileName="tradesim/bitManipulation.fs" Line="1" Column="1" />
+      <File FileName="tradesim/decimalList.fs" Line="25" Column="25" />
+      <File FileName="tradesim/decimalListTests.fs" Line="32" Column="32" />
+      <File FileName="tradesim/intList.fs" Line="1" Column="1" />
+      <File FileName="tradesim/resizeArray.fs" Line="1" Column="1" />
+      <File FileName="tradesim/linkedList.fs" Line="1" Column="1" />
       <File FileName="tradesim/seq.fs" Line="1" Column="1" />
     </Files>
     <Pads>
@@ -23,8 +23,8 @@
         <State expanded="True">
           <Node name="tradesim" expanded="True">
             <Node name="Test" expanded="True">
-              <Node name="IntList" expanded="True">
-                <Node name="BinaryPackingIntListEncoder encodes a list of integers" selected="True" />
+              <Node name="DecimalList" expanded="True">
+                <Node name="DecimalList encodes and decodes decimals" selected="True" />
               </Node>
             </Node>
           </Node>

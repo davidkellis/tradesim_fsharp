@@ -225,16 +225,15 @@ type BinaryPackingIntListEncoder(blockSizeInBits: int) =
 
     BigInteger.deltaDecodeInts deltaEncodedIntList
 
-let decodeInts (encodedInts: array<byte>): array<int> =
-  let stream = new MemoryStream(encodedInts)
+let decode (encodedBigInts: array<byte>): array<BigInteger> =
+  let stream = new MemoryStream(encodedBigInts)
   let br = new BitReader(stream)
   let encoder = new BinaryPackingIntListEncoder()
   let bigInts = encoder.read br
   stream.Close()
-  bigInts |> Seq.map int |> Seq.toArray
+  bigInts |> Seq.toArray
 
-let encodeInts (ints: array<int>): array<byte> =
-  let bigInts = ints |> Array.map (fun i -> new BigInteger(i))
+let encode (bigInts: array<BigInteger>): array<byte> =
   let bw = new BitWriter()
   let encoder = new BinaryPackingIntListEncoder()
   encoder.write bw bigInts

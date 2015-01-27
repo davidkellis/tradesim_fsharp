@@ -9,7 +9,19 @@ let iter (fn: int -> unit) (range: Range): unit =
   for i = startI to endI do
     fn i
 
+// fold over the range [start, end)  (i.e. excluding the end)
 let fold (accFn: 'State -> int -> 'State) (state: 'State) (range: Range) =
+  let rec foldR state i endI =
+    if i >= endI then
+      state
+    else
+      foldR (accFn state i) (i + 1) endI
+
+  let (startI, endI) = range
+  foldR state startI endI
+
+// fold over the range [start, end]  (i.e. including the end)
+let foldInclusive (accFn: 'State -> int -> 'State) (state: 'State) (range: Range) =
   let rec foldR state i endI =
     if i > endI then
       state

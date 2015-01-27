@@ -61,11 +61,13 @@ let subtractInterval (minuend: Interval) (subtrahend: Interval): MInterval =
 
 // represents the computation: minuend - subtrahend = difference
 let subtractMInterval (minuend: MInterval) (subtrahend: MInterval): MInterval = 
-  let mintervals = seq {
-    for m in minuend do
-    for s in subtrahend do
-    yield! subtractInterval m s
-  }
+  let mintervals = 
+    seq {
+      for m in minuend do
+      for s in subtrahend do
+      yield! subtractInterval m s
+    }
+    |> Seq.cache
   createMInterval mintervals
 
 let isMIntervalEmpty (mInterval: MInterval): bool = Array.isEmpty mInterval
@@ -77,4 +79,5 @@ let overlaps (mInterval1: MInterval) (mInterval2: MInterval): bool =
       for i2 in mInterval2 do
         yield (i1, i2)
     }
+    |> Seq.cache
   Seq.exists (fun (interval1, interval2) -> intervalsOverlap interval1 interval2) intervalPairs

@@ -9,7 +9,7 @@ open ResizeArray
 // f must be free of side-effects
 let iterate f x =
   let rec iterate' x = seq { yield x; yield! iterate' <| f x }
-  iterate' x
+  iterate' x |> Seq.cache
 
 // e.g. Seq.flatMapO (fun (e: Exchange) -> e.id) exchanges
 let flatMapO (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> = 
@@ -20,6 +20,7 @@ let flatMapO (f: 't -> Option<'u>) (ts: seq<'t>): seq<'u> =
       | Some u -> yield u
       | _ -> ()
   }
+  |> Seq.cache
 
 // e.g. Seq.flatMap (fun (e: Exchange) -> getSecurities e) exchanges
 let flatMap (f: 't -> seq<'u>) (ts: seq<'t>): seq<'u> = 
@@ -36,20 +37,24 @@ let treeMap<'k, 'v when 'k : comparison> (entities: seq<'v>) (keyExtractorFn: 'v
   Seq.iter (fun value -> tree.Add(keyExtractorFn value, value)) entities
   tree
 
+// WARNING! This seq is NOT safe to re-evaluate! Re-evaluating the seq does not produce the same sequence of elements that the first evaluation does.
 let mapIEnumerator (fn: 'x -> 'y) (xs: System.Collections.Generic.IEnumerator<'x>): seq<'y> =
   seq { 
     while xs.MoveNext() do
       yield fn xs.Current
   }
 
+// WARNING! This seq is NOT safe to re-evaluate! Re-evaluating the seq does not produce the same sequence of elements that the first evaluation does.
 let fromIEnumerator (xs: System.Collections.Generic.IEnumerator<'x>): seq<'x> =
   seq { 
     while xs.MoveNext() do
       yield xs.Current
   }
 
+// WARNING! This seq MAY NOT be safe to re-evaluate! Re-evaluating the seq MAY NOT produce the same sequence of elements that the first evaluation does.
 let fromIEnumerableOfUnknownType<'x> (xs: System.Collections.IEnumerable): seq<'x> = Seq.cast xs
 
+// WARNING! This seq is NOT safe to re-evaluate! Re-evaluating the seq does not produce the same sequence of elements that the first evaluation does.
 let fromIEnumerable (xs: System.Collections.Generic.IEnumerable<'x>): seq<'x> = fromIEnumerator (xs.GetEnumerator())
 
 let groupIntoMapBy (fn: 't -> 'k) (ts: seq<'t>): Map<'k, seq<'t>> = Seq.groupBy fn ts |> Map.ofSeq
@@ -75,9 +80,6 @@ let slice (n: int) (xs: seq<'T>): seq<seq<'T>> =
 
   slices :> seq<seq<'T>>
 
-// Seq.apply [ (+) 1; (*) 2 ] 10 => [ 11; 20 ]
-let apply (fns: seq<'t -> 'u>) (arg1: 't): seq<'u> = Seq.map (fun f -> f arg1) fns
-
 let zipWithIndex (xs: seq<'t>): seq<'t * int> =
   Seq.initInfinite id
   |> Seq.zip xs
@@ -95,9 +97,13 @@ let grouped n (xs: seq<'t>): seq<seq<'t>> =
       (!lst).AddLast(x) |> ignore
 
       if (!lst).Count % n = 0 then
-        yield (!lst |> fromIEnumerable)
+        yield (!lst |> fromIEnumerable |> Seq.cache)
         lst := new System.Collections.Generic.LinkedList<'t>()
 
     if (!lst).Count % n <> 0 then
       yield ((!lst).GetEnumerator() |> fromIEnumerator)
   }
+  |> Seq.cache
+
+// Seq.apply [ (+) 1; (/) 90 ] 10 => [ 11; 9 ]
+let apply (fns: seq<'t -> 'u>) (arg1: 't): seq<'u> = Seq.map (fun f -> f arg1) fns

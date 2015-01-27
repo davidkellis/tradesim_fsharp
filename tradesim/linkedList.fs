@@ -68,4 +68,4 @@ module LinkedList =
     list
 
   let toSeq (list: LinkedList<'T>): seq<'T> =
-    Seq.fromIEnumerable list
+    Seq.fromIEnumerable list |> Seq.cache

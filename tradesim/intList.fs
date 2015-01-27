@@ -217,8 +217,6 @@ type BinaryPackingIntListEncoder(blockSizeInBits: int) =
     let signedStartInt = VariableByteSignedIntEncoder.readSigned br
     let numberOfSlices = VariableByteSignedIntEncoder.read br |> int
 
-    printfn "read: %A %A" signedStartInt numberOfSlices
-
     let mutable deltaEncodedIntList = [| signedStartInt |]
     let mutable i = 0
     while i < numberOfSlices do

@@ -49,31 +49,26 @@ let ``VariableByteSignedIntEncoder writes integers to a bitwriter`` () =
 
 [<Test>]
 let ``FrameOfReferenceIntListEncoder encodes a list of integers`` () =
-  let list = [ 1I; 2I; 50I ] |> List.toArray
+  let list = [ -50I; 0I; 2I; 3I ] |> List.toArray
 
   let bw = new BitWriter()
   FrameOfReferenceIntListEncoder.write bw list
   bw.close()
-
-  printfn "bytes: %A" (bw.toByteArray())
 
   let br = new BitReader(new MemoryStream(bw.toByteArray()))
   FrameOfReferenceIntListEncoder.read br |> should equal list
 
 [<Test>]
 let ``BinaryPackingIntListEncoder encodes a list of integers`` () =
-  let list = [ 1I; 2I; 50I ] |> List.toSeq
+  let list = [ 5I; 7I; 50I ] |> List.toSeq
 
   let bw = new BitWriter()
   let e = new BinaryPackingIntListEncoder()
   e.write bw list
   bw.close()
 
-  printfn "bytes: %A" (bw.toByteArray())
-
   let br = new BitReader(new MemoryStream(bw.toByteArray()))
   let deserializedArray = e.read br
-  printfn "deserializedArray: %A" deserializedArray
   deserializedArray |> should equal list
 
 [<Test>]
@@ -96,4 +91,4 @@ let ``BinaryPackingIntListEncoder encodes and decodes a known good encoding (wit
   bytes |> should equal expectedEncodedIntsBytes
 
   let br = new BitReader(new MemoryStream(bw.toByteArray()))
-  e.read br |> should equal ints
+  e.read br |> should equal <| Seq.sort ints

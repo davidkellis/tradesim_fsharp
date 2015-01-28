@@ -16,9 +16,4 @@ let ``DecimalList encodes and decodes decimals`` () =
 
   let bytes = DecimalList.encode 3 decimals
 
-  //DecimalList.decode 3 bytes |> should equal sortedTruncatedDecimals
-
-  Assert.AreEqual(
-    DecimalList.decode 3 bytes,
-    sortedTruncatedDecimals
-  )
+  DecimalList.decode 3 bytes |> should equal sortedTruncatedDecimals

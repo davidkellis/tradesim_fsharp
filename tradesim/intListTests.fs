@@ -19,24 +19,13 @@ let ``bit writing and reading`` () =
   bw.close()
 
   let br = new BitReader(new MemoryStream(bw.toByteArray()))
-  // br.read 1 |> should equal 1I
-  // br.read 3 |> should equal 5I
-  // br.read 4 |> should equal 9I
-  // br.read 4 |> should equal 15I
-  // br.read 8 |> should equal 12I
-  // br.read 4 |> should equal 3I
-  // (fun () -> br.read 1 |> ignore) |> should throw typeof<System.Exception>
-
-  Assert.AreEqual( br.read 1, 1I )
-  Assert.AreEqual( br.read 3, 5I )
-  Assert.AreEqual( br.read 4, 9I )
-  Assert.AreEqual( br.read 4, 15I )
-  Assert.AreEqual( br.read 8, 12I )
-  Assert.AreEqual( br.read 4, 3I )
-  //Assert.Throws(
-  //  (fun () -> br.read 1 |> ignore),
-  //  typeof<System.Exception>
-  //)
+  br.read 1 |> should equal 1I
+  br.read 3 |> should equal 5I
+  br.read 4 |> should equal 9I
+  br.read 4 |> should equal 15I
+  br.read 8 |> should equal 12I
+  br.read 4 |> should equal 3I
+  (fun () -> br.read 1 |> ignore) |> should throw typeof<System.Exception>
 
 
 [<Test>]

@@ -14,5 +14,5 @@ nuget FSharpx.Core
 nuget MathNet.Numerics
 nuget MathNet.Numerics.FSharp
 nuget jack
-nuget NUnit
+nuget NUnit 2.6.3     // FsUnit only works with 2.6.3; it doesn't work with 2.6.4 yet (1/28/15)
 nuget FsUnit

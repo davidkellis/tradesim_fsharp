@@ -28,6 +28,6 @@ NUGET
     Microsoft.Bcl.Immutable (1.0.34)
     NodaTime (1.3.0)
     Npgsql (2.2.3)
-    NUnit (2.6.4)
+    NUnit (2.6.3)
     TaskParallelLibrary (1.0.2856.0) - >= net35 < net40
     Zlib.Portable (1.10.0)

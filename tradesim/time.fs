@@ -145,10 +145,11 @@ let intervalBetween (t1: ZonedDateTime) (t2: ZonedDateTime): Interval = interval
 
 let intervalsOverlap (i1: Interval) (i2: Interval): bool = i1.Contains(i2.Start) || i1.Contains(i2.End) || (i2.Start < i1.Start && i1.End <= i2.End)
 
-let formatPeriod (period: Period): string = PeriodPattern.NormalizingIsoPattern.Format(period)
+// todo: ensure that this is always going to return the proper values: e.g. 1 week should be represented as P1W, and not P7D
+let formatPeriod (period: Period): string = PeriodPattern.RoundtripPattern.Format(period)
 
 let parsePeriod (period: string): Option<Period> = 
-  let parseResult = PeriodPattern.NormalizingIsoPattern.Parse(period)
+  let parseResult = PeriodPattern.RoundtripPattern.Parse(period)
   if parseResult.Success then
     Some parseResult.Value
   else

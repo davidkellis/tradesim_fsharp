@@ -389,13 +389,13 @@ let computeAndStoreSamplingDistributions connectionString trialSetDistributionId
   
   let numberOfSamples = 10000
   let numberOfObservationsPerSample = 10000
+  let sampleStatistics = allSampleStatistics connectionString
   let samplingDistributions = 
     buildSamplingDistributionsFromOneMultiStatisticFn 
       numberOfSamples 
       numberOfObservationsPerSample 
       (build1YearReturnSampleFromWeeklyReturns weeklyReturns)
       computeSampleStatistics
-  let sampleStatistics = allSampleStatistics connectionString
   // NOTE: the sample statistics in <sampleStatistics> are in the same order as the statistics used to
   // construct the sampling distributions in <samplingDistributions>; in other words, they are parallel arrays
   let samplingDistributionsWithSampleStatistics = Array.zip samplingDistributions sampleStatistics

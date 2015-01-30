@@ -56,3 +56,11 @@ To run trials:
 
 To build trial samples:
 ./run -h localhost -p 5432 -u david -s bah2 --build-trial-samples
+
+
+To run missing weekly trials:
+./run -h localhost -p 5432 -u david -c runWeeklyMissingTrials
+
+
+To compute missing sampling distributions:
+./run -h localhost -p 5432 -u david -c computeMissingSamplingDistributions

@@ -91,9 +91,10 @@ let main argv =
     else
       setLogLevel Info
 
-    if options.BuildTrialSamples then
-      info "build trial samples"
-      TrialSetStats.buildMissingTrialSetDistributions connectionString Core.TrialYield
+    if options.BuildTrialSamples then   // deprecated
+      info "build trial samples (deprecated)"
+      //TrialSetStats.buildMissingTrialSetDistributions connectionString Core.TrialYield
+
     elif options.Command <> null then
       match options.Command with
       | "runWeeklyMissingTrials" -> dke.returnStats.runMissingWeeklyTrials.run connectionString options.QHost options.QPort

@@ -85,9 +85,11 @@ let run connectionString beanstalkdHost beanstalkdPort =
     let result = client.reserveWithTimeout 5
     match result with
     | Success (jobId, payload) ->
-      printfn "jobId=%i  payload=%s" jobId payload
-
       let trialSetDefinition = decodeMessage payload
+
+      info <| sprintf "jobId=%i" jobId
+      info <| sprintf "payload=%s" payload
+      info <| sprintf "trialSetDefinition=%A" trialSetDefinition
 
       if trialSetDefinition.strategyName = strategies.BuyAndHold.StrategyName then
         runWeeklyTrials
@@ -101,5 +103,6 @@ let run connectionString beanstalkdHost beanstalkdPort =
 
       client.delete jobId |> ignore
     | jack.Failure msg ->
-      failwith msg
+      info "Failure occurred while waiting for a beanstalkd message:"
+      info msg
       keepLooping <- false

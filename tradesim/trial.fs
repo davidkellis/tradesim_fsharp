@@ -378,7 +378,7 @@ let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'S
     let finalStates = runTrialsInParallel strategyInterface stateInterface dao strategy trials
 
     let t2 = currentTime <| Some EasternTimeZone
-    debug <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
+    info <| sprintf "Time to run trials: %s" (formatPeriod <| periodBetween t1 t2)
 
     let t3 = currentTime <| Some EasternTimeZone
     let trialResults = buildTrialResults stateInterface trials finalStates
@@ -395,7 +395,7 @@ let runAndLogTrialsInParallel (strategyInterface: TradingStrategy<'StrategyT, 'S
               trialResults
 
     let t4 = currentTime <| Some EasternTimeZone
-    debug <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
+    info <| sprintf "Time to log trials: %s" (formatPeriod <| periodBetween t3 t4)
 
     (finalStates, trialResults)
   else

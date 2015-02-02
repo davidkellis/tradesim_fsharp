@@ -12,10 +12,10 @@ open Logging
 type Opt = CommandLine.OptionAttribute
 type RuntimeConfig() =
   class
-    [<Opt('h', "host", HelpText = "Database host")>]
+    [<Opt("host", HelpText = "Database host")>]
     member val Host = "localhost" with get, set
 
-    [<Opt('p', "port", HelpText = "Database port")>]
+    [<Opt("port", HelpText = "Database port")>]
     member val Port = 5432 with get, set
 
     [<Opt('d', "db", HelpText = "Database schema name")>]

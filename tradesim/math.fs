@@ -16,6 +16,8 @@ module Random =
   let randomIntsBetween lowerBound upperBoundExclusive n: array<int> =
     let range = upperBoundExclusive - lowerBound
     randomInts range n |> Array.map (fun offset -> lowerBound + offset)
+  
+  let randomDecimalsBetween lowerBound upperBoundExclusive n: array<decimal> = randomIntsBetween lowerBound upperBoundExclusive n |> Array.map decimal
 
 module Int =
   let pow value exp: int = 

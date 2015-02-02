@@ -387,8 +387,8 @@ let computeAndStoreSamplingDistributions connectionString trialSetDistributionId
   let trialSetDistribution = lookupTrialSetDistribution connectionString trialSetDistributionId
   let weeklyReturns = trialSetDistribution.distribution
   
-  let numberOfSamples = 10000
-  let numberOfObservationsPerSample = 10000
+  let numberOfSamples = 1000
+  let numberOfObservationsPerSample = 1000
   let sampleStatistics = allSampleStatistics connectionString
   let samplingDistributions = 
     buildSamplingDistributionsFromOneMultiStatisticFn 

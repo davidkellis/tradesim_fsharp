@@ -64,3 +64,7 @@ To run missing weekly trials:
 
 To compute missing sampling distributions:
 ./run -h localhost -p 5432 -u david -c computeMissingSamplingDistributions
+
+
+To compile an arbirary test.fs file:
+fsharpc --target:exe -o test.exe test.fs

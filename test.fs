@@ -309,12 +309,13 @@ let computeAndSamplingDistributions weeklyReturns numberOfSamples numberOfObserv
 
 [<EntryPoint>]
 let main argv = 
+  let count = argv.[0] |> int
   (* let returnsF = [| 23.2; 15.1; 2.4; -3.9; 25.1; 7.6; -2.8;  -12.6; -3.5; 5.6; -2.2; 11.8; 16.5; 30.9; 5.0; 35.9; -2.8; -25.5; 21.3;  9.4; 15.0; 22.5; -5.5; 18.1; -13.7; 20.3; -3.9; 10.5; -0.3; 0.2; -11.5;  31.6; -13.3; 14.4; 1.1; 12.9; 5.0; -16.8; -0.7; 1.3; 0.2; 18.9; 15.5; -11.7; 9.2; -11.8; -25.6 |] *)
   (* let returnsF = [| 0.2; 18.9; 15.5; -11.7; 9.2; -11.8 |] *)
   (* let returnsF = [| -16.8; 0.2; 18.9; 15.5; -11.7; 9.2; -11.8 |] *)
   let returnsF = [| 0.2; 18.9; 15.5; -11.7; 9.2; -11.8; -17.2 |]
   let returns = returnsF |> Array.map (fun r -> (decimal r + 100m) / 100m)
 
-  computeAndSamplingDistributions returns 10000 10000
+  computeAndSamplingDistributions returns count count
 
   0

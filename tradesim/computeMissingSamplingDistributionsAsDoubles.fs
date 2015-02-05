@@ -1,4 +1,4 @@
-﻿module dke.returnStats.computeMissingSamplingDistributions
+﻿module dke.returnStats.computeMissingSamplingDistributionsAsDoubles
 
 open System
 
@@ -32,7 +32,7 @@ type TrialSetDistribution = {
   attribute: string
   startTime: ZonedDateTime
   endTime: ZonedDateTime
-  distribution: array<decimal>
+  distribution: array<double>
 
   n: int
   average: decimal
@@ -70,7 +70,7 @@ type SamplingDistribution = {
   id: int option
   trialSetDistributionId: int
   sampleStatisticId: int
-  distribution: array<decimal>
+  distribution: array<double>
 
   n: int
   average: decimal
@@ -118,7 +118,7 @@ let toTrialSetDistribution (reader: NpgsqlDataReader): TrialSetDistribution =
     attribute = dbGetStr reader "attribute"
     startTime = dbGetLong reader "start_time" |> timestampToDatetime
     endTime = dbGetLong reader "end_time" |> timestampToDatetime
-    distribution = dbGetBytes reader "distribution" |> DecimalList.decode 3
+    distribution = dbGetBytes reader "distribution" |> DoubleList.decode 3
     
     n = dbGetInt reader "n"
     average = dbGetDecimal reader "average"
@@ -233,7 +233,7 @@ let insertSamplingDistribution connectionString (samplingDistribution: SamplingD
       [
         intParam "trialSetDistributionId" samplingDistribution.trialSetDistributionId;
         intParam "sampleStatisticId" samplingDistribution.sampleStatisticId;
-        byteArrayParam "distribution" (DecimalList.encode 3 samplingDistribution.distribution);
+        byteArrayParam "distribution" (DoubleList.encode 3 samplingDistribution.distribution);
         intParam "n" samplingDistribution.n;
         decimalParam "average" samplingDistribution.average;
         decimalParam "min" samplingDistribution.min;
@@ -304,45 +304,45 @@ let allSampleStatistics connectionString = [|
 
 // computes the following sample statistics of a single sample (in the following order): 
 // mean, min, max, 1st %ile, 5th %ile, 10th %ile, 15th %ile, ..., 95th %ile, and 99th %ile
-let computeSampleStatistics (sample: array<decimal>): array<decimal> = 
-  let onlineMeanMinMax = new Sample.Decimal.OnlineMeanMinMax()
+let computeSampleStatistics (sample: array<double>): array<double> = 
+  let onlineMeanMinMax = new Sample.Double.OnlineMeanMinMax()
   onlineMeanMinMax.pushAll sample
 
   let mean = onlineMeanMinMax.mean
-  let min = onlineMeanMinMax.min |> Option.getOrElse 0m
-  let max = onlineMeanMinMax.max |> Option.getOrElse 0m
+  let min = onlineMeanMinMax.min |> Option.getOrElse 0.0
+  let max = onlineMeanMinMax.max |> Option.getOrElse 0.0
 
   Array.append
     [| mean; min; max |]
-    (Sample.Decimal.Array.percentiles [|1m; 5m; 10m; 15m; 20m; 25m; 30m; 35m; 40m; 45m; 50m; 55m; 60m; 65m; 70m; 75m; 80m; 85m; 90m; 95m; 99m|] sample)
+    (Sample.Double.Array.percentiles [|1.0; 5.0; 10.0; 15.0; 20.0; 25.0; 30.0; 35.0; 40.0; 45.0; 50.0; 55.0; 60.0; 65.0; 70.0; 75.0; 80.0; 85.0; 90.0; 95.0; 99.0|] sample)
 
-let buildSamplingDistributionRecord connectionString trialSetDistributionId sampleStatisticId (samplingDistribution: array<decimal>): SamplingDistribution =
+let buildSamplingDistributionRecord connectionString trialSetDistributionId sampleStatisticId (samplingDistribution: array<double>): SamplingDistribution =
   let sampleStatistics = computeSampleStatistics samplingDistribution
   let n = Array.length samplingDistribution
-  let mean = sampleStatistics.[0]
-  let min = sampleStatistics.[1]
-  let max = sampleStatistics.[2]
-  let percentile1 = sampleStatistics.[3]
-  let percentile5 = sampleStatistics.[4]
-  let percentile10 = sampleStatistics.[5]
-  let percentile15 = sampleStatistics.[6]
-  let percentile20 = sampleStatistics.[7]
-  let percentile25 = sampleStatistics.[8]
-  let percentile30 = sampleStatistics.[9]
-  let percentile35 = sampleStatistics.[10]
-  let percentile40 = sampleStatistics.[11]
-  let percentile45 = sampleStatistics.[12]
-  let percentile50 = sampleStatistics.[13]
-  let percentile55 = sampleStatistics.[14]
-  let percentile60 = sampleStatistics.[15]
-  let percentile65 = sampleStatistics.[16]
-  let percentile70 = sampleStatistics.[17]
-  let percentile75 = sampleStatistics.[18]
-  let percentile80 = sampleStatistics.[19]
-  let percentile85 = sampleStatistics.[20]
-  let percentile90 = sampleStatistics.[21]
-  let percentile95 = sampleStatistics.[22]
-  let percentile99 = sampleStatistics.[23]
+  let mean = sampleStatistics.[0] |> decimal
+  let min = sampleStatistics.[1] |> decimal
+  let max = sampleStatistics.[2] |> decimal
+  let percentile1 = sampleStatistics.[3] |> decimal
+  let percentile5 = sampleStatistics.[4] |> decimal
+  let percentile10 = sampleStatistics.[5] |> decimal
+  let percentile15 = sampleStatistics.[6] |> decimal
+  let percentile20 = sampleStatistics.[7] |> decimal
+  let percentile25 = sampleStatistics.[8] |> decimal
+  let percentile30 = sampleStatistics.[9] |> decimal
+  let percentile35 = sampleStatistics.[10] |> decimal
+  let percentile40 = sampleStatistics.[11] |> decimal
+  let percentile45 = sampleStatistics.[12] |> decimal
+  let percentile50 = sampleStatistics.[13] |> decimal
+  let percentile55 = sampleStatistics.[14] |> decimal
+  let percentile60 = sampleStatistics.[15] |> decimal
+  let percentile65 = sampleStatistics.[16] |> decimal
+  let percentile70 = sampleStatistics.[17] |> decimal
+  let percentile75 = sampleStatistics.[18] |> decimal
+  let percentile80 = sampleStatistics.[19] |> decimal
+  let percentile85 = sampleStatistics.[20] |> decimal
+  let percentile90 = sampleStatistics.[21] |> decimal
+  let percentile95 = sampleStatistics.[22] |> decimal
+  let percentile99 = sampleStatistics.[23] |> decimal
 
   {
     id = None
@@ -378,8 +378,8 @@ let buildSamplingDistributionRecord connectionString trialSetDistributionId samp
   }
 
 // returns a sample of <sampleSize> simulated yearly return observations, given an initial sample of 3 monthly return observations
-let build1YearReturnSampleFromWeeklyReturns weeklyReturns sampleSize: array<decimal> = 
-  Decimal.buildCumulativeReturnSample weeklyReturns 52 sampleSize
+let build1YearReturnSampleFromWeeklyReturns weeklyReturns sampleSize: array<double> = 
+  Double.buildCumulativeReturnSample weeklyReturns 52 sampleSize
 
 let computeAndStoreSamplingDistributions connectionString trialSetDistributionId: unit =
   let t1 = DateTime.Now
@@ -390,9 +390,9 @@ let computeAndStoreSamplingDistributions connectionString trialSetDistributionId
   let numberOfSamples = 5000
   let numberOfObservationsPerSample = 5000
   let sampleStatistics = allSampleStatistics connectionString
-  let sampleStatisticsCount = computeSampleStatistics [| 1m; 2m; 3m |] |> Array.length
+  let sampleStatisticsCount = computeSampleStatistics [| 1.0; 2.0; 3.0 |] |> Array.length
   let samplingDistributions = 
-    Decimal.buildSamplingDistributionsFromOneMultiStatisticFn 
+    Double.buildSamplingDistributionsFromOneMultiStatisticFn 
       numberOfSamples 
       numberOfObservationsPerSample 
       (build1YearReturnSampleFromWeeklyReturns weeklyReturns)

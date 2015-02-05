@@ -19,6 +19,8 @@ module Random =
   
   let randomDecimalsBetween lowerBound upperBoundExclusive n: array<decimal> = randomIntsBetween lowerBound upperBoundExclusive n |> Array.map decimal
 
+  let randomDoublesBetween lowerBound upperBoundExclusive n: array<double> = randomIntsBetween lowerBound upperBoundExclusive n |> Array.map double
+
 module Int =
   let pow value exp: int = 
     if exp >= 0 then
@@ -27,7 +29,18 @@ module Int =
       failwith "ints cannot be raised to a negative power."
 
 module Double =
+  let Zero = 0.0
+  let One = 1.0
+  let Billionth = 0.000000001
+
+  let ceil (d: double): double = System.Math.Ceiling(d)
+
+  let floor (d: double): double = System.Math.Floor(d)
+
+  let round (d: double): double = System.Math.Round(d)
   let roundTo (fractionalDigits: int) (d: double): double = System.Math.Round(d, fractionalDigits)
+
+  let sqrt (n: double): double = Math.Sqrt(n)
 
 module Decimal = 
   let Zero = 0M

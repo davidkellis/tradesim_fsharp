@@ -299,4 +299,4 @@ let computeTrialStdDev (state: BaseStrategyState): Option<decimal> =
   if Seq.isEmpty portfolioValueHistory then
     None
   else
-    Some <| Sample.stdDev (Seq.map (fun pv -> pv.value) portfolioValueHistory)
+    Some <| Sample.Decimal.stdDev (Seq.map (fun pv -> pv.value) portfolioValueHistory)

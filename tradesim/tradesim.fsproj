@@ -58,6 +58,7 @@
     <Compile Include="intListTests.fs" />
     <Compile Include="decimalList.fs" />
     <Compile Include="decimalListTests.fs" />
+    <Compile Include="doubleList.fs" />
     <Compile Include="vector.fs" />
     <Compile Include="option.fs" />
     <Compile Include="cache.fs" />
@@ -88,6 +89,7 @@
     <Compile Include="samplingDistribution.fs" />
     <Compile Include="runMissingWeeklyTrials.fs" />
     <Compile Include="computeMissingSamplingDistributions.fs" />
+    <Compile Include="computeMissingSamplingDistributionsAsDoubles.fs" />
     <Compile Include="runner.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />
@@ -623,7 +625,6 @@
   <ItemGroup>
     <Reference Include="nunit.framework">
       <HintPath>..\packages\NUnit\lib\nunit.framework.dll</HintPath>
-      <Private>True</Private>
       <Paket>True</Paket>
     </Reference>
   </ItemGroup>

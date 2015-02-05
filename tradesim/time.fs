@@ -248,6 +248,8 @@ let addMonths baseMonth baseYear monthOffset =
 
 let firstDayOfMonth (year: int) (month: int): LocalDate = date year month 1
 
+let lastDayOfMonth (year: int) (month: int): LocalDate = date year month <| daysInMonth year month
+
 let nextDay (date: LocalDate): LocalDate = date + days 1L
 let previousDay (date: LocalDate): LocalDate = date - days 1L
 

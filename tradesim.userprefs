@@ -1,15 +1,17 @@
 ﻿<Properties StartupItem="tradesim/tradesim.fsproj">
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|x86" />
-  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/computeMissingSamplingDistributions.fs">
+  <MonoDevelop.Ide.Workbench ActiveDocument="tradesim/time.fs">
     <Files>
       <File FileName="tradesim/runner.fs" Line="1" Column="1" />
-      <File FileName="tradesim/computeMissingSamplingDistributions.fs" Line="3" Column="3" />
+      <File FileName="tradesim/computeMissingSamplingDistributions.fs" Line="1" Column="1" />
+      <File FileName="tradesim/computeMissingSamplingDistributionsAsDoubles.fs" Line="5" Column="5" />
       <File FileName="tradesim/samplingDistribution.fs" Line="1" Column="1" />
-      <File FileName="tradesim/math.fs" Line="7" Column="7" />
-      <File FileName="tradesim/stats.fs" Line="18" Column="18" />
-      <File FileName="tradesim/core.fs" Line="51" Column="51" />
-      <File FileName="tradesim/statsTests.fs" Line="25" Column="25" />
-      <File FileName="tradesim/decimalList.fs" Line="4" Column="4" />
+      <File FileName="tradesim/math.fs" Line="1" Column="1" />
+      <File FileName="tradesim/stats.fs" Line="1" Column="1" />
+      <File FileName="tradesim/core.fs" Line="1" Column="1" />
+      <File FileName="tradesim/statsTests.fs" Line="1" Column="1" />
+      <File FileName="tradesim/decimalList.fs" Line="1" Column="1" />
+      <File FileName="tradesim/time.fs" Line="1" Column="1" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>

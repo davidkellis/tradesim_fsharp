@@ -138,15 +138,18 @@ function main2()
         n_periods_per_year*10
       ]
     
-    # construct original sample of observations
-    return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
-    println("$n_return_observations observations")
+    # perform 100 samples and compute a confidence 99th %-ile confidence interval for each.
+    # for each value of <n_return_observations>, we should only only see about 1 CI not contain mu=1.15 due to the definition of the 99th %-ile confidence interval.
+    for i in 1:100
+      # construct original sample of observations
+      return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
+      println("$n_return_observations observations")
 
-    for i in 1:2
+
       # samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
       samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
       # println(compute_samp_dist_stats(samp_dist))
-    
+  
       compute_dist_stats(samp_dist, annual_return)
     end
   end

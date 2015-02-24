@@ -195,4 +195,26 @@ function main3()
   println("99.5%-ile \n $(compute_samp_dist_stats(vec(sampling_distributions[6,:])))")
 end
 
-main2()
+function main4()
+  n_periods_per_year = 251
+
+  # construct original sample of observations
+  # relative_return_observations = [0.2, 18.9, 15.5, -11.7, 9.2, -11.8, -17.2, 9.8, -20.1, -15.8]
+  # return_observations = map((r) -> (r + 100) / 100.0, relative_return_observations)
+  
+  # annual returns
+  # return_observations = [1.247, 0.802 ,0.809 ,1.098 ,0.917  ,0.882 ,1.092 ,0.883 ,1.155 ,1.189 ,1.036 ,1.013  ,1.091 ,0.832 ,1.05 ,1.129 ,1.082 ,1.144  ,0.867 ,1.351 ,0.891 ,0.979 ,0.982 ,1.158 ,0.961  ,1.262 ,0.863 ,1.195 ,0.945 ,1.225 ,1.16 ,1.064 ,1.265 ,0.745 ,0.972 ,1.371 ,1.05 ,1.309 ,1.14 ,0.87 ,1.197 ,0.696 ,0.492 ,0.874 ,0.972 ,1.076 ,1.25 ,0.992 ,1.024 ,1.152]
+  
+  # daily returns since QE3 ended
+  return_observations = [0.9952 ,1.0361  ,1.022 ,1.0082 ,0.9969 ,1.012  ,1.0614 ,0.9945 ,1.0373  ,0.9955 ,0.9576 ,1.0342  ,0.9722 ,1.0465 ,1.0593 ,0.8976  ,1.0254 ,0.9132 ,0.9522  ,1.0463 ,0.9726 ,1.0661 ,1.0462  ,1.0088 ,1.0191 ,0.9699 ,0.9808  ,0.972 ,0.951 ,0.962  ,1.0629 ,1.0337 ,0.9756  ,0.9306 ,1.0177 ,0.917  ,0.9759 ,1.0017 ,0.9895  ,1.0066 ,0.9991 ,1.0509  ,1.0051 ,1.0331 ,1.0911  ,0.9498 ,1.0252 ,0.9457  ,0.9356 ,0.8984 ,0.9844 ,0.9603 ,1.0175 ,0.9987 ,1.0157 ,1.052 ,0.9582 ,0.973 ,1.0164 ,1.0062 ,1.0211 ,1.0213 ,1.0101 ,0.9756 ,1.0167 ,1.0024 ,0.9976 ,0.9872 ,0.9871 ,1.0011 ,1.0371 ,1.015 ,1.0247 ,1.0124 ,1.0078]
+
+  n_samples = 5000
+
+  samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
+  
+  println(compute_samp_dist_stats(samp_dist))
+
+  # compute_dist_stats(samp_dist, annual_return)
+end
+
+main4()

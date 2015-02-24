@@ -38,6 +38,12 @@ let buildBootstrapSample (xs: array<'T>): array<'T> = sampleWithReplacement xs.L
 
 let buildBootstrapSamples numberOfSamples (originalSample: array<'T>): array<array<'T>> = 
   sample numberOfSamples (Array.length originalSample) true originalSample
+  
+let buildBootstrapDistribution (statisticFn: array<'T> -> 'U) numberOfSamples (originalSample: array<'T>): array<'U> =
+  Array.Parallel.init numberOfSamples (fun i -> buildBootstrapSample originalSample |> statisticFn)
+
+let buildBootstrapDistributions (statisticFn: array<'T> -> 'U) numberOfSamples (originalSample: array<'T>): array<'U> =
+  Array.Parallel.init numberOfSamples (fun i -> buildBootstrapSample originalSample |> statisticFn)
 
 module Sample =
   module Decimal =

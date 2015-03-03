@@ -86,7 +86,7 @@ function main()
   
   annualized_returns = Array(Float64, n_annualized_returns)
   
-  n_iterations = 30
+  n_iterations = 1
   mean_annualized_returns = Array(Float64, n_iterations)
 
   # construct original sample of observations
@@ -144,10 +144,10 @@ function main2()
       # construct original sample of observations
       return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
       println("$n_return_observations observations")
-
-
+      
       # samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
-      samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
+      samp_dist = build_bootstrap_distribution(return_observations, n_samples, prod, n_periods_per_year)
+      # samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
       # println(compute_samp_dist_stats(samp_dist))
   
       compute_dist_stats(samp_dist, annual_return)
@@ -217,4 +217,4 @@ function main4()
   # compute_dist_stats(samp_dist, annual_return)
 end
 
-main4()
+main2()

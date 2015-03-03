@@ -143,13 +143,15 @@ function main2()
     for i in 1:100
       # construct original sample of observations
       return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
-      println("$n_return_observations observations")
+      println("=====\n$n_return_observations observations")
+      compute_dist_stats(return_observations, mean_return_per_period)
       
       # samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
       samp_dist = build_bootstrap_distribution(return_observations, n_samples, prod, n_periods_per_year)
       # samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
       # println(compute_samp_dist_stats(samp_dist))
   
+      println("---")
       compute_dist_stats(samp_dist, annual_return)
     end
   end

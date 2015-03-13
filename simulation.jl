@@ -112,7 +112,38 @@ function main()
   println("mean of means=$(mean(mean_annualized_returns))   std of means=$(std(mean_annualized_returns))")
 end
 
-# compute sampling distribution of normally distributed annual returns
+# this shows how frequently the 99%-ile confidence interval of the monte-carlo simulated 1-year return distributions include the actual annual return
+# for example:
+#
+# n_periods_per_year = 251
+# =================================================================
+# 21 observations
+# 51.1% accurate
+#
+# =================================================================
+# 63 observations
+# 79.3% accurate
+#
+# =================================================================
+# 126 observations
+# 94.1% accurate
+#
+# =================================================================
+# 251 observations
+# 98.8% accurate
+#
+# =================================================================
+# 502 observations
+# 100.0% accurate
+#
+# =================================================================
+# 1255 observations
+# 100.0% accurate
+#
+# =================================================================
+# 2510 observations
+# 100.0% accurate
+#
 function main2()
   n_periods_per_year = 251
   annual_return = 1.15
@@ -120,7 +151,8 @@ function main2()
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
   return_std_dev_per_period = (1 + annual_std_dev) ^ (1/n_periods_per_year) - 1
   # sigma = (1 + 0.82) ^ (1/251) - 1   # estimate of sigma taken from http://blog.iese.edu/jestrada/files/2012/06/DSRSSM.pdf
-  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)     # mu = 1; sigma = 1.4 ^ (1/52) - 1    # sigma of [1.4 ^ (1/52) - 1] simulates a weekly return that when annualized represents a +-40% annual gain 68% of the time and +-80% annual gain 95% of the time
+  # return_dist = Normal(mean_return_per_period, return_std_dev_per_period)     # mu = 1; sigma = 1.4 ^ (1/52) - 1    # sigma of [1.4 ^ (1/52) - 1] simulates a weekly return that when annualized represents a +-40% annual gain 68% of the time and +-80% annual gain 95% of the time
+  return_dist = Uniform(mean_return_per_period - return_std_dev_per_period, mean_return_per_period + return_std_dev_per_period)
 
   # construct original sample of observations
   # n_return_observations = 63
@@ -138,22 +170,36 @@ function main2()
         n_periods_per_year*10
       ]
     
-    # perform 100 samples and compute a confidence 99th %-ile confidence interval for each.
+    number_accurate_bootstrap_distributions = 0
+    # n_samples = n_return_observations
+    
+    println("\n=================================================================")
+    println("$n_return_observations observations")
+    
+    # perform 1000 samples and compute a confidence 99th %-ile confidence interval for each.
     # for each value of <n_return_observations>, we should only only see about 1 CI not contain mu=1.15 due to the definition of the 99th %-ile confidence interval.
-    for i in 1:100
+    trial_count = 1000
+    for i in 1:trial_count
+      # println("")
+
       # construct original sample of observations
       return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
-      println("=====\n$n_return_observations observations")
-      compute_dist_stats(return_observations, mean_return_per_period)
+      # mu, sigma, range, q005, q5, q995 = compute_dist_stats(return_observations, mean_return_per_period, Array(Float64, 6), false)
       
       # samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
       samp_dist = build_bootstrap_distribution(return_observations, n_samples, prod, n_periods_per_year)
       # samp_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
       # println(compute_samp_dist_stats(samp_dist))
   
-      println("---")
-      compute_dist_stats(samp_dist, annual_return)
+      # println("---")
+      mu, sigma, range, q005, q5, q995 = compute_dist_stats(samp_dist, annual_return, Array(Float64, 6), false)
+      if q005 <= annual_return <= q995
+        number_accurate_bootstrap_distributions += 1
+      end
     end
+    
+    println("$(number_accurate_bootstrap_distributions/trial_count * 100)% accurate")
+    
   end
 end
 

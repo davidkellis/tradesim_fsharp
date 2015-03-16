@@ -13,6 +13,18 @@ function build_bootstrap_distribution(orig_sample, n_samples, statistic_fn, n_ob
   statistics
 end
 
+function build_bootstrap_distribution_from_normal(orig_sample, n_samples, statistic_fn, n_observations_per_sample = length(orig_sample))
+  type_of_statistic = typeof(statistic_fn(sample(orig_sample, 1)))
+  statistics = Array(type_of_statistic, n_samples)
+  sigma = std(orig_sample)
+  for i in 1:n_samples
+    bootstrap_sample = sample(orig_sample, n_observations_per_sample)
+    normal_bootstrap_sample = map((x) -> rand(Normal(x, sigma), 1) |> first, bootstrap_sample)
+    statistics[i] = statistic_fn(normal_bootstrap_sample)
+  end
+  statistics
+end
+
 function build_distribution(orig_sample, n_samples, n_observations_per_sample, statistic_fn, return_distribution)
   for i in 1:n_samples
     bootstrap_sample = sample(orig_sample, n_observations_per_sample)
@@ -37,11 +49,11 @@ end
 # end
 
 # returns (mean, std_dev, 99%-range, 0.005%-ile, 0.5%-ile, 0.995%-ile)
-function compute_dist_stats(samp_dist, expected_mean, return_array = Array(Float64, 6), print = true)
+function compute_dist_stats(samp_dist, expected_mean, return_array = Array(Float64, 6); print = true)
   # compute statistics of sampling distribution
-  q005, q01, q05, q1, q15, q2, q25, q3, q35, q4, q45, q5, q55, q6, q65, q7, q75, q8, q85, q9, q95, q99, q995 = round(quantile(samp_dist, [0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99, 0.995]), 3)
-  mean_of_samp_dist = round(mean(samp_dist), 4)
-  std_of_samp_dist = round(std(samp_dist), 4)
+  q005, q01, q05, q1, q15, q2, q25, q3, q35, q4, q45, q5, q55, q6, q65, q7, q75, q8, q85, q9, q95, q99, q995 = round(quantile(samp_dist, [0.005, 0.01, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99, 0.995]), 5)
+  mean_of_samp_dist = round(mean(samp_dist), 5)
+  std_of_samp_dist = round(std(samp_dist), 5)
   range_99th_percentile = round(abs(q995 - q005), 3)
   
   is_accurate = q005 <= expected_mean <= q995
@@ -57,6 +69,14 @@ function compute_dist_stats(samp_dist, expected_mean, return_array = Array(Float
   return_array[5] = q5
   return_array[6] = q995
   return_array
+end
+
+# q005, q5, q995 are the quantiles of the distribution of observed [daily/weekly/monthly] returns
+# median_simulated_annual_return is the 50th percentile of the monte carlo simulated 1-year return distribution
+function revise_ci(q005, q5, q995, median_simulated_annual_return)
+  revised_q005 = (q005 / q5) * median_simulated_annual_return
+  revised_q995 = (q995 / q5) * median_simulated_annual_return
+  [revised_q005, revised_q995]
 end
 
 function compute_samp_dist_stats(samp_dist)
@@ -265,4 +285,104 @@ function main4()
   # compute_dist_stats(samp_dist, annual_return)
 end
 
-main2()
+# this shows how frequently the 99%-ile confidence interval of the monte-carlo simulated 1-year return distributions include the actual annual return
+# when the annual return distribution is computed by randomly drawing a value from a Normal PDF centered at each empirical observation
+# NOTE: compare with main2 - the results here are much more accurate
+#
+# for example:
+#
+# n_periods_per_year = 251
+# =================================================================
+# 21 observations
+# 74.0% accurate
+#
+# =================================================================
+# 63 observations
+# 91.0% accurate
+#
+# =================================================================
+# 126 observations
+# 100.0% accurate
+#
+# =================================================================
+# 251 observations
+# 100.0% accurate
+#
+# =================================================================
+# 502 observations
+# 100.0% accurate
+# ...
+#
+function main5()
+  n_periods_per_year = 251
+  annual_return = 1.15
+  annual_std_dev = 0.4
+  mean_return_per_period = annual_return ^ (1/n_periods_per_year)
+  return_std_dev_per_period = (1 + annual_std_dev) ^ (1/n_periods_per_year) - 1
+  # sigma = (1 + 0.82) ^ (1/251) - 1   # estimate of sigma taken from http://blog.iese.edu/jestrada/files/2012/06/DSRSSM.pdf
+  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)     # mu = 1; sigma = 1.4 ^ (1/52) - 1    # sigma of [1.4 ^ (1/52) - 1] simulates a weekly return that when annualized represents a +-40% annual gain 68% of the time and +-80% annual gain 95% of the time
+  # return_dist = Uniform(mean_return_per_period - return_std_dev_per_period, mean_return_per_period + return_std_dev_per_period)
+
+  # construct original sample of observations
+  # n_return_observations = 63
+  # return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
+
+  n_samples = 5000
+
+  for n_return_observations in [
+        round(n_periods_per_year/12) |> int64, 
+        round(n_periods_per_year/4) |> int64, 
+        round(n_periods_per_year/2) |> int64, 
+        n_periods_per_year, 
+        n_periods_per_year*2, 
+        n_periods_per_year*5, 
+        n_periods_per_year*10
+      ]
+    
+    number_accurate_bootstrap_distributions = 0
+    # n_samples = n_return_observations
+    
+    println("\n=================================================================")
+    println("$n_return_observations observations")
+    
+    # perform 1000 samples and compute a confidence 99th %-ile confidence interval for each.
+    # for each value of <n_return_observations>, we should only only see about 1 CI not contain mu=1.15 due to the definition of the 99th %-ile confidence interval.
+    trial_count = 100
+    for i in 1:trial_count
+      println("")
+
+      # construct original sample of observations
+      return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
+      sample_mu, sample_sigma, sample_range, sample_q005, sample_q5, sample_q995 = 
+        compute_dist_stats(return_observations, mean_return_per_period, print=true)
+
+      samp_dist = build_bootstrap_distribution(return_observations, n_samples, mean)
+      samp_dist_mu, samp_dist_sigma, samp_dist_range, samp_dist_q005, samp_dist_q5, samp_dist_q995 = 
+        compute_dist_stats(samp_dist, mean_return_per_period, print=true)
+      
+      # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, prod, n_periods_per_year)
+      # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
+      # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
+      annual_return_dist = build_bootstrap_distribution_from_normal(return_observations, n_samples, prod, n_periods_per_year)
+      # println(compute_samp_dist_stats(annual_return_dist))
+  
+      # println("---")
+      mu, sigma, range, q005, q5, q995 = compute_dist_stats(annual_return_dist, annual_return, print=true)
+
+      # revised_q005, revised_q995 = revise_ci(sample_q005, sample_q5, sample_q995, q5)
+      # revised_q005, revised_q995 = revise_ci(samp_dist_q005, samp_dist_q5, samp_dist_q995, q5)
+      # is_accurate = revised_q005 <= annual_return <= revised_q995
+      # println("accurate=$is_accurate   mean=$mu   std=$sigma   range=$range   $revised_q005 --- $q5 --- $revised_q995")
+      
+      if q005 <= annual_return <= q995
+        number_accurate_bootstrap_distributions += 1
+      end
+      
+    end
+    
+    println("$(number_accurate_bootstrap_distributions/trial_count * 100)% accurate")
+    
+  end
+end
+
+main5()

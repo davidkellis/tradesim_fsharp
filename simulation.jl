@@ -453,4 +453,100 @@ function main5()
   end
 end
 
-main2()
+
+function build_distribution(n_observations, build_observation_fn)
+  type_of_observation = typeof(build_observation_fn())
+  observations = Array(type_of_observation, n_observations)
+  for i in 1:n_observations
+    observations[i] = build_observation_fn()
+  end
+  observations
+end
+
+function main6()
+  annual_return = 1.15
+  annual_std_dev = 0.4
+  return_dist = Normal(annual_return, annual_std_dev)
+
+  n = 100000
+
+  println("single normal")
+  dist = build_distribution(n, () -> rand(return_dist))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 2 normals")
+  dist = build_distribution(n, () -> rand(return_dist) * rand(return_dist))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 3 normals")
+  dist = build_distribution(n, () -> rand(return_dist) * rand(return_dist) * rand(return_dist))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 4 normals")
+  dist = build_distribution(n, () -> rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 10 normals")
+  dist = build_distribution(n, () -> rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 100 normals")
+  dist = build_distribution(
+    n,
+    () -> rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist)
+  )
+  compute_dist_stats(dist, annual_return)
+
+  println("----")
+
+  println("single normal (max)")
+  dist = build_distribution(n, () -> max(rand(return_dist), 0))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 2 normals (max)")
+  dist = build_distribution(n, () -> max(rand(return_dist) * rand(return_dist), 0))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 3 normals (max)")
+  dist = build_distribution(n, () -> max(rand(return_dist) * rand(return_dist) * rand(return_dist), 0))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 4 normals (max)")
+  dist = build_distribution(n, () -> max(rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist), 0))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 10 normals (max)")
+  dist = build_distribution(n, () -> max(rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist), 0))
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 100 normals (max)")
+  dist = build_distribution(
+    n,
+    () -> max(
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist)
+            , 0
+          )
+  )
+  compute_dist_stats(dist, annual_return)
+
+end
+
+main6()

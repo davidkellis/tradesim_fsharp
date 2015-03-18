@@ -90,13 +90,12 @@ end
 
 # compute sampling distribution of simulated annual returns
 function main()
-  n_periods_per_year = 251
+  n_periods_per_year = 252
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
-  return_std_dev_per_period = (1 + annual_std_dev) ^ (1/n_periods_per_year) - 1
-  # sigma = (1 + 0.82) ^ (1/251) - 1   # estimate of sigma taken from http://blog.iese.edu/jestrada/files/2012/06/DSRSSM.pdf
-  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)     # mu = 1; sigma = 1.4 ^ (1/52) - 1    # sigma of [1.4 ^ (1/52) - 1] simulates a weekly return that when annualized represents a +-40% annual gain 68% of the time and +-80% annual gain 95% of the time
+  return_std_dev_per_period = sqrt((annual_std_dev^2 + (mean_return_per_period^2)^n_periods_per_year)^(1/n_periods_per_year)-mean_return_per_period^2)       # What’s Wrong with Multiplying by the Square Root of Twelve http://corporate.morningstar.com/US/documents/MethodologyDocuments/MethodologyPapers/SquareRootofTwelve.pdf; how to annualize volatility - http://investexcel.net/how-to-annualize-volatility/ (only applies to log returns)
+  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)
 
   n_return_observations = 251
   n_annualized_returns = 10000
@@ -164,13 +163,12 @@ end
 # 100.0% accurate
 #
 function main2()
-  n_periods_per_year = 251
+  n_periods_per_year = 252
   annual_return = 1.15
-  annual_std_dev = 0.8
+  annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
-  return_std_dev_per_period = (1 + annual_std_dev) ^ (1/n_periods_per_year) - 1
-  # sigma = (1 + 0.82) ^ (1/251) - 1   # estimate of sigma taken from http://blog.iese.edu/jestrada/files/2012/06/DSRSSM.pdf
-  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)     # mu = 1; sigma = 1.4 ^ (1/52) - 1    # sigma of [1.4 ^ (1/52) - 1] simulates a weekly return that when annualized represents a +-40% annual gain 68% of the time and +-80% annual gain 95% of the time
+  return_std_dev_per_period = sqrt((annual_std_dev^2 + (mean_return_per_period^2)^n_periods_per_year)^(1/n_periods_per_year)-mean_return_per_period^2)       # What’s Wrong with Multiplying by the Square Root of Twelve http://corporate.morningstar.com/US/documents/MethodologyDocuments/MethodologyPapers/SquareRootofTwelve.pdf; how to annualize volatility - http://investexcel.net/how-to-annualize-volatility/ (only applies to log returns)
+  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)
   # return_dist = Uniform(mean_return_per_period - return_std_dev_per_period, mean_return_per_period + return_std_dev_per_period)
 
   # construct original sample of observations
@@ -178,6 +176,7 @@ function main2()
   # return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
 
   n_samples = 5000
+  mc_samples = 20000
 
   for n_return_observations in [
         round(n_periods_per_year/12) |> int64,    # 1 month
@@ -231,7 +230,7 @@ function main2()
       end
 
 
-      annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, prod, n_periods_per_year)
+      annual_return_dist = build_bootstrap_distribution(return_observations, mc_samples, prod, n_periods_per_year)
       # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
       # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
       # annual_return_dist = build_bootstrap_distribution_from_normal(return_observations, n_samples, prod, sample_sigma, n_periods_per_year)
@@ -247,7 +246,8 @@ function main2()
       # is_accurate = revised_q005 <= annual_return <= revised_q995
       # println("accurate=$is_accurate   mean=$ard_mu   std=$ard_sigma   range=$ard_range   $revised_q005 --- $ard_q5 --- $revised_q995")
 
-      samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
+      # samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
+      samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean, n_return_observations)
       sdar_mu, sdar_sigma, sdar_range, sdar_q005, sdar_q5, sdar_q995 = compute_dist_stats(samp_dist_mean_annual_return, annual_return, print=true, prefix="mean annual return")
       if sdar_q005 <= annual_return <= sdar_q995
         number_accurate_samp_dists_of_mean_annual_return += 1
@@ -265,13 +265,12 @@ end
 
 # compute sampling distribution of simulated annual returns
 function main3()
-  n_periods_per_year = 251
+  n_periods_per_year = 252
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
-  return_std_dev_per_period = (1 + annual_std_dev) ^ (1/n_periods_per_year) - 1
-  # sigma = (1 + 0.82) ^ (1/251) - 1   # estimate of sigma taken from http://blog.iese.edu/jestrada/files/2012/06/DSRSSM.pdf
-  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)     # mu = 1; sigma = 1.4 ^ (1/52) - 1    # sigma of [1.4 ^ (1/52) - 1] simulates a weekly return that when annualized represents a +-40% annual gain 68% of the time and +-80% annual gain 95% of the time
+  return_std_dev_per_period = sqrt((annual_std_dev^2 + (mean_return_per_period^2)^n_periods_per_year)^(1/n_periods_per_year)-mean_return_per_period^2)       # What’s Wrong with Multiplying by the Square Root of Twelve http://corporate.morningstar.com/US/documents/MethodologyDocuments/MethodologyPapers/SquareRootofTwelve.pdf; how to annualize volatility - http://investexcel.net/how-to-annualize-volatility/ (only applies to log returns)
+  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)
 
   n_return_observations = 251
   n_annualized_returns = 5000
@@ -354,13 +353,12 @@ end
 # ...
 #
 function main5()
-  n_periods_per_year = 251
+  n_periods_per_year = 252
   annual_return = 1.15
-  annual_std_dev = 0.8
+  annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
-  return_std_dev_per_period = (1 + annual_std_dev) ^ (1/n_periods_per_year) - 1
-  # sigma = (1 + 0.82) ^ (1/251) - 1   # estimate of sigma taken from http://blog.iese.edu/jestrada/files/2012/06/DSRSSM.pdf
-  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)     # mu = 1; sigma = 1.4 ^ (1/52) - 1    # sigma of [1.4 ^ (1/52) - 1] simulates a weekly return that when annualized represents a +-40% annual gain 68% of the time and +-80% annual gain 95% of the time
+  return_std_dev_per_period = sqrt((annual_std_dev^2 + (mean_return_per_period^2)^n_periods_per_year)^(1/n_periods_per_year)-mean_return_per_period^2)       # What’s Wrong with Multiplying by the Square Root of Twelve http://corporate.morningstar.com/US/documents/MethodologyDocuments/MethodologyPapers/SquareRootofTwelve.pdf; how to annualize volatility - http://investexcel.net/how-to-annualize-volatility/ (only applies to log returns)
+  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)
   # return_dist = Uniform(mean_return_per_period - return_std_dev_per_period, mean_return_per_period + return_std_dev_per_period)
 
   # construct original sample of observations
@@ -368,9 +366,10 @@ function main5()
   # return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
 
   n_samples = 5000
+  mc_samples = 20000
 
   for n_return_observations in [
-        round(n_periods_per_year/12) |> int64,    # 1 month
+        # round(n_periods_per_year/12) |> int64,    # 1 month
         round(n_periods_per_year/4) |> int64,     # 1 quarter
         round(n_periods_per_year/2) |> int64,     # half year
         n_periods_per_year,                       # 1 year
@@ -421,10 +420,10 @@ function main5()
       end
 
 
-      # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, prod, n_periods_per_year)
+      # annual_return_dist = build_bootstrap_distribution(return_observations, mc_samples, prod, n_periods_per_year)
       # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
       # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
-      annual_return_dist = build_bootstrap_distribution_from_normal(return_observations, n_samples, prod, sample_sigma, n_periods_per_year)
+      annual_return_dist = build_bootstrap_distribution_from_normal(return_observations, mc_samples, prod, sample_sigma, n_periods_per_year)
       # println(compute_samp_dist_stats(annual_return_dist))
 
       ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, annual_return, print=true, prefix="annual returns    ")
@@ -437,7 +436,9 @@ function main5()
       # is_accurate = revised_q005 <= annual_return <= revised_q995
       # println("accurate=$is_accurate   mean=$ard_mu   std=$ard_sigma   range=$ard_range   $revised_q005 --- $ard_q5 --- $revised_q995")
 
-      samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
+      # samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
+      # samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean, n_return_observations)
+      samp_dist_mean_annual_return = build_bootstrap_distribution_from_normal(annual_return_dist, n_samples, mean, annual_std_dev, n_samples)
       sdar_mu, sdar_sigma, sdar_range, sdar_q005, sdar_q5, sdar_q995 = compute_dist_stats(samp_dist_mean_annual_return, annual_return, print=true, prefix="mean annual return")
       if sdar_q005 <= annual_return <= sdar_q995
         number_accurate_samp_dists_of_mean_annual_return += 1
@@ -464,11 +465,14 @@ function build_distribution(n_observations, build_observation_fn)
 end
 
 function main6()
+  n_periods_per_year = 252
   annual_return = 1.15
   annual_std_dev = 0.4
-  return_dist = Normal(annual_return, annual_std_dev)
+  mean_return_per_period = annual_return ^ (1/n_periods_per_year)
+  return_std_dev_per_period = sqrt((annual_std_dev^2 + (mean_return_per_period^2)^n_periods_per_year)^(1/n_periods_per_year)-mean_return_per_period^2)       # What’s Wrong with Multiplying by the Square Root of Twelve http://corporate.morningstar.com/US/documents/MethodologyDocuments/MethodologyPapers/SquareRootofTwelve.pdf; how to annualize volatility - http://investexcel.net/how-to-annualize-volatility/ (only applies to log returns)
+  return_dist = Normal(mean_return_per_period, return_std_dev_per_period)
 
-  n = 100000
+  n = 10000
 
   println("single normal")
   dist = build_distribution(n, () -> rand(return_dist))
@@ -503,6 +507,38 @@ function main6()
           rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
           rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
           rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist)
+  )
+  compute_dist_stats(dist, annual_return)
+
+  println("multiply 252 normals")
+  dist = build_distribution(
+    n,
+    () -> rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+          rand(return_dist) * rand(return_dist)
   )
   compute_dist_stats(dist, annual_return)
 
@@ -547,6 +583,41 @@ function main6()
   )
   compute_dist_stats(dist, annual_return)
 
+  println("multiply 252 normals (max)")
+  dist = build_distribution(
+    n,
+    () -> max(
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) * rand(return_dist) *
+            rand(return_dist) * rand(return_dist)
+            , 0
+          )
+  )
+  compute_dist_stats(dist, annual_return)
+
 end
 
-main6()
+main5()

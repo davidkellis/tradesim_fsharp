@@ -32,6 +32,103 @@ function build_distribution(orig_sample, n_samples, n_observations_per_sample, s
   return_distribution
 end
 
+# assumes all the statistics take on a Float64 value
+# returns:
+#   a number_of_statistics X n_bootstrap_samples matrix
+function build_bootstrap_distributions(orig_sample, n_bootstrap_samples, multi_statistic_fn, number_of_statistics = length(multi_statistic_fn([1,2,3])))
+  n_observations_per_sample = length(orig_sample)
+  bootstrap_distributions = Array(Float64, number_of_statistics, n_bootstrap_samples)   # number_of_statistics X n_bootstrap_samples matrix
+  for i in 1:n_bootstrap_samples
+    bootstrap_sample = sample(orig_sample, n_observations_per_sample)
+    bootstrap_distributions[:, i] = multi_statistic_fn(bootstrap_sample)
+  end
+  bootstrap_distributions
+end
+
+# percentile_sampling_distributions:
+#   an array of percentile sampling distributions (i.e. a number_of_statistics X n_bootstrap_samples matrix) computed on the same statistic - one sampling
+#   distribution for each percentile, from 0 to 100.
+# confidence_level:
+#   a percentage indicating how much of the central volume of the sampling distributions to include in the computation of the min and max distributions
+#
+# returns:
+#   a 2 X 101 matrix representing the min and max distributions
+function build_min_max_percentile_distributions(percentile_sampling_distributions, confidence_level)
+  size(percentile_sampling_distributions, 1) == 101 || error("percentile_sampling_distributions should contain 101 sampling distributions")
+
+  half_confidence_level = confidence_level / 100 / 2
+  min_p = max(0.5 - half_confidence_level, 0.0)
+  max_p = min(0.5 + half_confidence_level, 1.0)
+
+  min_max_distributions = Array(Float64, 2, 101)   # 2 X 101 matrix
+
+  for i in 1:101
+    samp_dist = vec(percentile_sampling_distributions[i, :])
+    min_max_distributions[:, i] = quantile(samp_dist, [min_p, max_p])
+  end
+
+  min_max_distributions
+end
+
+# computes 101 percentiles of the sample: 0.001 0.01 0.02 0.03 0.04 0.05 0.06 0.07 ... 0.95 0.96 0.97 0.98 0.99 0.999
+function percentiles(sample)
+  # quantile(sample, [0:0.01:1])
+  quantile(sample, cat(1, [0.001], [0.01:0.01:0.99], [0.999]))
+end
+
+# returns:
+#   a 2 X 101 matrix representing the min and max distributions
+function build_min_max_distributions(orig_sample, n_bootstrap_samples, confidence_level)
+  percentile_sampling_distributions = build_bootstrap_distributions(orig_sample, n_bootstrap_samples, percentiles)
+  build_min_max_percentile_distributions(percentile_sampling_distributions, confidence_level)
+end
+
+# return_observation_sample:
+#   a sample of short-period return observations
+# n_periods_per_long_period:
+#   the number of short-periods in a long-period
+# Example:
+#   annualize daily returns:
+#     build_monte_carlo_simulated_return_dist(weekly_observations, 1000, 52)
+function build_monte_carlo_simulated_return_dist(return_observation_sample, mc_samples, n_periods_per_long_period)
+  build_bootstrap_distribution(return_observation_sample, mc_samples, prod, n_periods_per_long_period)
+end
+
+function calculate_confidence_interval(dist, confidence_level)
+  half_confidence_level = confidence_level / 100 / 2
+  min_p = max(0.5 - half_confidence_level, 0.0)
+  max_p = min(0.5 + half_confidence_level, 1.0)
+  quantile(dist, [min_p, max_p])
+end
+
+# returns:
+#   an array of (min, max) pairs per statistic calculated by multi_statistic_fn
+function calculate_composite_monte_carlo_confidence_intervals(orig_sample, n_bootstrap_samples, confidence_level, mc_samples, n_periods_per_long_period, multi_statistic_fn)
+  distributions = build_min_max_distributions(orig_sample, n_bootstrap_samples, confidence_level)
+  min_dist_short_period = vec(distributions[1, :])
+  max_dist_short_period = vec(distributions[2, :])
+
+  min_dist_long_period = build_monte_carlo_simulated_return_dist(min_dist_short_period, mc_samples, n_periods_per_long_period)
+  max_dist_long_period = build_monte_carlo_simulated_return_dist(max_dist_short_period, mc_samples, n_periods_per_long_period)
+
+  min_sampling_distributions = build_bootstrap_distributions(min_dist_long_period, n_bootstrap_samples, multi_statistic_fn)
+  max_sampling_distributions = build_bootstrap_distributions(max_dist_long_period, n_bootstrap_samples, multi_statistic_fn)
+
+  number_of_statistics = size(min_sampling_distributions, 1)
+
+  confidence_intervals = Array((Float64, Float64), number_of_statistics)
+  for i in 1:number_of_statistics
+    min_dist = vec(min_sampling_distributions[i, :])
+    max_dist = vec(max_sampling_distributions[i, :])
+    min_ci_lower_bound, min_ci_upper_bound = calculate_confidence_interval(min_dist, 100)
+    max_ci_lower_bound, max_ci_upper_bound = calculate_confidence_interval(max_dist, 100)
+    composite_ci_lower_bound = min_ci_lower_bound
+    composite_ci_upper_bound = max_ci_upper_bound
+    confidence_intervals[i] = (composite_ci_lower_bound, composite_ci_upper_bound)
+  end
+  confidence_intervals
+end
+
 # function build_sampling_distribution(period_returns, n_samples, n_observations_per_sample, n_periods, statistic_fn)
 #   statistics = Array(Float64, n_samples)
 #   cumulative_returns = Array(Float64, n_observations_per_sample)
@@ -163,7 +260,7 @@ end
 # 100.0% accurate
 #
 function main2()
-  n_periods_per_year = 252
+  n_periods_per_year = 52  # 252*13   # every 30 mins
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
@@ -176,7 +273,7 @@ function main2()
   # return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
 
   n_samples = 5000
-  mc_samples = 20000
+  mc_samples = 5000
 
   for n_return_observations in [
         round(n_periods_per_year/12) |> int64,    # 1 month
@@ -248,6 +345,7 @@ function main2()
 
       # samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
       samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean, n_return_observations)
+      # samp_dist_mean_annual_return = build_bootstrap_distribution_from_normal(annual_return_dist, n_samples, mean, annual_std_dev, n_samples)
       sdar_mu, sdar_sigma, sdar_range, sdar_q005, sdar_q5, sdar_q995 = compute_dist_stats(samp_dist_mean_annual_return, annual_return, print=true, prefix="mean annual return")
       if sdar_q005 <= annual_return <= sdar_q995
         number_accurate_samp_dists_of_mean_annual_return += 1
@@ -330,30 +428,8 @@ end
 #
 # for example:
 #
-# n_periods_per_year = 251
-# =================================================================
-# 21 observations
-# 74.0% accurate
-#
-# =================================================================
-# 63 observations
-# 91.0% accurate
-#
-# =================================================================
-# 126 observations
-# 100.0% accurate
-#
-# =================================================================
-# 251 observations
-# 100.0% accurate
-#
-# =================================================================
-# 502 observations
-# 100.0% accurate
-# ...
-#
 function main5()
-  n_periods_per_year = 252
+  n_periods_per_year = 251   # every 30 mins
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
@@ -365,11 +441,11 @@ function main5()
   # n_return_observations = 63
   # return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
 
-  n_samples = 5000
-  mc_samples = 20000
+  n_samples = 1000
+  mc_samples = 1000
 
   for n_return_observations in [
-        # round(n_periods_per_year/12) |> int64,    # 1 month
+        round(n_periods_per_year/12) |> int64,    # 1 month
         round(n_periods_per_year/4) |> int64,     # 1 quarter
         round(n_periods_per_year/2) |> int64,     # half year
         n_periods_per_year,                       # 1 year
@@ -385,7 +461,7 @@ function main5()
     # n_samples = n_return_observations
 
     println("\n=================================================================")
-    println("$n_return_observations observations")
+    println("$n_return_observations observations ($(n_return_observations / n_periods_per_year) years)")
 
     # perform 1000 samples and compute a confidence 99th %-ile confidence interval for each.
     # for each value of <n_return_observations>, we should only only see about 1 CI not contain mu=1.15 due to the definition of the 99th %-ile confidence interval.
@@ -419,36 +495,20 @@ function main5()
         number_accurate_samp_dists_of_arith_mean_annualized += 1
       end
 
+      confidence_intervals = calculate_composite_monte_carlo_confidence_intervals(return_observations, n_samples, 50, mc_samples, n_periods_per_year, (s) -> [mean(s)])
+      (mean_ci_lower, mean_ci_upper) = confidence_intervals[1]
 
-      # annual_return_dist = build_bootstrap_distribution(return_observations, mc_samples, prod, n_periods_per_year)
-      # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)))
-      # annual_return_dist = build_bootstrap_distribution(return_observations, n_samples, (sample) -> prod(sample) ^ (n_periods_per_year/length(sample)), max(n_periods_per_year, n_return_observations))
-      annual_return_dist = build_bootstrap_distribution_from_normal(return_observations, mc_samples, prod, sample_sigma, n_periods_per_year)
-      # println(compute_samp_dist_stats(annual_return_dist))
-
-      ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, annual_return, print=true, prefix="annual returns    ")
-      if ard_q005 <= annual_return <= ard_q995
-        number_accurate_annual_return_distributions += 1
-      end
-
-      # revised_q005, revised_q995 = revise_ci(sample_q005, sample_q5, sample_q995, ard_q5)
-      # revised_q005, revised_q995 = revise_ci(samp_dist_q005, samp_dist_q5, samp_dist_q995, ard_q5)
-      # is_accurate = revised_q005 <= annual_return <= revised_q995
-      # println("accurate=$is_accurate   mean=$ard_mu   std=$ard_sigma   range=$ard_range   $revised_q005 --- $ard_q5 --- $revised_q995")
-
-      # samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
-      # samp_dist_mean_annual_return = build_bootstrap_distribution(annual_return_dist, n_samples, mean, n_return_observations)
-      samp_dist_mean_annual_return = build_bootstrap_distribution_from_normal(annual_return_dist, n_samples, mean, annual_std_dev, n_samples)
-      sdar_mu, sdar_sigma, sdar_range, sdar_q005, sdar_q5, sdar_q995 = compute_dist_stats(samp_dist_mean_annual_return, annual_return, print=true, prefix="mean annual return")
-      if sdar_q005 <= annual_return <= sdar_q995
+      accurate = false
+      if mean_ci_lower <= annual_return <= mean_ci_upper
+        accurate = true
         number_accurate_samp_dists_of_mean_annual_return += 1
       end
+      println("mean (mc annual)     accurate=$accurate   mean=-.-----   std=-.-----   range=$(round(mean_ci_upper - mean_ci_lower, 4))   $(round(mean_ci_lower, 4)) --------------- $(round(mean_ci_upper, 4))")
 
     end
 
     println("sampling distributions of geom mean return (annualized): $(number_accurate_samp_dists_of_geom_mean_annualized/trial_count * 100)% accurate")
     println("sampling distributions of arith mean return (annualized): $(number_accurate_samp_dists_of_arith_mean_annualized/trial_count * 100)% accurate")
-    println("annual return distributions: $(number_accurate_annual_return_distributions/trial_count * 100)% accurate")
     println("sampling distributions of mean annual return: $(number_accurate_samp_dists_of_mean_annual_return/trial_count * 100)% accurate")
 
   end

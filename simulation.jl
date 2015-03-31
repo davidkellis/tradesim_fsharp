@@ -110,6 +110,8 @@ function calculate_composite_monte_carlo_confidence_intervals(orig_sample, n_boo
 
   min_dist_long_period = build_monte_carlo_simulated_return_dist(min_dist_short_period, mc_samples, n_periods_per_long_period)
   max_dist_long_period = build_monte_carlo_simulated_return_dist(max_dist_short_period, mc_samples, n_periods_per_long_period)
+  println(compute_samp_dist_stats(min_dist_long_period))
+  println(compute_samp_dist_stats(max_dist_long_period))
 
   min_sampling_distributions = build_bootstrap_distributions(min_dist_long_period, n_bootstrap_samples, multi_statistic_fn)
   max_sampling_distributions = build_bootstrap_distributions(max_dist_long_period, n_bootstrap_samples, multi_statistic_fn)
@@ -495,7 +497,7 @@ function main5()
         number_accurate_samp_dists_of_arith_mean_annualized += 1
       end
 
-      confidence_intervals = calculate_composite_monte_carlo_confidence_intervals(return_observations, n_samples, 50, mc_samples, n_periods_per_year, (s) -> [mean(s)])
+      confidence_intervals = calculate_composite_monte_carlo_confidence_intervals(return_observations, n_samples, 90, mc_samples, n_periods_per_year, (s) -> [mean(s)])
       (mean_ci_lower, mean_ci_upper) = confidence_intervals[1]
 
       accurate = false

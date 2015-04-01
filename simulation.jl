@@ -131,6 +131,36 @@ function calculate_composite_monte_carlo_confidence_intervals(orig_sample, n_boo
   confidence_intervals
 end
 
+# taken from http://www.johndcook.com/julia_rng.html
+function rand_uniform(a, b)
+  a + rand()*(b - a)
+end
+
+function rand_uniforms(a, b, n)
+  map((x) -> rand_uniform(a, b), 1:n)
+end
+
+# returns:
+#   an array of MC simulated long-period return observations
+function build_monte_carlo_return_distribution(orig_sample, n_bootstrap_samples, confidence_level, mc_samples, n_periods_per_long_period)
+  distributions = build_min_max_distributions(orig_sample, n_bootstrap_samples, confidence_level)
+  min_dist_short_period = vec(distributions[1, :])
+  max_dist_short_period = vec(distributions[2, :])
+
+  composite_return_dist_short_period = reduce(
+    vcat,
+    map(
+      (pair) -> begin
+        (min, max) = pair
+        rand_uniforms(min, max, 1000)
+      end,
+      zip(min_dist_short_period, max_dist_short_period)
+    )
+  )
+
+  mc_return_dist_long_period = build_monte_carlo_simulated_return_dist(composite_return_dist_short_period, mc_samples, n_periods_per_long_period)
+end
+
 # function build_sampling_distribution(period_returns, n_samples, n_observations_per_sample, n_periods, statistic_fn)
 #   statistics = Array(Float64, n_samples)
 #   cumulative_returns = Array(Float64, n_observations_per_sample)
@@ -497,21 +527,36 @@ function main5()
         number_accurate_samp_dists_of_arith_mean_annualized += 1
       end
 
-      confidence_intervals = calculate_composite_monte_carlo_confidence_intervals(return_observations, n_samples, 90, mc_samples, n_periods_per_year, (s) -> [mean(s)])
-      (mean_ci_lower, mean_ci_upper) = confidence_intervals[1]
+      # confidence_intervals = calculate_composite_monte_carlo_confidence_intervals(return_observations, n_samples, 90, mc_samples, n_periods_per_year, (s) -> [mean(s)])
+      # (mean_ci_lower, mean_ci_upper) = confidence_intervals[1]
+      # accurate = false
+      # if mean_ci_lower <= annual_return <= mean_ci_upper
+      #   accurate = true
+      #   number_accurate_samp_dists_of_mean_annual_return += 1
+      # end
+      # println("mean (mc annual)     accurate=$accurate   mean=-.-----   std=-.-----   range=$(round(mean_ci_upper - mean_ci_lower, 4))   $(round(mean_ci_lower, 4)) --------------- $(round(mean_ci_upper, 4))")
 
-      accurate = false
-      if mean_ci_lower <= annual_return <= mean_ci_upper
-        accurate = true
+      annual_return_dist = build_monte_carlo_return_distribution(return_observations, n_samples, 99, mc_samples, n_periods_per_year)
+      ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, annual_return, print=true, prefix="annual returns    ")
+      if ard_q005 <= annual_return <= ard_q995
+        number_accurate_annual_return_distributions += 1
+      end
+
+      # sampling distribution of arithmetic mean return (annualized)
+      # annual_return_dist = build_monte_carlo_return_distribution(return_observations, n_samples, 99, mc_samples, n_periods_per_year)
+      samp_dist4 = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
+      samp_dist4_mu, samp_dist4_sigma, samp_dist4_range, samp_dist4_q005, samp_dist4_q5, samp_dist4_q995 =
+        compute_dist_stats(samp_dist4, annual_return, print=true, prefix="mc annual mean    ")
+      if samp_dist4_q005 <= annual_return <= samp_dist4_q995
         number_accurate_samp_dists_of_mean_annual_return += 1
       end
-      println("mean (mc annual)     accurate=$accurate   mean=-.-----   std=-.-----   range=$(round(mean_ci_upper - mean_ci_lower, 4))   $(round(mean_ci_lower, 4)) --------------- $(round(mean_ci_upper, 4))")
 
     end
 
     println("sampling distributions of geom mean return (annualized): $(number_accurate_samp_dists_of_geom_mean_annualized/trial_count * 100)% accurate")
     println("sampling distributions of arith mean return (annualized): $(number_accurate_samp_dists_of_arith_mean_annualized/trial_count * 100)% accurate")
-    println("sampling distributions of mean annual return: $(number_accurate_samp_dists_of_mean_annual_return/trial_count * 100)% accurate")
+    println("annual return distributions: $(number_accurate_annual_return_distributions/trial_count * 100)% accurate")
+    println("sampling distributions of mc mean annual return: $(number_accurate_samp_dists_of_mean_annual_return/trial_count * 100)% accurate")
 
   end
 end

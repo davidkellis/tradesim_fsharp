@@ -1,5 +1,6 @@
 using Distributions
 using Stats
+using KernelDensity
 
 gmean(A) = prod(A)^(1/length(A))
 
@@ -140,9 +141,26 @@ function rand_uniforms(a, b, n)
   map((x) -> rand_uniform(a, b), 1:n)
 end
 
+# return a random sample from a normal (Gaussian) distribution
+# taken from http://www.johndcook.com/julia_rng.html
+function rand_normal(mean, stdev)
+  if stdev <= 0.0
+      error("standard deviation must be positive")
+  end
+  u1 = rand()
+  u2 = rand()
+  r = sqrt( -2.0*log(u1) )
+  theta = 2.0*pi*u2
+  mean + stdev*r*sin(theta)
+end
+
+function rand_normals(mean, stdev, n)
+  map((x) -> rand_normal(mean, stdev), 1:n)
+end
+
 # returns:
 #   an array of MC simulated long-period return observations
-function build_monte_carlo_return_distribution(orig_sample, n_bootstrap_samples, confidence_level, mc_samples, n_periods_per_long_period)
+function build_randomized_min_max_monte_carlo_return_distribution(orig_sample, n_bootstrap_samples, confidence_level, mc_samples, n_periods_per_long_period)
   distributions = build_min_max_distributions(orig_sample, n_bootstrap_samples, confidence_level)
   min_dist_short_period = vec(distributions[1, :])
   max_dist_short_period = vec(distributions[2, :])
@@ -159,6 +177,18 @@ function build_monte_carlo_return_distribution(orig_sample, n_bootstrap_samples,
   )
 
   mc_return_dist_long_period = build_monte_carlo_simulated_return_dist(composite_return_dist_short_period, mc_samples, n_periods_per_long_period)
+end
+
+function sample_from_kde_dist(kde_dist, n)
+  x = kde_dist.x
+  density = kde_dist.density
+  
+end
+
+function build_kde_mc_return_distribution(orig_sample, n_bootstrap_samples, mc_samples, n_periods_per_long_period)
+  kde_dist = kde(orig_sample)
+  return_dist_short_period = sample_from_kde_dist(kde_dist, 5000)
+  mc_return_dist_long_period = build_monte_carlo_simulated_return_dist(return_dist_short_period, mc_samples, n_periods_per_long_period)
 end
 
 # function build_sampling_distribution(period_returns, n_samples, n_observations_per_sample, n_periods, statistic_fn)
@@ -528,29 +558,43 @@ function main5()
         number_accurate_samp_dists_of_arith_mean_annualized += 1
       end
 
-      confidence_intervals = calculate_composite_monte_carlo_confidence_intervals(return_observations, n_samples, 50, mc_samples, n_periods_per_year, (s) -> [mean(s)])
-      (mean_ci_lower, mean_ci_upper) = confidence_intervals[1]
-      accurate = false
-      if mean_ci_lower <= annual_return <= mean_ci_upper
-        accurate = true
-        number_accurate_samp_dists_of_mean_annual_return += 1
-      end
-      println("mean (mc annual)     accurate=$accurate   mean=-.-----   std=-.-----   range=$(round(mean_ci_upper - mean_ci_lower, 4))   $(round(mean_ci_lower, 4)) --------------- $(round(mean_ci_upper, 4))")
+      # confidence_intervals = calculate_composite_monte_carlo_confidence_intervals(return_observations, n_samples, 50, mc_samples, n_periods_per_year, (s) -> [mean(s)])
+      # (mean_ci_lower, mean_ci_upper) = confidence_intervals[1]
+      # accurate = false
+      # if mean_ci_lower <= annual_return <= mean_ci_upper
+      #   accurate = true
+      #   number_accurate_samp_dists_of_mean_annual_return += 1
+      # end
+      # println("mean (mc annual)     accurate=$accurate   mean=-.-----   std=-.-----   range=$(round(mean_ci_upper - mean_ci_lower, 4))   $(round(mean_ci_lower, 4)) --------------- $(round(mean_ci_upper, 4))")
 
-      # annual_return_dist = build_monte_carlo_return_distribution(return_observations, n_samples, 99, mc_samples, n_periods_per_year)
+      # annual_return_dist = build_randomized_min_max_monte_carlo_return_distribution(return_observations, n_samples, 99, mc_samples, n_periods_per_year)
       # ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, annual_return, print=true, prefix="annual returns    ")
       # if ard_q005 <= annual_return <= ard_q995
       #   number_accurate_annual_return_distributions += 1
       # end
       #
       # # sampling distribution of arithmetic mean return (annualized)
-      # # annual_return_dist = build_monte_carlo_return_distribution(return_observations, n_samples, 99, mc_samples, n_periods_per_year)
+      # # annual_return_dist = build_randomized_min_max_monte_carlo_return_distribution(return_observations, n_samples, 99, mc_samples, n_periods_per_year)
       # samp_dist4 = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
       # samp_dist4_mu, samp_dist4_sigma, samp_dist4_range, samp_dist4_q005, samp_dist4_q5, samp_dist4_q995 =
       #   compute_dist_stats(samp_dist4, annual_return, print=true, prefix="mc annual mean    ")
       # if samp_dist4_q005 <= annual_return <= samp_dist4_q995
       #   number_accurate_samp_dists_of_mean_annual_return += 1
       # end
+
+      annual_return_dist = build_kde_mc_return_distribution(return_observations, n_samples, mc_samples, n_periods_per_year)
+      ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, annual_return, print=true, prefix="annual returns    ")
+      if ard_q005 <= annual_return <= ard_q995
+        number_accurate_annual_return_distributions += 1
+      end
+
+      # sampling distribution of arithmetic mean return (annualized)
+      samp_dist5 = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
+      samp_dist5_mu, samp_dist5_sigma, samp_dist5_range, samp_dist5_q005, samp_dist5_q5, samp_dist5_q995 =
+        compute_dist_stats(samp_dist5, annual_return, print=true, prefix="kde mc annual mean")
+      if samp_dist5_q005 <= annual_return <= samp_dist5_q995
+        number_accurate_samp_dists_of_mean_annual_return += 1
+      end
 
     end
 

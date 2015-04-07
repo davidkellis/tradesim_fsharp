@@ -1,6 +1,10 @@
+using Winston
 using Distributions
 using Stats
 using KernelDensity
+
+KernelDensity.Winston_init()
+
 
 gmean(A) = prod(A)^(1/length(A))
 
@@ -182,7 +186,7 @@ end
 function sample_from_kde_dist(kde_dist, n)
   x = kde_dist.x
   density = kde_dist.density
-  
+  # todo: finish this
 end
 
 function build_kde_mc_return_distribution(orig_sample, n_bootstrap_samples, mc_samples, n_periods_per_long_period)
@@ -191,20 +195,30 @@ function build_kde_mc_return_distribution(orig_sample, n_bootstrap_samples, mc_s
   mc_return_dist_long_period = build_monte_carlo_simulated_return_dist(return_dist_short_period, mc_samples, n_periods_per_long_period)
 end
 
-# function build_sampling_distribution(period_returns, n_samples, n_observations_per_sample, n_periods, statistic_fn)
-#   statistics = Array(Float64, n_samples)
-#   cumulative_returns = Array(Float64, n_observations_per_sample)
-#   for i in 1:n_samples
-#
-#     for j in 1:n_observations_per_sample
-#       n_period_observations = sample(period_returns, n_periods)
-#       cumulative_returns[j] = prod(n_period_observations) ^ (52/n_periods)
-#     end
-#
-#     statistics[i] = statistic_fn(cumulative_returns)
-#   end
-#   statistics
-# end
+function silverman_bandwidth(data)
+  # Determine length of data
+  n = length(data)
+  n <= 1 && return 1.0
+
+  # Calculate width using variance and IQR
+  sigma = std(data)
+
+  return 1.06 * sigma * n ^ (-0.2)
+end
+
+function build_kde_distribution(orig_sample, n)
+  h = silverman_bandwidth(orig_sample)
+  map(x -> rand_normal(x, h), sample(orig_sample, n))
+end
+
+function build_sampling_distribution(distribution, n_samples, n_observations_per_sample, statistic_fn)
+  statistics = Array(Float64, n_samples)
+  for i in 1:n_samples
+    sample_observations = sample(distribution, n_observations_per_sample)
+    statistics[i] = statistic_fn(sample_observations)
+  end
+  statistics
+end
 
 # returns (mean, std_dev, 99%-range, 0.005%-ile, 0.5%-ile, 0.995%-ile)
 function compute_dist_stats(samp_dist, expected_mean, return_array = Array(Float64, 6); print = true, prefix = "")
@@ -322,7 +336,7 @@ end
 # 100.0% accurate
 #
 function main2()
-  n_periods_per_year = 52  # 252*13   # every 30 mins
+  n_periods_per_year = 251  # 252*13   # every 30 mins
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
@@ -503,16 +517,16 @@ function main5()
   # n_return_observations = 63
   # return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
 
-  n_samples = 1000
-  mc_samples = 1000
+  n_samples = 10000
+  mc_samples = 10000
 
   for n_return_observations in [
         # round(n_periods_per_year/12) |> int64,    # 1 month
         # round(n_periods_per_year/4) |> int64,     # 1 quarter
         # round(n_periods_per_year/2) |> int64,     # half year
-        # n_periods_per_year                       # 1 year
-        # n_periods_per_year*2,
-        # n_periods_per_year*5,
+        n_periods_per_year,                       # 1 year
+        n_periods_per_year*2,
+        n_periods_per_year*5,
         n_periods_per_year*10
         # 1000000
       ]
@@ -582,14 +596,26 @@ function main5()
       #   number_accurate_samp_dists_of_mean_annual_return += 1
       # end
 
-      annual_return_dist = build_kde_mc_return_distribution(return_observations, n_samples, mc_samples, n_periods_per_year)
+      short_period_return_dist = build_kde_distribution(return_observations, 10000)
+
+      xs = 0:0.01:2.5
+      N = Normal(annual_return, annual_std_dev)
+      p = plot(kde(return_observations))
+      p = oplot(xs, pdf(return_dist, xs))
+      # p = oplot(xs, pdf(N, xs))
+      display(p)
+      read(STDIN, Char)
+      exit()
+
+      # annual_return_dist = build_monte_carlo_simulated_return_dist(short_period_return_dist, mc_samples, n_periods_per_year)
+      annual_return_dist = build_kde_distribution(build_monte_carlo_simulated_return_dist(short_period_return_dist, mc_samples, n_periods_per_year), 10000)
       ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, annual_return, print=true, prefix="annual returns    ")
       if ard_q005 <= annual_return <= ard_q995
         number_accurate_annual_return_distributions += 1
       end
 
       # sampling distribution of arithmetic mean return (annualized)
-      samp_dist5 = build_bootstrap_distribution(annual_return_dist, n_samples, mean)
+      samp_dist5 = build_sampling_distribution(annual_return_dist, n_samples, 10000, mean)
       samp_dist5_mu, samp_dist5_sigma, samp_dist5_range, samp_dist5_q005, samp_dist5_q5, samp_dist5_q995 =
         compute_dist_stats(samp_dist5, annual_return, print=true, prefix="kde mc annual mean")
       if samp_dist5_q005 <= annual_return <= samp_dist5_q995

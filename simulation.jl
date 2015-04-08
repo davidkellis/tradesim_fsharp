@@ -1,13 +1,13 @@
-using Winston
+# using Winston
 using Distributions
 using Stats
 using KernelDensity
 
-KernelDensity.Winston_init()
+# KernelDensity.Winston_init()
 
-function Winston.oplot(k::UnivariateKDE, args...; kwargs...)
-  Winston.oplot(k.x, k.density, args...;  kwargs...)
-end
+# function Winston.oplot(k::UnivariateKDE, args...; kwargs...)
+#   Winston.oplot(k.x, k.density, args...;  kwargs...)
+# end
 
 
 gmean(A) = prod(A)^(1/length(A))
@@ -511,18 +511,20 @@ end
 function main5()
   n_periods_per_year = 251   # every 30 mins
   annual_return = 1.15
-  annual_std_dev = 0.001
+  annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
   return_std_dev_per_period = sqrt((annual_std_dev^2 + (mean_return_per_period^2)^n_periods_per_year)^(1/n_periods_per_year)-mean_return_per_period^2)       # What’s Wrong with Multiplying by the Square Root of Twelve http://corporate.morningstar.com/US/documents/MethodologyDocuments/MethodologyPapers/SquareRootofTwelve.pdf; how to annualize volatility - http://investexcel.net/how-to-annualize-volatility/ (only applies to log returns)
   return_dist = Normal(mean_return_per_period, return_std_dev_per_period)
   # return_dist = Uniform(mean_return_per_period - return_std_dev_per_period, mean_return_per_period + return_std_dev_per_period)
+  actual_annual_return = quantile(return_dist, 0.001:0.001:0.999) |> gmean |> x -> x ^ n_periods_per_year
+  println("actual_annual_return=$actual_annual_return")
 
   # construct original sample of observations
   # n_return_observations = 63
   # return_observations = max(rand(return_dist, n_return_observations), 0)            # create sample of return observations; all values are >= 0
 
   n_samples = 10000
-  mc_samples = 100000
+  mc_samples = 10000
 
   for n_return_observations in [
         # round(n_periods_per_year/12) |> int64,    # 1 month
@@ -600,33 +602,33 @@ function main5()
       #   number_accurate_samp_dists_of_mean_annual_return += 1
       # end
 
-      short_period_return_dist = build_kde_distribution(return_observations, 100000)
+      short_period_return_dist = build_kde_distribution(return_observations, 10000)
 
       annual_return_dist = build_monte_carlo_simulated_return_dist(short_period_return_dist, mc_samples, n_periods_per_year)
       # annual_return_dist = build_kde_distribution(build_monte_carlo_simulated_return_dist(short_period_return_dist, mc_samples, n_periods_per_year), 10000)
-      ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, annual_return, print=true, prefix="annual returns    ")
-      if ard_q005 <= annual_return <= ard_q995
+      ard_mu, ard_sigma, ard_range, ard_q005, ard_q5, ard_q995 = compute_dist_stats(annual_return_dist, actual_annual_return, print=true, prefix="annual returns    ")
+      if ard_q005 <= actual_annual_return <= ard_q995
         number_accurate_annual_return_distributions += 1
       end
 
-      xs = 0.75:0.001:1.25
-      p = plot(xs, pdf(return_dist, xs), "k-")    # theoretical daily return dist
-      p = oplot(kde(return_observations), "r-")   # kde estimation of daily return dist
-
-      xs = 0:0.001:2.5
-      N = Normal(annual_return, annual_std_dev)   # theoretical annual return dist
-      p = oplot(xs, pdf(N, xs), "b-")             # theoretical annual return dist
-      p = oplot(kde(annual_return_dist), "g-")    # kde estimation of annual return dist
-
-      display(p)
-      read(STDIN, Char)
-      exit()
+      # xs = 0.75:0.001:1.25
+      # p = plot(xs, pdf(return_dist, xs), "k-")    # theoretical daily return dist
+      # p = oplot(kde(return_observations), "r-")   # kde estimation of daily return dist
+      #
+      # xs = 0:0.001:2.5
+      # N = Normal(annual_return, annual_std_dev)   # theoretical annual return dist
+      # p = oplot(xs, pdf(N, xs), "b-")             # theoretical annual return dist
+      # p = oplot(kde(annual_return_dist), "g-")    # kde estimation of annual return dist
+      #
+      # display(p)
+      # read(STDIN, Char)
+      # exit()
 
       # sampling distribution of arithmetic mean return (annualized)
-      samp_dist5 = build_sampling_distribution(annual_return_dist, n_samples, 10000, mean)
+      samp_dist5 = build_sampling_distribution(annual_return_dist, n_samples, n_return_observations, mean)
       samp_dist5_mu, samp_dist5_sigma, samp_dist5_range, samp_dist5_q005, samp_dist5_q5, samp_dist5_q995 =
-        compute_dist_stats(samp_dist5, annual_return, print=true, prefix="kde mc annual mean")
-      if samp_dist5_q005 <= annual_return <= samp_dist5_q995
+        compute_dist_stats(samp_dist5, actual_annual_return, print=true, prefix="kde mc annual mean")
+      if samp_dist5_q005 <= actual_annual_return <= samp_dist5_q995
         number_accurate_samp_dists_of_mean_annual_return += 1
       end
 

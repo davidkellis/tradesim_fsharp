@@ -1,13 +1,13 @@
-# using Winston
+using Winston
 using Distributions
 using Stats
 using KernelDensity
 
-# KernelDensity.Winston_init()
+KernelDensity.Winston_init()
 
-# function Winston.oplot(k::UnivariateKDE, args...; kwargs...)
-#   Winston.oplot(k.x, k.density, args...;  kwargs...)
-# end
+function Winston.oplot(k::UnivariateKDE, args...; kwargs...)
+  Winston.oplot(k.x, k.density, args...;  kwargs...)
+end
 
 
 gmean(A) = prod(A)^(1/length(A))
@@ -614,15 +614,49 @@ function main5()
       # xs = 0.75:0.001:1.25
       # p = plot(xs, pdf(return_dist, xs), "k-")    # theoretical daily return dist
       # p = oplot(kde(return_observations), "r-")   # kde estimation of daily return dist
-      #
-      # xs = 0:0.001:2.5
-      # N = Normal(annual_return, annual_std_dev)   # theoretical annual return dist
+
+      xs = 0:0.001:5
+      N = Normal(actual_annual_return, annual_std_dev)
+      p = oplot(xs, pdf(N, xs), "k-")             # theoretical annual return dist
+
+      N = Gamma(actual_annual_return, 0.5)
+      p = oplot(xs, pdf(N, xs), "b-")             # theoretical annual return dist
+
+      N = Gamma(actual_annual_return, 1)
+      p = oplot(xs, pdf(N, xs), "y-")             # theoretical annual return dist
+
+      N = Gamma(actual_annual_return, 2)
+      p = oplot(xs, pdf(N, xs), "m-")             # theoretical annual return dist
+
+      N = Gamma(actual_annual_return, 4)
+      p = oplot(xs, pdf(N, xs), "c-")             # theoretical annual return dist
+
+      # N = Gamma(actual_annual_return * 0.5, 1)
+      # p = oplot(xs, pdf(N, xs), "b--")             # theoretical annual return dist
+
+      N = Gamma(actual_annual_return, 1)
+      p = oplot(xs, pdf(N, xs), "y--")             # theoretical annual return dist
+
+      N = Gamma(actual_annual_return * 2, 1)
+      p = oplot(xs, pdf(N, xs), "m--")             # theoretical annual return dist
+
+      N = Gamma(actual_annual_return * 4, 1)
+      p = oplot(xs, pdf(N, xs), "c--")             # theoretical annual return dist
+
+      # N = LogNormal(actual_annual_return, 0.5)
       # p = oplot(xs, pdf(N, xs), "b-")             # theoretical annual return dist
-      # p = oplot(kde(annual_return_dist), "g-")    # kde estimation of annual return dist
       #
-      # display(p)
-      # read(STDIN, Char)
-      # exit()
+      # N = LogNormal(actual_annual_return, 1)
+      # p = oplot(xs, pdf(N, xs), "y-")             # theoretical annual return dist
+      #
+      # N = LogNormal(actual_annual_return, 2)
+      # p = oplot(xs, pdf(N, xs), "m-")             # theoretical annual return dist
+
+      p = oplot(kde(annual_return_dist), "g-")    # kde estimation of annual return dist
+
+      display(p)
+      read(STDIN, Char)
+      exit()
 
       # sampling distribution of arithmetic mean return (annualized)
       samp_dist5 = build_sampling_distribution(annual_return_dist, n_samples, n_return_observations, mean)

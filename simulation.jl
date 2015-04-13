@@ -701,8 +701,9 @@ function main6()
   n = 1000000
   xs = 0:0.001:3
 
+  non_negative_rand_normals(n) = max(rand_normals(mean_return_per_period, return_std_dev_per_period, n), 0)
   prod_of_rand_normals(n) = rand_normals(mean_return_per_period, return_std_dev_per_period, n) |> prod
-  prod_of_non_negative_rand_normals(n) = max(rand_normals(mean_return_per_period, return_std_dev_per_period, n), 0) |> prod
+  prod_of_non_negative_rand_normals(n) = non_negative_rand_normals(n) |> prod
 
   # println("single normal")
   # dist = build_simple_distribution(n, () -> prod_of_rand_normals(1))
@@ -747,38 +748,62 @@ function main6()
   println("single normal")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(1))
   compute_dist_stats(dist, annual_return)
-  p = oplot(xs, kde(dist), "k-")
+  # p = oplot(xs, kde(dist), "k-")
 
-  println("multiply 2 normals")
-  dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(2))
-  compute_dist_stats(dist, annual_return)
-  p = oplot(xs, kde(dist), "y-")
+  # println("multiply 2 normals")
+  # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(2))
+  # compute_dist_stats(dist, annual_return)
+  # p = oplot(xs, kde(dist), "y-")
 
   # println("multiply 4 normals")
   # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(4))
   # compute_dist_stats(dist, annual_return)
   # p = oplot(xs, kde(dist), "c-")
 
-  println("multiply 10 normals")
-  dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(10))
-  compute_dist_stats(dist, annual_return)
-  p = oplot(xs, kde(dist), "r-")
-
-  println("multiply 100 normals")
-  dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(100))
-  compute_dist_stats(dist, annual_return)
-  p = oplot(xs, kde(dist), "g-")
+  # println("multiply 10 normals")
+  # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(10))
+  # compute_dist_stats(dist, annual_return)
+  # p = oplot(xs, kde(dist), "r-")
+  #
+  # println("multiply 100 normals")
+  # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(100))
+  # compute_dist_stats(dist, annual_return)
+  # p = oplot(xs, kde(dist), "g-")
 
   println("multiply 251 normals")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(n_periods_per_year))
-  compute_dist_stats(dist, annual_return)
+  println(compute_samp_dist_stats(dist))
   p = oplot(xs, kde(dist), "b-")
+
+  # sampling distribution of arithmetic mean return (annualized)
+  println("sampling dist of mean annual return")
+  samp_dist = build_sampling_distribution(dist, 10000, 10000, mean)
+  println(compute_samp_dist_stats(samp_dist))
+
 
   # println("multiply 2 * 251 normals")
   # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(n_periods_per_year * 2))
   # compute_dist_stats(dist, annual_return)
   # p = oplot(xs, kde(dist), "m-")
 
+  n = 1000000
+  sample_size = 251
+
+  println("single normal (sample of $sample_size)")
+  daily_sample = non_negative_rand_normals(sample_size)
+  daily_dist = build_kde_distribution(daily_sample, n)
+  compute_dist_stats(daily_dist, mean_return_per_period)
+  # p = oplot(xs, kde(daily_sample), "k:")      # should nearly overlap the "single normal"
+
+  println("multiply 251 random observations from kde-estimated daily dist")
+  dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
+  println(compute_samp_dist_stats(dist))
+  p = oplot(xs, kde(dist), "b:")        # should nearly overlap the "multiply 251 normals"
+
+  # sampling distribution of arithmetic mean return (annualized)
+  println("sampling dist of mean estimated annual return")
+  samp_dist = build_sampling_distribution(dist, 10000, 10000, mean)
+  println(compute_samp_dist_stats(samp_dist))
 
   display(p)
   read(STDIN, Char)

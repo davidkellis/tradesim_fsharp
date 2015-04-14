@@ -203,15 +203,40 @@ function build_kde_mc_return_distribution(orig_sample, n_bootstrap_samples, mc_s
   mc_return_dist_long_period = build_monte_carlo_simulated_return_dist(return_dist_short_period, mc_samples, n_periods_per_long_period)
 end
 
-function silverman_bandwidth(data)
+# function silverman_bandwidth(data)
+#   # Determine length of data
+#   n = length(data)
+#   n <= 1 && return 1.0
+#
+#   # Calculate width using variance and IQR
+#   sigma = std(data)
+#
+#   return 1.06 * sigma * n ^ (-0.2)
+# end
+
+# Silverman's rule of thumb for KDE bandwidth selection
+function silverman_bandwidth(data, alpha::Float64 = 0.9)
   # Determine length of data
-  n = length(data)
-  n <= 1 && return 1.0
+  ndata = length(data)
+  ndata <= 1 && return alpha
 
   # Calculate width using variance and IQR
-  sigma = std(data)
+  var_width = std(data)
+  q25, q75 = quantile(data, [0.25, 0.75])
+  quantile_width = (q75 - q25) / 1.34
 
-  return 1.06 * sigma * n ^ (-0.2)
+  # Deal with edge cases with 0 IQR or variance
+  width = min(var_width, quantile_width)
+  if width == 0.0
+    if var_width == 0.0
+      width = 1.0
+    else
+      width = var_width
+    end
+  end
+
+  # Set bandwidth using Silverman's rule of thumb
+  return alpha * width * ndata ^ (-0.2)
 end
 
 function build_kde_distribution(orig_sample, n)
@@ -698,7 +723,7 @@ function main6()
   return_std_dev_per_period = sqrt((annual_std_dev^2 + (mean_return_per_period^2)^n_periods_per_year)^(1/n_periods_per_year)-mean_return_per_period^2)       # What’s Wrong with Multiplying by the Square Root of Twelve http://corporate.morningstar.com/US/documents/MethodologyDocuments/MethodologyPapers/SquareRootofTwelve.pdf; how to annualize volatility - http://investexcel.net/how-to-annualize-volatility/ (only applies to log returns)
   # return_dist = Normal(mean_return_per_period, return_std_dev_per_period)
 
-  n = 1000000
+  n = 100000
   xs = 0:0.001:3
 
   non_negative_rand_normals(n) = max(rand_normals(mean_return_per_period, return_std_dev_per_period, n), 0)
@@ -748,7 +773,7 @@ function main6()
   println("single normal")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(1))
   compute_dist_stats(dist, annual_return)
-  # p = oplot(xs, kde(dist), "k-")
+  p = oplot(xs, kde(dist), "k-")
 
   # println("multiply 2 normals")
   # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(2))
@@ -774,6 +799,7 @@ function main6()
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(n_periods_per_year))
   println(compute_samp_dist_stats(dist))
   p = oplot(xs, kde(dist), "b-")
+  # p = oplot(xs, kde_lscv(dist), "y-")
 
   # sampling distribution of arithmetic mean return (annualized)
   println("sampling dist of mean annual return")
@@ -786,24 +812,44 @@ function main6()
   # compute_dist_stats(dist, annual_return)
   # p = oplot(xs, kde(dist), "m-")
 
-  n = 1000000
+  n = 100000
   sample_size = 251
 
-  println("single normal (sample of $sample_size)")
+  # println("single normal (sample of $sample_size)")
+  # daily_sample = non_negative_rand_normals(sample_size)
+  # daily_dist = build_kde_distribution(daily_sample, n)
+  # compute_dist_stats(daily_dist, mean_return_per_period)
+  # # p = oplot(xs, kde(daily_sample), "k:")      # should nearly overlap the "single normal"
+  #
+  # println("multiply 251 random observations from kde-estimated daily dist")
+  # dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
+  # println(compute_samp_dist_stats(dist))
+  # p = oplot(xs, kde(dist), "y-")        # should nearly overlap the "multiply 251 normals"
+  # # p = oplot(xs, kde_lscv(dist), "m:")
+  #
+  # # sampling distribution of arithmetic mean return (annualized)
+  # println("sampling dist of mean estimated annual return")
+  # samp_dist = build_sampling_distribution(dist, 10000, 10000, mean)
+  # println(compute_samp_dist_stats(samp_dist))
+
   daily_sample = non_negative_rand_normals(sample_size)
-  daily_dist = build_kde_distribution(daily_sample, n)
-  compute_dist_stats(daily_dist, mean_return_per_period)
-  # p = oplot(xs, kde(daily_sample), "k:")      # should nearly overlap the "single normal"
 
-  println("multiply 251 random observations from kde-estimated daily dist")
-  dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
-  println(compute_samp_dist_stats(dist))
-  p = oplot(xs, kde(dist), "b:")        # should nearly overlap the "multiply 251 normals"
+  for i in 1:10
+    println("\ntrial $i:")
 
-  # sampling distribution of arithmetic mean return (annualized)
-  println("sampling dist of mean estimated annual return")
-  samp_dist = build_sampling_distribution(dist, 10000, 10000, mean)
-  println(compute_samp_dist_stats(samp_dist))
+    bootstrap_daily_sample = sample(daily_sample, sample_size)
+
+    println("bootstrap daily kde dist (sample of $sample_size)")
+    daily_dist = build_kde_distribution(bootstrap_daily_sample, n)
+    compute_dist_stats(daily_dist, mean_return_per_period)
+    p = oplot(xs, kde(bootstrap_daily_sample), "c--")      # should nearly overlap the "single normal"
+    # p = oplot(xs, kde_lscv(bootstrap_daily_sample), "r-")      # should nearly overlap the "single normal"
+
+    println("multiply 251 random observations from kde-estimated daily dist")
+    dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
+    println(compute_samp_dist_stats(dist))
+    p = oplot(xs, kde(dist), "m:")        # should nearly overlap the "multiply 251 normals"
+  end
 
   display(p)
   read(STDIN, Char)

@@ -716,7 +716,7 @@ function build_simple_distribution(n_observations, build_observation_fn)
 end
 
 function main6()
-  n_periods_per_year = 251
+  n_periods_per_year = 252*6*4
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
@@ -795,7 +795,7 @@ function main6()
   # compute_dist_stats(dist, annual_return)
   # p = oplot(xs, kde(dist), "g-")
 
-  println("multiply 251 normals")
+  println("multiply $n_periods_per_year normals")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(n_periods_per_year))
   println(compute_samp_dist_stats(dist))
   p = oplot(xs, kde(dist), "b-")
@@ -813,7 +813,7 @@ function main6()
   # p = oplot(xs, kde(dist), "m-")
 
   n = 100000
-  sample_size = 251
+  sample_size = n_periods_per_year
 
   # println("single normal (sample of $sample_size)")
   # daily_sample = non_negative_rand_normals(sample_size)
@@ -845,7 +845,7 @@ function main6()
     p = oplot(xs, kde(bootstrap_daily_sample), "c--")      # should nearly overlap the "single normal"
     # p = oplot(xs, kde_lscv(bootstrap_daily_sample), "r-")      # should nearly overlap the "single normal"
 
-    println("multiply 251 random observations from kde-estimated daily dist")
+    println("multiply $n_periods_per_year random observations from kde-estimated daily dist")
     dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
     println(compute_samp_dist_stats(dist))
     p = oplot(xs, kde(dist), "m:")        # should nearly overlap the "multiply 251 normals"

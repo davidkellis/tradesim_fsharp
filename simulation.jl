@@ -5,6 +5,10 @@ using KernelDensity
 
 KernelDensity.Winston_init()
 
+function oplot(xs::AbstractArray, f::Function, args...; kwargs...)
+  Winston.oplot(xs, map(f, xs), args...;  kwargs...)
+end
+
 function Winston.oplot(xs::AbstractArray, k::UnivariateKDE, args...; kwargs...)
   Winston.oplot(xs, k.density, args...;  kwargs...)
 end
@@ -202,17 +206,6 @@ function build_kde_mc_return_distribution(orig_sample, n_bootstrap_samples, mc_s
   return_dist_short_period = sample_from_kde_dist(kde_dist, 5000)
   mc_return_dist_long_period = build_monte_carlo_simulated_return_dist(return_dist_short_period, mc_samples, n_periods_per_long_period)
 end
-
-# function silverman_bandwidth(data)
-#   # Determine length of data
-#   n = length(data)
-#   n <= 1 && return 1.0
-#
-#   # Calculate width using variance and IQR
-#   sigma = std(data)
-#
-#   return 1.06 * sigma * n ^ (-0.2)
-# end
 
 # Silverman's rule of thumb for KDE bandwidth selection
 function silverman_bandwidth(data, alpha::Float64 = 0.9)
@@ -715,8 +708,27 @@ function build_simple_distribution(n_observations, build_observation_fn)
   observations
 end
 
+# returns the MSE indicating how closely a density estimate represents a reference density
+function mean_squared_error(xs, reference_pdf, estimated_pdf)
+  error_terms = map(x -> estimated_pdf(x) - reference_pdf(x), xs)
+  mean(error_terms .^ 2)
+end
+
+# see http://en.wikipedia.org/wiki/Kernel_(statistics)
+function normal_kernel(x)
+  1 / sqrt(2pi) * exp(-(x ^ 2 / 2))
+end
+
+# see http://en.wikipedia.org/wiki/Kernel_density_estimation
+function kde_pdf(xs, kernel = normal_kernel, h = silverman_bandwidth(xs))
+  n = length(xs)
+  function(x)
+    sum(map(x_i -> kernel((x - x_i) / h), xs)) / (n * h)
+  end
+end
+
 function main6()
-  n_periods_per_year = 252*6*4
+  n_periods_per_year = 252
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
@@ -773,7 +785,7 @@ function main6()
   println("single normal")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(1))
   compute_dist_stats(dist, annual_return)
-  p = oplot(xs, kde(dist), "k-")
+  p = oplot(xs, kde_pdf(dist), "k-")
 
   # println("multiply 2 normals")
   # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(2))
@@ -798,7 +810,7 @@ function main6()
   println("multiply $n_periods_per_year normals")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(n_periods_per_year))
   println(compute_samp_dist_stats(dist))
-  p = oplot(xs, kde(dist), "b-")
+  p = oplot(xs, kde_pdf(dist), "b-")
   # p = oplot(xs, kde_lscv(dist), "y-")
 
   # sampling distribution of arithmetic mean return (annualized)
@@ -842,13 +854,13 @@ function main6()
     println("bootstrap daily kde dist (sample of $sample_size)")
     daily_dist = build_kde_distribution(bootstrap_daily_sample, n)
     compute_dist_stats(daily_dist, mean_return_per_period)
-    p = oplot(xs, kde(bootstrap_daily_sample), "c--")      # should nearly overlap the "single normal"
+    p = oplot(xs, kde_pdf(bootstrap_daily_sample), "c--")      # should nearly overlap the "single normal"
     # p = oplot(xs, kde_lscv(bootstrap_daily_sample), "r-")      # should nearly overlap the "single normal"
 
     println("multiply $n_periods_per_year random observations from kde-estimated daily dist")
     dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
     println(compute_samp_dist_stats(dist))
-    p = oplot(xs, kde(dist), "m:")        # should nearly overlap the "multiply 251 normals"
+    p = oplot(xs, kde_pdf(dist), "m:")        # should nearly overlap the "multiply 251 normals"
   end
 
   display(p)

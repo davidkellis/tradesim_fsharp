@@ -2,6 +2,7 @@ using Winston
 using Distributions
 using Stats
 using KernelDensity
+using Grid            # for interpolation
 
 KernelDensity.Winston_init()
 
@@ -9,11 +10,11 @@ function oplot(xs::AbstractArray, f::Function, args...; kwargs...)
   Winston.oplot(xs, map(f, xs), args...;  kwargs...)
 end
 
-function Winston.oplot(xs::AbstractArray, k::UnivariateKDE, args...; kwargs...)
+function oplot(xs::AbstractArray, k::UnivariateKDE, args...; kwargs...)
   Winston.oplot(xs, k.density, args...;  kwargs...)
 end
 
-function Winston.oplot(k::UnivariateKDE, args...; kwargs...)
+function oplot(k::UnivariateKDE, args...; kwargs...)
   Winston.oplot(k.x, k.density, args...;  kwargs...)
 end
 
@@ -715,15 +716,24 @@ function mean_squared_error(xs, reference_pdf, estimated_pdf)
 end
 
 # see http://en.wikipedia.org/wiki/Kernel_(statistics)
-function normal_kernel(x)
-  1 / sqrt(2pi) * exp(-(x ^ 2 / 2))
-end
+# function normal_kernel(x)
+#   1 / sqrt(2pi) * exp(-(x ^ 2 / 2))
+# end
 
+# naive implementation of a kernel density estimate
 # see http://en.wikipedia.org/wiki/Kernel_density_estimation
-function kde_pdf(xs, kernel = normal_kernel, h = silverman_bandwidth(xs))
-  n = length(xs)
+# function kde_pdf(xs, kernel = normal_kernel, h = silverman_bandwidth(xs))
+#   n = length(xs)
+#   function(x)
+#     sum(map(x_i -> kernel((x - x_i) / h), xs)) / (n * h)
+#   end
+# end
+
+# kde with interpolation
+function kde_pdf(xs)
+  ikde = InterpKDE(kde(xs))
   function(x)
-    sum(map(x_i -> kernel((x - x_i) / h), xs)) / (n * h)
+    max(pdf(ikde, x), 0)
   end
 end
 
@@ -784,8 +794,9 @@ function main6()
 
   println("single normal")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(1))
+  ref_daily_kde_pdf = kde_pdf(dist)
   compute_dist_stats(dist, annual_return)
-  p = oplot(xs, kde_pdf(dist), "k-")
+  # p = oplot(xs, kde(dist), "k-")
 
   # println("multiply 2 normals")
   # dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(2))
@@ -809,14 +820,15 @@ function main6()
 
   println("multiply $n_periods_per_year normals")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(n_periods_per_year))
+  ref_annual_kde_pdf = kde_pdf(dist)
   println(compute_samp_dist_stats(dist))
-  p = oplot(xs, kde_pdf(dist), "b-")
+  # p = oplot(xs, kde(dist), "b-")
   # p = oplot(xs, kde_lscv(dist), "y-")
 
   # sampling distribution of arithmetic mean return (annualized)
-  println("sampling dist of mean annual return")
-  samp_dist = build_sampling_distribution(dist, 10000, 10000, mean)
-  println(compute_samp_dist_stats(samp_dist))
+  # println("sampling dist of mean annual return")
+  # samp_dist = build_sampling_distribution(dist, 10000, 10000, mean)
+  # println(compute_samp_dist_stats(samp_dist))
 
 
   # println("multiply 2 * 251 normals")
@@ -824,7 +836,7 @@ function main6()
   # compute_dist_stats(dist, annual_return)
   # p = oplot(xs, kde(dist), "m-")
 
-  n = 100000
+  n = 10000
   sample_size = n_periods_per_year
 
   # println("single normal (sample of $sample_size)")
@@ -844,28 +856,73 @@ function main6()
   # samp_dist = build_sampling_distribution(dist, 10000, 10000, mean)
   # println(compute_samp_dist_stats(samp_dist))
 
-  daily_sample = non_negative_rand_normals(sample_size)
+  samp_dist_of_mean_daily_mse = Float64[]
+  samp_dist_of_mean_annual_mse = Float64[]
 
-  for i in 1:10
-    println("\ntrial $i:")
+  for i in 1:100
+    println("\n trial $i:")
 
-    bootstrap_daily_sample = sample(daily_sample, sample_size)
+    daily_sample = non_negative_rand_normals(sample_size)
 
-    println("bootstrap daily kde dist (sample of $sample_size)")
-    daily_dist = build_kde_distribution(bootstrap_daily_sample, n)
-    compute_dist_stats(daily_dist, mean_return_per_period)
-    p = oplot(xs, kde_pdf(bootstrap_daily_sample), "c--")      # should nearly overlap the "single normal"
-    # p = oplot(xs, kde_lscv(bootstrap_daily_sample), "r-")      # should nearly overlap the "single normal"
+    daily_mses = Float64[]
+    annual_mses = Float64[]
 
-    println("multiply $n_periods_per_year random observations from kde-estimated daily dist")
-    dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
-    println(compute_samp_dist_stats(dist))
-    p = oplot(xs, kde_pdf(dist), "m:")        # should nearly overlap the "multiply 251 normals"
+    for j in 1:100
+      # println("\nbootstrap $j:")
+
+
+      # generate bootstrap daily sample
+      bootstrap_daily_sample = sample(daily_sample, sample_size)
+
+
+      # generate bootstrapped daily kde
+      # println("bootstrap daily kde dist (sample of $sample_size)")
+      daily_dist = build_kde_distribution(bootstrap_daily_sample, n)
+
+      est_daily_kde_pdf = kde_pdf(daily_dist)
+      daily_mse = mean_squared_error(xs, ref_daily_kde_pdf, est_daily_kde_pdf)
+      push!(daily_mses, daily_mse)
+      # println("daily_mse=$daily_mse")
+
+      # compute_dist_stats(daily_dist, mean_return_per_period)
+      # p = oplot(xs, kde(bootstrap_daily_sample), "c--")      # should nearly overlap the "single normal"
+      # p = oplot(xs, kde_lscv(bootstrap_daily_sample), "r-")      # should nearly overlap the "single normal"
+
+
+      # generate MC annual kde from bootstrapped daily kde
+      # println("multiply $n_periods_per_year random observations from kde-estimated daily dist")
+      annual_dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
+
+      est_annual_kde_pdf = kde_pdf(annual_dist)
+      annual_mse = mean_squared_error(xs, ref_annual_kde_pdf, est_annual_kde_pdf)
+      push!(annual_mses, annual_mse)
+      # println("annual_mse=$annual_mse")
+
+      # println(compute_samp_dist_stats(annual_dist))
+      # p = oplot(xs, kde(annual_dist), "m:")        # should nearly overlap the "multiply 251 normals"
+    end
+
+    println("\n------")
+    mean_daily_mse = mean(daily_mses)
+    println("mean daily mse=$mean_daily_mse")
+    mean_annual_mse = mean(annual_mses)
+    println("mean annual mse=$mean_annual_mse")
+    println("------\n")
+
+    push!(samp_dist_of_mean_daily_mse, mean_daily_mse)
+    push!(samp_dist_of_mean_annual_mse, mean_annual_mse)
+
+    # display(p)
+    # read(STDIN, Char)
+    # exit()
+
   end
 
-  display(p)
-  read(STDIN, Char)
-  exit()
+
+  println("\n======")
+  println("sampling distribution of mean daily mse=$(compute_samp_dist_stats(samp_dist_of_mean_daily_mse))")
+  println("sampling distribution of mean annual mse=$(compute_samp_dist_stats(samp_dist_of_mean_annual_mse))")
+  println("======\n")
 
 end
 

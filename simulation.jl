@@ -1,10 +1,10 @@
-using Winston
+# using Winston
 using Distributions
 using Stats
 using KernelDensity
 using Grid            # for interpolation
 
-KernelDensity.Winston_init()
+# KernelDensity.Winston_init()
 
 function oplot(xs::AbstractArray, f::Function, args...; kwargs...)
   Winston.oplot(xs, map(f, xs), args...;  kwargs...)
@@ -709,12 +709,6 @@ function build_simple_distribution(n_observations, build_observation_fn)
   observations
 end
 
-# returns the MSE indicating how closely a density estimate represents a reference density
-function mean_squared_error(xs, reference_pdf, estimated_pdf)
-  error_terms = map(x -> estimated_pdf(x) - reference_pdf(x), xs)
-  mean(error_terms .^ 2)
-end
-
 # see http://en.wikipedia.org/wiki/Kernel_(statistics)
 # function normal_kernel(x)
 #   1 / sqrt(2pi) * exp(-(x ^ 2 / 2))
@@ -729,16 +723,46 @@ end
 #   end
 # end
 
-# kde with interpolation
-function kde_pdf(xs)
-  ikde = InterpKDE(kde(xs))
+# convert UnivariateKDE to InterpKDE-based pdf
+function kde_to_pdf(kde::UnivariateKDE)
+  ikde = InterpKDE(kde)
   function(x)
     max(pdf(ikde, x), 0)
   end
 end
 
+# kde with interpolation
+function kde_pdf(xs)
+  kde(xs) |> kde_to_pdf
+end
+
+# returns the MSE indicating how closely a density estimate represents a reference density
+function mean_squared_error(xs::AbstractArray{Float64}, reference_pdf::Function, estimated_pdf::Function)
+  error_terms = map(x -> estimated_pdf(x) - reference_pdf(x), xs)
+  mean(error_terms .^ 2)
+end
+
+function span_of_kdes(kde1::UnivariateKDE, kde2::UnivariateKDE, increment = 0.1)
+  min(kde1.x |> first, kde2.x |> first):increment:max(kde1.x |> last, kde2.x |> last)
+end
+
+# function mean_squared_error(reference_density::UnivariateKDE, estimated_density::UnivariateKDE)
+#   xs = min(reference_density.x |> first, estimated_density.x |> first):0.1:max(reference_density.x |> last, estimated_density.x |> last)
+#   # println("mse xs min=$(xs |> first) max=$(xs |> last)")
+#   mean_squared_error(xs, reference_density |> kde_to_pdf, estimated_density |> kde_to_pdf)
+# end
+
+function mean_absolute_error(xs::AbstractArray{Float64}, reference_pdf::Function, estimated_pdf::Function)
+  map(x -> abs(estimated_pdf(x) - reference_pdf(x)), xs) |> mean
+end
+
+# function mean_absolute_error(reference_density::UnivariateKDE, estimated_density::UnivariateKDE)
+#   xs = min(reference_density.x |> first, estimated_density.x |> first):0.1:max(reference_density.x |> last, estimated_density.x |> last)
+#   mean_absolute_error(xs, reference_density |> kde_to_pdf, estimated_density |> kde_to_pdf)
+# end
+
 function main6()
-  n_periods_per_year = 252
+  n_periods_per_year = 126
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
@@ -794,7 +818,8 @@ function main6()
 
   println("single normal")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(1))
-  ref_daily_kde_pdf = kde_pdf(dist)
+  ref_daily_kde = kde(dist)
+  ref_daily_kde_pdf = ref_daily_kde |> kde_to_pdf
   compute_dist_stats(dist, annual_return)
   # p = oplot(xs, kde(dist), "k-")
 
@@ -820,7 +845,8 @@ function main6()
 
   println("multiply $n_periods_per_year normals")
   dist = build_simple_distribution(n, () -> prod_of_non_negative_rand_normals(n_periods_per_year))
-  ref_annual_kde_pdf = kde_pdf(dist)
+  ref_annual_kde = kde(dist)
+  ref_annual_kde_pdf = ref_annual_kde |> kde_to_pdf
   println(compute_samp_dist_stats(dist))
   # p = oplot(xs, kde(dist), "b-")
   # p = oplot(xs, kde_lscv(dist), "y-")
@@ -879,8 +905,9 @@ function main6()
       # println("bootstrap daily kde dist (sample of $sample_size)")
       daily_dist = build_kde_distribution(bootstrap_daily_sample, n)
 
-      est_daily_kde_pdf = kde_pdf(daily_dist)
-      daily_mse = mean_squared_error(xs, ref_daily_kde_pdf, est_daily_kde_pdf)
+      est_daily_kde = kde(daily_dist)
+      est_daily_kde_pdf = est_daily_kde |> kde_to_pdf
+      daily_mse = mean_squared_error(span_of_kdes(ref_daily_kde, est_daily_kde), ref_daily_kde_pdf, est_daily_kde_pdf)
       push!(daily_mses, daily_mse)
       # println("daily_mse=$daily_mse")
 
@@ -893,8 +920,9 @@ function main6()
       # println("multiply $n_periods_per_year random observations from kde-estimated daily dist")
       annual_dist = build_monte_carlo_simulated_return_dist(daily_dist, n, n_periods_per_year)
 
-      est_annual_kde_pdf = kde_pdf(annual_dist)
-      annual_mse = mean_squared_error(xs, ref_annual_kde_pdf, est_annual_kde_pdf)
+      est_annual_kde = kde(annual_dist)
+      est_annual_kde_pdf = est_annual_kde |> kde_to_pdf
+      annual_mse = mean_squared_error(span_of_kdes(ref_annual_kde, est_annual_kde), ref_annual_kde_pdf, est_annual_kde_pdf)
       push!(annual_mses, annual_mse)
       # println("annual_mse=$annual_mse")
 

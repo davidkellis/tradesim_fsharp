@@ -738,8 +738,7 @@ end
 
 # returns the MSE indicating how closely a density estimate represents a reference density
 function mean_squared_error(xs::AbstractArray{Float64}, reference_pdf::Function, estimated_pdf::Function)
-  error_terms = map(x -> estimated_pdf(x) - reference_pdf(x), xs)
-  mean(error_terms .^ 2)
+  mean((estimated_pdf(xs) - reference_pdf(xs)) .^ 2)
 end
 
 function span_of_kdes(kde1::UnivariateKDE, kde2::UnivariateKDE, increment = 0.1)
@@ -753,7 +752,7 @@ end
 # end
 
 function mean_absolute_error(xs::AbstractArray{Float64}, reference_pdf::Function, estimated_pdf::Function)
-  map(x -> abs(estimated_pdf(x) - reference_pdf(x)), xs) |> mean
+  mean(abs(estimated_pdf(xs) - reference_pdf(xs)))
 end
 
 # function mean_absolute_error(reference_density::UnivariateKDE, estimated_density::UnivariateKDE)
@@ -761,8 +760,21 @@ end
 #   mean_absolute_error(xs, reference_density |> kde_to_pdf, estimated_density |> kde_to_pdf)
 # end
 
+# trial runs:
+# 12 periods per year:
+# sampling distribution of mean daily mae=mean=0.5046    std=0.1402   range=0.687   0.5%=0.329  1%=0.337  5%=0.357  10%=0.364  20%=0.397  30%=0.423  40%=0.445  50%=0.474  60%=0.487  70%=0.531  80%=0.591  90%=0.686  95%=0.766  99%=0.984  99.5%=1.016
+# sampling distribution of mean annual mae=mean=0.1579   std=0.047   range=0.231   0.5%=0.084  1%=0.084  5%=0.105  10%=0.113  20%=0.122  30%=0.132  40%=0.136  50%=0.149  60%=0.158  70%=0.163  80%=0.183  90%=0.229  95%=0.244  99%=0.304  99.5%=0.315
+# 52 periods:
+# sampling distribution of mean daily mae=mean=0.497     std=0.1176   range=0.5   0.5%=0.329  1%=0.34  5%=0.354  10%=0.367  20%=0.381  30%=0.42  40%=0.445  50%=0.483  60%=0.512  70%=0.548  80%=0.584  90%=0.654  95%=0.7  99%=0.822  99.5%=0.829
+# sampling distribution of mean annual mae=mean=0.1471   std=0.0481   range=0.223   0.5%=0.095  1%=0.097  5%=0.1  10%=0.106  20%=0.114  30%=0.117  40%=0.121  50%=0.131  60%=0.136  70%=0.156  80%=0.182  90%=0.206  95%=0.244  99%=0.297  99.5%=0.318
+# 126 periods:
+# sampling distribution of mean daily mae=mean=0.6228    std=0.1563   range=0.662   0.5%=0.393  1%=0.402  5%=0.44  10%=0.447  20%=0.486  30%=0.524  40%=0.56  50%=0.585  60%=0.627  70%=0.665  80%=0.733  90%=0.864  95%=0.969  99%=1.025  99.5%=1.055
+# sampling distribution of mean annual mae=mean=0.143    std=0.0496   range=0.205   0.5%=0.092  1%=0.095  5%=0.1  10%=0.101  20%=0.109  30%=0.115  40%=0.118  50%=0.124  60%=0.132  70%=0.144  80%=0.168  90%=0.235  95%=0.259  99%=0.294  99.5%=0.297
+# 251 periods:
+# sampling distribution of mean daily mae=mean=0.8795    std=0.3085   range=1.263   0.5%=0.494  1%=0.497  5%=0.54  10%=0.564  20%=0.617  30%=0.679  40%=0.735  50%=0.791  60%=0.874  70%=0.961  80%=1.114  90%=1.312  95%=1.528  99%=1.727  99.5%=1.757
+# sampling distribution of mean annual mae=mean=0.1341   std=0.0421   range=0.203   0.5%=0.088  1%=0.091  5%=0.096  10%=0.099  20%=0.104  30%=0.109  40%=0.114  50%=0.119  60%=0.128  70%=0.136  80%=0.162  90%=0.195  95%=0.232  99%=0.256  99.5%=0.291
 function main6()
-  n_periods_per_year = 126
+  n_periods_per_year = 251
   annual_return = 1.15
   annual_std_dev = 0.4
   mean_return_per_period = annual_return ^ (1/n_periods_per_year)
@@ -886,7 +898,7 @@ function main6()
   samp_dist_of_mean_annual_mse = Float64[]
 
   for i in 1:100
-    println("\n trial $i:")
+    println("trial $i:")
 
     daily_sample = non_negative_rand_normals(sample_size)
 
@@ -907,7 +919,8 @@ function main6()
 
       est_daily_kde = kde(daily_dist)
       est_daily_kde_pdf = est_daily_kde |> kde_to_pdf
-      daily_mse = mean_squared_error(span_of_kdes(ref_daily_kde, est_daily_kde), ref_daily_kde_pdf, est_daily_kde_pdf)
+      # daily_mse = mean_squared_error(span_of_kdes(ref_daily_kde, est_daily_kde), ref_daily_kde_pdf, est_daily_kde_pdf)
+      daily_mse = mean_absolute_error(span_of_kdes(ref_daily_kde, est_daily_kde), ref_daily_kde_pdf, est_daily_kde_pdf)
       push!(daily_mses, daily_mse)
       # println("daily_mse=$daily_mse")
 
@@ -922,7 +935,8 @@ function main6()
 
       est_annual_kde = kde(annual_dist)
       est_annual_kde_pdf = est_annual_kde |> kde_to_pdf
-      annual_mse = mean_squared_error(span_of_kdes(ref_annual_kde, est_annual_kde), ref_annual_kde_pdf, est_annual_kde_pdf)
+      # annual_mse = mean_squared_error(span_of_kdes(ref_annual_kde, est_annual_kde), ref_annual_kde_pdf, est_annual_kde_pdf)
+      annual_mse = mean_absolute_error(span_of_kdes(ref_annual_kde, est_annual_kde), ref_annual_kde_pdf, est_annual_kde_pdf)
       push!(annual_mses, annual_mse)
       # println("annual_mse=$annual_mse")
 
@@ -930,12 +944,12 @@ function main6()
       # p = oplot(xs, kde(annual_dist), "m:")        # should nearly overlap the "multiply 251 normals"
     end
 
-    println("\n------")
+    println("------")
     mean_daily_mse = mean(daily_mses)
     println("mean daily mse=$mean_daily_mse")
     mean_annual_mse = mean(annual_mses)
     println("mean annual mse=$mean_annual_mse")
-    println("------\n")
+    println("------")
 
     push!(samp_dist_of_mean_daily_mse, mean_daily_mse)
     push!(samp_dist_of_mean_annual_mse, mean_annual_mse)

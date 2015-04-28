@@ -326,6 +326,12 @@ function kde_pdf(xs)
   kde(xs) |> kde_to_pdf
 end
 
+function combine_kde_pdfs(kde_pdf1::Function, kde_pdf2::Function)
+  function(x)
+    (kde_pdf1(x) + kde_pdf2(x)) / 2
+  end
+end
+
 # returns the MSE indicating how closely a density estimate represents a reference density
 function mean_squared_error(xs::AbstractArray{Float64}, reference_pdf::Function, estimated_pdf::Function)
   mean((estimated_pdf(xs) - reference_pdf(xs)) .^ 2)

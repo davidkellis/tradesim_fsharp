@@ -346,7 +346,7 @@ function mean_absolute_error(xs::AbstractArray{Float64}, reference_pdf::Function
 end
 
 function main()
-  for n_periods_per_year in [12, 52, 126, 251]
+  for n_periods_per_year in [4, 12, 52, 126, 251]
     println("")
     println("n_periods_per_year = $n_periods_per_year")
 

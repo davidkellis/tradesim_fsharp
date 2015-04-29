@@ -347,6 +347,8 @@ end
 
 function main()
   for n_periods_per_year in [12, 52, 126, 251]
+    println("")
+    println("n_periods_per_year = $n_periods_per_year")
 
     # n_periods_per_year = 251
     annual_return = 1.15
@@ -384,27 +386,17 @@ function main()
 
     short_period_kde_dist_observation_count = 10000
     long_period_mc_dist_observation_count = 10000
-    number_of_years_worth_of_short_period_data = 3
-    short_period_sample_size = n_periods_per_year * number_of_years_worth_of_short_period_data
 
-    # samp_dist_of_mean_daily_mse = Float64[]
-    # samp_dist_of_mean_annual_mse = Float64[]
-    number_of_accurate_samp_dist_of_mean_short_period_returns = 0
-    number_of_accurate_samp_dist_of_mean_annual_returns = 0
-    number_of_accurate_samp_dist_of_median_annual_returns = 0
-    ranges_of_samp_dist_of_mean_annual_return = Float64[]
+    for number_of_years_worth_of_short_period_data in 1:2:100
+      println("")
+      println("number_of_years_worth_of_short_period_data = $number_of_years_worth_of_short_period_data:")
 
+      short_period_sample_size = n_periods_per_year * number_of_years_worth_of_short_period_data
 
-    trial_count = 100
-    bootstrap_sample_count = 100
-
-    for i in 1:trial_count
-      println("trial $i:")
+      bootstrap_sample_count = 100
 
       short_period_sample = non_negative_rand_normals(short_period_sample_size)
 
-      # daily_mses = Float64[]
-      # annual_mses = Float64[]
       samp_dist_mean_short_period_return = Float64[]
       samp_dist_mean_annual_return = Float64[]
       samp_dist_median_annual_return = Float64[]
@@ -462,30 +454,13 @@ function main()
       println("------")
       mu, sigma, range, low, mid, high, report = compute_samp_dist_stats(samp_dist_mean_short_period_return)
       println("samp dist mean short period return=$report")
-      if low <= mean_return_per_period <= high
-        number_of_accurate_samp_dist_of_mean_short_period_returns += 1
-      end
 
       mu, sigma, range, low, mid, high, report = compute_samp_dist_stats(samp_dist_mean_annual_return)
       println("samp dist mean annual return=$report")
-      if low <= true_annual_mu <= high
-        number_of_accurate_samp_dist_of_mean_annual_returns += 1
-      end
-      push!(ranges_of_samp_dist_of_mean_annual_return, range)
 
       mu, sigma, range, low, mid, high, report = compute_samp_dist_stats(samp_dist_median_annual_return)
       println("samp dist median annual return=$report")
-      if low <= true_annual_median <= high
-        number_of_accurate_samp_dist_of_median_annual_returns += 1
-      end
 
-      # mean_daily_mse = mean(daily_mses)
-      # println("mean daily mse=$mean_daily_mse")
-      # push!(samp_dist_of_mean_daily_mse, mean_daily_mse)
-
-      # mean_annual_mse = mean(annual_mses)
-      # println("mean annual mse=$mean_annual_mse")
-      # push!(samp_dist_of_mean_annual_mse, mean_annual_mse)
       println("------")
 
 
@@ -494,17 +469,6 @@ function main()
       # exit()
 
     end
-
-
-    println("\n======")
-    println("%age accurate sampling distribution of mean short period return=$(number_of_accurate_samp_dist_of_mean_short_period_returns / trial_count))")
-    println("%age accurate sampling distribution of mean annual return=$(number_of_accurate_samp_dist_of_mean_annual_returns / trial_count))")
-    println("%age accurate sampling distribution of median annual return=$(number_of_accurate_samp_dist_of_median_annual_returns / trial_count))")
-    println("mean of 99th percentile ranges of samp dist of mean annual return=$(mean(ranges_of_samp_dist_of_mean_annual_return))")
-    # println("sampling distribution of mean daily mse=$(compute_samp_dist_stats(samp_dist_of_mean_daily_mse))")
-    # println("sampling distribution of mean annual mse=$(compute_samp_dist_stats(samp_dist_of_mean_annual_mse))")
-    println("======\n")
-
   end
 end
 
